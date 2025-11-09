@@ -11,8 +11,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@architekt/domain": "^0.1.0",
+    "@tanstack/react-query": "^5.45.0",
+    "@visx/hierarchy": "^3.10.1",
+    "@visx/responsive": "^3.10.0",
+    "clsx": "^2.1.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.4.2",

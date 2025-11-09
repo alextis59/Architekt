@@ -1,24 +1,32 @@
-const App = () => {
-  return (
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import ArchitectureWorkspace from './components/ArchitectureWorkspace.js';
+import ProjectManager from './components/ProjectManager.js';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      refetchOnWindowFocus: false,
+      retry: 1
+    }
+  }
+});
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
     <main className="app">
-      <header>
+      <header className="hero">
         <h1>Architekt</h1>
-        <p className="lead">Design and explore system architectures collaboratively.</p>
-      </header>
-      <section>
-        <h2>Phase 1 Toolkit</h2>
-        <p>
-          The project now ships with a TypeScript-powered Express API, shared domain models, and a React
-          frontend scaffold so future phases can focus on product features instead of boilerplate.
+        <p className="lead">
+          Build, annotate, and evolve systems with a visual architecture explorer powered by your project data.
         </p>
-        <ul>
-          <li>Start the API with <code>npm run start:backend</code>.</li>
-          <li>Run <code>npm run dev --workspace @architekt/frontend</code> to preview the React app.</li>
-          <li>Check lint, tests, and builds via <code>npm run lint</code>, <code>npm test</code>, and <code>npm run build</code>.</li>
-        </ul>
-      </section>
+      </header>
+      <div className="dashboard">
+        <ProjectManager />
+        <ArchitectureWorkspace />
+      </div>
     </main>
-  );
-};
+  </QueryClientProvider>
+);
 
 export default App;
