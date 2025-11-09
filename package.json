@@ -6,7 +6,24 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "npm run test --workspaces",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
     "start:backend": "npm --workspace @architekt/backend run start"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "@typescript-eslint/eslint-plugin": "^7.6.0",
+    "@typescript-eslint/parser": "^7.6.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-jsx-a11y": "^6.8.0",
+    "eslint-plugin-react": "^7.34.1",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.2.5",
+    "tsx": "^4.7.0",
+    "typescript": "~5.5.4"
   }
 }

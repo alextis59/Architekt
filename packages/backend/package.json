@@ -3,12 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "src/index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "start": "node src/index.js",
-    "test": "node --test src/**/*.test.js"
+    "start": "npm --workspace @architekt/domain run build && tsx src/index.ts",
+    "build": "npm --workspace @architekt/domain run build && tsc -p tsconfig.json",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "test": "npm --workspace @architekt/domain run build && tsx --test src/**/*.test.ts"
   },
   "dependencies": {
-    "@architekt/domain": "^0.1.0"
+    "@architekt/domain": "^0.1.0",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/supertest": "^2.0.16",
+    "supertest": "^6.3.4"
   }
 }
