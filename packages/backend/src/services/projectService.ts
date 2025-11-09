@@ -460,10 +460,34 @@ export const deleteSystem = async (
   await persistence.save(aggregate);
 };
 
-export const listFlows = async (persistence: PersistenceAdapter, projectId: string): Promise<Flow[]> => {
+type FlowFilters = {
+  scope?: string[];
+  tags?: string[];
+};
+
+export const listFlows = async (
+  persistence: PersistenceAdapter,
+  projectId: string,
+  filters: FlowFilters = {}
+): Promise<Flow[]> => {
   const aggregate = await persistence.load();
   const project = getProjectOrThrow(aggregate, projectId);
-  return Object.values(project.flows);
+  const flows = Object.values(project.flows);
+
+  const scopeFilters = filters.scope?.length ? filters.scope : null;
+  const tagFilters = filters.tags?.length ? filters.tags : null;
+
+  return flows.filter((flow) => {
+    if (scopeFilters && !scopeFilters.every((systemId) => flow.systemScopeIds.includes(systemId))) {
+      return false;
+    }
+
+    if (tagFilters && !tagFilters.every((tag) => flow.tags.includes(tag))) {
+      return false;
+    }
+
+    return true;
+  });
 };
 
 export const getFlow = async (

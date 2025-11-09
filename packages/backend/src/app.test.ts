@@ -261,6 +261,100 @@ test('Flow endpoints manage flows and steps with validation', async () => {
   assert.deepEqual(updatedPrimary.body.flow.steps[0].alternateFlowIds, []);
 });
 
+test('GET /projects/:projectId/flows applies optional filters', async () => {
+  const persistence = createMemoryPersistence();
+  const app = createApp({ persistence });
+
+  const projectCreation = await request(app).post('/projects').send({ name: 'Filtered Flow Project' });
+  const projectId = projectCreation.body.project.id;
+  const rootSystemId = projectCreation.body.project.rootSystemId;
+
+  const systemCreation = await request(app)
+    .post(`/projects/${projectId}/systems`)
+    .send({ name: 'Service Layer' });
+  const serviceSystemId = systemCreation.body.system.id;
+
+  const sharedTags = ['shared'];
+
+  const flowOne = await request(app)
+    .post(`/projects/${projectId}/flows`)
+    .send({
+      name: 'Primary Flow',
+      tags: ['primary', ...sharedTags],
+      systemScopeIds: [rootSystemId, serviceSystemId],
+      steps: [
+        {
+          name: 'Authenticate',
+          sourceSystemId: rootSystemId,
+          targetSystemId: serviceSystemId
+        }
+      ]
+    });
+  assert.equal(flowOne.status, 201);
+
+  const flowTwo = await request(app)
+    .post(`/projects/${projectId}/flows`)
+    .send({
+      name: 'Service Only Flow',
+      tags: sharedTags,
+      systemScopeIds: [serviceSystemId],
+      steps: [
+        {
+          name: 'Process',
+          sourceSystemId: serviceSystemId,
+          targetSystemId: serviceSystemId
+        }
+      ]
+    });
+  assert.equal(flowTwo.status, 201);
+
+  const flowThree = await request(app)
+    .post(`/projects/${projectId}/flows`)
+    .send({
+      name: 'Root Flow',
+      tags: ['secondary'],
+      systemScopeIds: [rootSystemId],
+      steps: [
+        {
+          name: 'Initialize',
+          sourceSystemId: rootSystemId,
+          targetSystemId: rootSystemId
+        }
+      ]
+    });
+  assert.equal(flowThree.status, 201);
+
+  const allFlows = await request(app).get(`/projects/${projectId}/flows`);
+  assert.equal(allFlows.status, 200);
+  assert.equal(allFlows.body.flows.length, 3);
+
+  const sharedOnly = await request(app).get(`/projects/${projectId}/flows`).query({ tag: 'shared' });
+  assert.equal(sharedOnly.status, 200);
+  assert.equal(sharedOnly.body.flows.length, 2);
+
+  const sharedAndPrimary = await request(app)
+    .get(`/projects/${projectId}/flows`)
+    .query({ tag: ['shared', 'primary'] });
+  assert.equal(sharedAndPrimary.status, 200);
+  assert.equal(sharedAndPrimary.body.flows.length, 1);
+
+  const serviceScope = await request(app).get(`/projects/${projectId}/flows`).query({ scope: serviceSystemId });
+  assert.equal(serviceScope.status, 200);
+  assert.equal(serviceScope.body.flows.length, 2);
+
+  const rootAndServiceScope = await request(app)
+    .get(`/projects/${projectId}/flows`)
+    .query({ scope: [serviceSystemId, rootSystemId] });
+  assert.equal(rootAndServiceScope.status, 200);
+  assert.equal(rootAndServiceScope.body.flows.length, 1);
+
+  const combinedFilters = await request(app)
+    .get(`/projects/${projectId}/flows`)
+    .query({ scope: serviceSystemId, tag: 'primary' });
+  assert.equal(combinedFilters.status, 200);
+  assert.equal(combinedFilters.body.flows.length, 1);
+});
+
 test('Flow endpoints enforce scope and reference validation', async () => {
   const persistence = createMemoryPersistence();
   const app = createApp({ persistence });
