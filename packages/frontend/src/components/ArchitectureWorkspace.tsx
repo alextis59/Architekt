@@ -168,7 +168,8 @@ const ArchitectureWorkspace = () => {
       {selectedProjectId && projectQuery.isError && (
         <div className="panel-content">
           <p className="status error" role="alert">
-            Unable to load project details.
+            Failed to load project details:{' '}
+            {projectQuery.error instanceof Error ? projectQuery.error.message : 'Unknown error'}
           </p>
         </div>
       )}
@@ -237,6 +238,8 @@ const ArchitectureWorkspace = () => {
     </section>
   );
 };
+
+export { collectProjectTags, buildFilteredTree };
 
 export default ArchitectureWorkspace;
 
