@@ -1,6 +1,13 @@
 import { createEmptyDomainAggregate, validateDomainAggregate } from '@architekt/domain';
+import type { PersistenceAdapter } from './index.js';
 
-export const createMemoryPersistence = (initialData = createEmptyDomainAggregate()) => {
+type MemoryPersistenceOptions = {
+  initialData?: Parameters<PersistenceAdapter['save']>[0];
+};
+
+export const createMemoryPersistence = (
+  initialData: MemoryPersistenceOptions['initialData'] = createEmptyDomainAggregate()
+): PersistenceAdapter => {
   let store = validateDomainAggregate(initialData);
 
   return {
