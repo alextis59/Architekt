@@ -3,7 +3,9 @@ import {
   createProjectIndex,
   findProjectById,
   type DomainAggregate,
+  type Flow,
   type Project,
+  type Step,
   type System
 } from '@architekt/domain';
 import type { PersistenceAdapter } from '../persistence/index.js';
@@ -54,6 +56,28 @@ type CreateSystemInput = {
 
 type UpdateSystemInput = Partial<CreateSystemInput>;
 
+type CreateFlowInput = {
+  name: unknown;
+  description?: unknown;
+  tags?: unknown;
+  systemScopeIds?: unknown;
+  steps?: unknown;
+};
+
+type StepInput = {
+  id?: unknown;
+  name: unknown;
+  description?: unknown;
+  sourceSystemId: unknown;
+  targetSystemId: unknown;
+  tags?: unknown;
+  alternateFlowIds?: unknown;
+};
+
+type UpdateFlowInput = Partial<CreateFlowInput> & {
+  steps?: unknown;
+};
+
 const getProjectOrThrow = (aggregate: DomainAggregate, projectId: string): Project => {
   const project = findProjectById(aggregate, projectId);
 
@@ -72,6 +96,16 @@ const getSystemOrThrow = (project: Project, systemId: string): System => {
   }
 
   return system;
+};
+
+const getFlowOrThrow = (project: Project, flowId: string): Flow => {
+  const flow = project.flows[flowId];
+
+  if (!flow) {
+    throw new NotFoundError(`Flow ${flowId} not found in project ${project.id}`);
+  }
+
+  return flow;
 };
 
 const collectDescendants = (project: Project, systemId: string): string[] => {
@@ -106,6 +140,136 @@ const findParentId = (project: Project, systemId: string): string | null => {
   }
 
   return null;
+};
+
+const ensureUniqueStrings = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const unique: string[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of value) {
+    const sanitized = ensureString(entry);
+    if (!sanitized || seen.has(sanitized)) {
+      continue;
+    }
+
+    unique.push(sanitized);
+    seen.add(sanitized);
+  }
+
+  return unique;
+};
+
+const ensureSystemScope = (project: Project, input: unknown): string[] => {
+  const scope = ensureUniqueStrings(input).filter((id) => Boolean(project.systems[id]));
+
+  if (scope.length === 0) {
+    throw new BadRequestError('Flow system scope must reference at least one valid system');
+  }
+
+  return scope;
+};
+
+const ensureSystemInScope = (project: Project, systemId: string, scope: Set<string>, role: string) => {
+  if (!project.systems[systemId]) {
+    throw new BadRequestError(`Step ${role} system ${systemId} does not exist in project ${project.id}`);
+  }
+
+  if (!scope.has(systemId)) {
+    throw new BadRequestError(`Step ${role} system ${systemId} must be part of the flow scope`);
+  }
+};
+
+const ensureAlternateFlows = (flowIds: Set<string>, value: unknown): string[] => {
+  const ids = ensureUniqueStrings(value);
+
+  for (const id of ids) {
+    if (!flowIds.has(id)) {
+      throw new BadRequestError(`Alternate flow ${id} is not part of the project`);
+    }
+  }
+
+  return ids;
+};
+
+const sanitizeSteps = ({
+  project,
+  scope,
+  rawSteps,
+  existingFlowIds,
+  reuseSteps
+}: {
+  project: Project;
+  scope: string[];
+  rawSteps: unknown;
+  existingFlowIds: Set<string>;
+  reuseSteps?: Map<string, Step>;
+}): Step[] => {
+  if (rawSteps === undefined) {
+    return reuseSteps ? Array.from(reuseSteps.values()) : [];
+  }
+
+  if (!Array.isArray(rawSteps)) {
+    throw new BadRequestError('Flow steps must be an array');
+  }
+
+  const scopeSet = new Set(scope);
+  const result: Step[] = [];
+
+  for (const raw of rawSteps) {
+    const stepInput = (raw && typeof raw === 'object' ? (raw as StepInput) : {}) as StepInput;
+    const providedId = ensureString(stepInput.id);
+    const name = ensureString(stepInput.name);
+
+    if (!name) {
+      throw new BadRequestError('Step name is required');
+    }
+
+    const description = ensureString(stepInput.description);
+    const sourceSystemId = ensureString(stepInput.sourceSystemId);
+    const targetSystemId = ensureString(stepInput.targetSystemId);
+
+    if (!sourceSystemId || !targetSystemId) {
+      throw new BadRequestError('Step source and target systems are required');
+    }
+
+    ensureSystemInScope(project, sourceSystemId, scopeSet, 'source');
+    ensureSystemInScope(project, targetSystemId, scopeSet, 'target');
+
+    const tags = ensureTags(stepInput.tags);
+    const alternateFlowIds = ensureAlternateFlows(existingFlowIds, stepInput.alternateFlowIds);
+
+    let id = providedId;
+    if (providedId && reuseSteps?.has(providedId)) {
+      id = providedId;
+      reuseSteps.delete(providedId);
+    } else {
+      id = randomUUID();
+    }
+
+    result.push({
+      id,
+      name,
+      description,
+      sourceSystemId,
+      targetSystemId,
+      tags,
+      alternateFlowIds
+    });
+  }
+
+  return result;
+};
+
+const validateExistingStepsAgainstScope = (steps: Step[], project: Project, scope: string[]) => {
+  const scopeSet = new Set(scope);
+  for (const step of steps) {
+    ensureSystemInScope(project, step.sourceSystemId, scopeSet, 'source');
+    ensureSystemInScope(project, step.targetSystemId, scopeSet, 'target');
+  }
 };
 
 export const listProjects = async (persistence: PersistenceAdapter) => {
@@ -291,6 +455,130 @@ export const deleteSystem = async (
 
   for (const id of descendantIds) {
     delete project.systems[id];
+  }
+
+  await persistence.save(aggregate);
+};
+
+export const listFlows = async (persistence: PersistenceAdapter, projectId: string): Promise<Flow[]> => {
+  const aggregate = await persistence.load();
+  const project = getProjectOrThrow(aggregate, projectId);
+  return Object.values(project.flows);
+};
+
+export const getFlow = async (
+  persistence: PersistenceAdapter,
+  projectId: string,
+  flowId: string
+) => {
+  const aggregate = await persistence.load();
+  const project = getProjectOrThrow(aggregate, projectId);
+  return getFlowOrThrow(project, flowId);
+};
+
+export const createFlow = async (
+  persistence: PersistenceAdapter,
+  projectId: string,
+  input: CreateFlowInput
+) => {
+  const aggregate = cloneAggregate(await persistence.load());
+  const project = getProjectOrThrow(aggregate, projectId);
+
+  const name = ensureString(input.name);
+  if (!name) {
+    throw new BadRequestError('Flow name is required');
+  }
+
+  const description = ensureString(input.description);
+  const tags = ensureTags(input.tags);
+  const flowId = randomUUID();
+
+  const systemScopeIds = ensureSystemScope(project, input.systemScopeIds);
+
+  const existingFlowIds = new Set<string>([flowId, ...Object.keys(project.flows)]);
+  const steps = sanitizeSteps({
+    project,
+    scope: systemScopeIds,
+    rawSteps: input.steps,
+    existingFlowIds
+  });
+
+  project.flows[flowId] = {
+    id: flowId,
+    name,
+    description,
+    tags,
+    systemScopeIds,
+    steps
+  };
+
+  await persistence.save(aggregate);
+
+  return project.flows[flowId];
+};
+
+export const updateFlow = async (
+  persistence: PersistenceAdapter,
+  projectId: string,
+  flowId: string,
+  input: UpdateFlowInput
+) => {
+  const aggregate = cloneAggregate(await persistence.load());
+  const project = getProjectOrThrow(aggregate, projectId);
+  const flow = getFlowOrThrow(project, flowId);
+
+  const name = ensureString(input.name, flow.name);
+  const description = ensureString(input.description, flow.description);
+  const tags = input.tags ? ensureTags(input.tags) : flow.tags;
+
+  const systemScopeIds = input.systemScopeIds
+    ? ensureSystemScope(project, input.systemScopeIds)
+    : flow.systemScopeIds;
+
+  const reuseSteps = new Map(flow.steps.map((step) => [step.id, step] as [string, Step]));
+  const existingFlowIds = new Set<string>(Object.keys(project.flows));
+  existingFlowIds.add(flowId);
+
+  let steps: Step[];
+  if (input.steps !== undefined) {
+    steps = sanitizeSteps({
+      project,
+      scope: systemScopeIds,
+      rawSteps: input.steps,
+      existingFlowIds,
+      reuseSteps
+    });
+  } else {
+    validateExistingStepsAgainstScope(flow.steps, project, systemScopeIds);
+    steps = flow.steps;
+  }
+
+  flow.name = name;
+  flow.description = description;
+  flow.tags = tags;
+  flow.systemScopeIds = systemScopeIds;
+  flow.steps = steps;
+
+  await persistence.save(aggregate);
+
+  return flow;
+};
+
+export const deleteFlow = async (
+  persistence: PersistenceAdapter,
+  projectId: string,
+  flowId: string
+) => {
+  const aggregate = cloneAggregate(await persistence.load());
+  const project = getProjectOrThrow(aggregate, projectId);
+  const flow = getFlowOrThrow(project, flowId);
+
+  delete project.flows[flow.id];
+
+  for (const otherFlow of Object.values(project.flows)) {
+    for (const step of otherFlow.steps) {
+      step.alternateFlowIds = step.alternateFlowIds.filter((id) => id !== flowId);
+    }
   }
 
   await persistence.save(aggregate);

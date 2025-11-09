@@ -4,14 +4,19 @@ import { HttpError } from './httpError.js';
 import {
   createProject,
   createSystem,
+  createFlow,
   deleteProject,
   deleteSystem,
+  deleteFlow,
   getProject,
   getSystem,
+  getFlow,
   listProjects,
   listSystems,
+  listFlows,
   updateProject,
-  updateSystem
+  updateSystem,
+  updateFlow
 } from './services/projectService.js';
 
 type AppOptions = {
@@ -121,6 +126,46 @@ export const createApp = ({ persistence }: AppOptions) => {
     '/projects/:projectId/systems/:systemId',
     asyncHandler(async (req, res) => {
       await deleteSystem(persistence, req.params.projectId, req.params.systemId);
+      res.status(204).send();
+    })
+  );
+
+  app.get(
+    '/projects/:projectId/flows',
+    asyncHandler(async (req, res) => {
+      const flows = await listFlows(persistence, req.params.projectId);
+      res.json({ flows });
+    })
+  );
+
+  app.post(
+    '/projects/:projectId/flows',
+    asyncHandler(async (req, res) => {
+      const flow = await createFlow(persistence, req.params.projectId, req.body ?? {});
+      res.status(201).json({ flow });
+    })
+  );
+
+  app.get(
+    '/projects/:projectId/flows/:flowId',
+    asyncHandler(async (req, res) => {
+      const flow = await getFlow(persistence, req.params.projectId, req.params.flowId);
+      res.json({ flow });
+    })
+  );
+
+  app.put(
+    '/projects/:projectId/flows/:flowId',
+    asyncHandler(async (req, res) => {
+      const flow = await updateFlow(persistence, req.params.projectId, req.params.flowId, req.body ?? {});
+      res.json({ flow });
+    })
+  );
+
+  app.delete(
+    '/projects/:projectId/flows/:flowId',
+    asyncHandler(async (req, res) => {
+      await deleteFlow(persistence, req.params.projectId, req.params.flowId);
       res.status(204).send();
     })
   );
