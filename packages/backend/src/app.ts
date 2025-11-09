@@ -34,6 +34,27 @@ const asyncHandler = (
     }
   };
 
+const parseQueryValues = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => (typeof item === 'string' ? [item] : []));
+  }
+
+  return typeof value === 'string' ? [value] : [];
+};
+
+const sanitizeFilterValues = (values: string[]): string[] => {
+  const deduplicated = new Set<string>();
+
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (trimmed) {
+      deduplicated.add(trimmed);
+    }
+  }
+
+  return [...deduplicated];
+};
+
 export const createApp = ({ persistence }: AppOptions) => {
   const app = express();
   app.use(express.json());
@@ -133,7 +154,13 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.get(
     '/projects/:projectId/flows',
     asyncHandler(async (req, res) => {
-      const flows = await listFlows(persistence, req.params.projectId);
+      const scopeFilters = sanitizeFilterValues(parseQueryValues(req.query.scope));
+      const tagFilters = sanitizeFilterValues(parseQueryValues(req.query.tag));
+
+      const flows = await listFlows(persistence, req.params.projectId, {
+        scope: scopeFilters,
+        tags: tagFilters
+      });
       res.json({ flows });
     })
   );
