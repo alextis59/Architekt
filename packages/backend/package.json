@@ -9,7 +9,7 @@
     "start": "npm --workspace @architekt/domain run build && tsx src/index.ts",
     "build": "npm --workspace @architekt/domain run build && tsc -p tsconfig.json",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "test": "npm --workspace @architekt/domain run build && tsx --test src/**/*.test.ts"
+    "test": "npm --workspace @architekt/domain run build && node ../../scripts/run-tsx-tests.mjs src"
   },
   "dependencies": {
     "@architekt/domain": "^0.1.0",
