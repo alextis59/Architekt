@@ -1,6 +1,18 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
-import { createProjectIndex } from '@architekt/domain';
 import type { PersistenceAdapter } from './persistence/index.js';
+import { HttpError } from './httpError.js';
+import {
+  createProject,
+  createSystem,
+  deleteProject,
+  deleteSystem,
+  getProject,
+  getSystem,
+  listProjects,
+  listSystems,
+  updateProject,
+  updateSystem
+} from './services/projectService.js';
 
 type AppOptions = {
   persistence: PersistenceAdapter;
@@ -31,13 +43,95 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.get(
     '/projects',
     asyncHandler(async (_req, res) => {
-      const data = await persistence.load();
-      res.json({ projects: createProjectIndex(data) });
+      const projects = await listProjects(persistence);
+      res.json({ projects });
+    })
+  );
+
+  app.post(
+    '/projects',
+    asyncHandler(async (req, res) => {
+      const project = await createProject(persistence, req.body ?? {});
+      res.status(201).json({ project });
+    })
+  );
+
+  app.get(
+    '/projects/:projectId',
+    asyncHandler(async (req, res) => {
+      const project = await getProject(persistence, req.params.projectId);
+      res.json({ project });
+    })
+  );
+
+  app.put(
+    '/projects/:projectId',
+    asyncHandler(async (req, res) => {
+      const project = await updateProject(persistence, req.params.projectId, req.body ?? {});
+      res.json({ project });
+    })
+  );
+
+  app.delete(
+    '/projects/:projectId',
+    asyncHandler(async (req, res) => {
+      await deleteProject(persistence, req.params.projectId);
+      res.status(204).send();
+    })
+  );
+
+  app.get(
+    '/projects/:projectId/systems',
+    asyncHandler(async (req, res) => {
+      const systems = await listSystems(persistence, req.params.projectId);
+      res.json({ systems });
+    })
+  );
+
+  app.post(
+    '/projects/:projectId/systems',
+    asyncHandler(async (req, res) => {
+      const system = await createSystem(persistence, req.params.projectId, req.body ?? {});
+      res.status(201).json({ system });
+    })
+  );
+
+  app.get(
+    '/projects/:projectId/systems/:systemId',
+    asyncHandler(async (req, res) => {
+      const system = await getSystem(persistence, req.params.projectId, req.params.systemId);
+      res.json({ system });
+    })
+  );
+
+  app.put(
+    '/projects/:projectId/systems/:systemId',
+    asyncHandler(async (req, res) => {
+      const system = await updateSystem(
+        persistence,
+        req.params.projectId,
+        req.params.systemId,
+        req.body ?? {}
+      );
+      res.json({ system });
+    })
+  );
+
+  app.delete(
+    '/projects/:projectId/systems/:systemId',
+    asyncHandler(async (req, res) => {
+      await deleteSystem(persistence, req.params.projectId, req.params.systemId);
+      res.status(204).send();
     })
   );
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (error instanceof HttpError) {
+      res.status(error.status).json({ message: error.message });
+      return;
+    }
+
     // eslint-disable-next-line no-console
     console.error('Unexpected error', error);
     res.status(500).json({ message: 'Internal Server Error' });
