@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useMemo, useState } from 'react';
 import clsx from 'clsx';
+import { useNavigate } from 'react-router-dom';
 import { createProject, fetchProjects, type ProjectSummary } from '../api/projects.js';
 import { queryKeys } from '../queryKeys.js';
 import { selectSelectedProjectId, useProjectStore } from '../store/projectStore.js';
@@ -18,6 +19,7 @@ const ProjectManager = () => {
   const queryClient = useQueryClient();
   const selectedProjectId = useProjectStore(selectSelectedProjectId);
   const selectProject = useProjectStore((state) => state.selectProject);
+  const navigate = useNavigate();
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: queryKeys.projects,
@@ -36,6 +38,7 @@ const ProjectManager = () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
       selectProject(project.id);
       setFormState({ name: '', description: '', tags: '' });
+      navigate(`/projects/${project.id}`);
     }
   });
 
@@ -80,7 +83,12 @@ const ProjectManager = () => {
                     className={clsx('project-button', {
                       active: project.id === selectedProjectId
                     })}
-                    onClick={() => selectProject(project.id)}
+                    onClick={() => {
+                      selectProject(project.id);
+                      if (project.id !== selectedProjectId) {
+                        navigate(`/projects/${project.id}`);
+                      }
+                    }}
                   >
                     <span className="project-name">{project.name}</span>
                     {project.description && <span className="project-description">{project.description}</span>}

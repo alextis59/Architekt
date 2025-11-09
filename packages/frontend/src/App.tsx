@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import ArchitectureWorkspace from './components/ArchitectureWorkspace.js';
-import ProjectManager from './components/ProjectManager.js';
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import DashboardPage from './components/DashboardPage.js';
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 60_000,
@@ -12,20 +12,32 @@ const queryClient = new QueryClient({
   }
 });
 
+const AppLayout = () => (
+  <main className="app">
+    <header className="hero">
+      <h1>Architekt</h1>
+      <p className="lead">
+        Build, annotate, and evolve systems with a visual architecture explorer powered by your project data.
+      </p>
+    </header>
+    <div className="dashboard">
+      <Outlet />
+    </div>
+  </main>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <main className="app">
-      <header className="hero">
-        <h1>Architekt</h1>
-        <p className="lead">
-          Build, annotate, and evolve systems with a visual architecture explorer powered by your project data.
-        </p>
-      </header>
-      <div className="dashboard">
-        <ProjectManager />
-        <ArchitectureWorkspace />
-      </div>
-    </main>
+    <Routes>
+      <Route path="/" element={<AppLayout />}>
+        <Route index element={<Navigate to="/projects" replace />} />
+        <Route path="projects">
+          <Route index element={<DashboardPage />} />
+          <Route path=":projectId" element={<DashboardPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/projects" replace />} />
+      </Route>
+    </Routes>
   </QueryClientProvider>
 );
 
