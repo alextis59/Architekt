@@ -3,14 +3,22 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
-import { createFileSystemPersistence } from './persistence/index.js';
+import { createPersistence } from './persistence/index.js';
 
 export const startServer = async (): Promise<Server> => {
   const config = loadConfig();
-  const directory = path.dirname(config.dataFile);
-  await fs.mkdir(directory, { recursive: true });
+  const persistenceConfig = config.persistence;
 
-  const persistence = createFileSystemPersistence({ dataFile: config.dataFile });
+  if (persistenceConfig.driver === 'filesystem') {
+    const directory = path.dirname(persistenceConfig.dataFile);
+    await fs.mkdir(directory, { recursive: true });
+
+    if (persistenceConfig.backupDir) {
+      await fs.mkdir(persistenceConfig.backupDir, { recursive: true });
+    }
+  }
+
+  const persistence = await createPersistence(persistenceConfig);
   const app = createApp({ persistence });
 
   return new Promise((resolve) => {

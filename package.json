@@ -11,7 +11,11 @@
     "build": "npm run build --workspaces --if-present",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "start:backend": "npm --workspace @architekt/backend run start"
+    "start:backend": "npm --workspace @architekt/backend run start",
+    "start:frontend": "npm --workspace @architekt/frontend run dev",
+    "dev": "node ./scripts/dev.mjs",
+    "data:export": "node ./scripts/export-data.mjs",
+    "data:migrate:mongo": "node ./scripts/migrate-to-mongo.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
