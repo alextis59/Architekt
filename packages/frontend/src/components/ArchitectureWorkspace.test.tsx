@@ -5,6 +5,14 @@ import type { Project } from '@architekt/domain';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ArchitectureWorkspace from './ArchitectureWorkspace.js';
 import { useProjectStore } from '../store/projectStore.js';
+import type { FilteredTreeNode } from './SystemTree.js';
+
+type SystemTreeMockProps = {
+  tree: FilteredTreeNode;
+  selectedSystemId: string | null;
+  onSelectSystem: (systemId: string) => void;
+  isFiltered: boolean;
+};
 
 const apiMocks = vi.hoisted(() => ({
   fetchProjectDetails: vi.fn(),
@@ -26,7 +34,7 @@ vi.mock('../api/projects', () => ({
 
 vi.mock('./SystemTree.js', () => ({
   __esModule: true,
-  default: (props: any) => {
+  default: (props: SystemTreeMockProps) => {
     systemTreeMock.renderSpy(props);
     return (
       <div data-testid="system-tree-mock">
@@ -87,13 +95,7 @@ const projectFixture: Project = {
 };
 
 const getLatestSystemTreeProps = () =>
-  systemTreeMock.renderSpy.mock.calls.at(-1)?.[0] as
-    | {
-        tree: unknown;
-        selectedSystemId: string | null;
-        isFiltered: boolean;
-      }
-    | undefined;
+  systemTreeMock.renderSpy.mock.calls.at(-1)?.[0] as SystemTreeMockProps | undefined;
 
 describe('ArchitectureWorkspace', () => {
   afterEach(() => {
@@ -172,10 +174,7 @@ describe('ArchitectureWorkspace', () => {
     await waitFor(() => {
       const latestProps = getLatestSystemTreeProps();
       expect(latestProps?.isFiltered).toBe(true);
-      const tree: any = latestProps?.tree;
-      const childIds = Array.isArray(tree?.children)
-        ? tree.children.map((child: any) => child.system.id)
-        : [];
+      const childIds = latestProps?.tree.children.map((child) => child.system.id) ?? [];
       expect(childIds).toEqual(['sys-auth']);
     });
 
