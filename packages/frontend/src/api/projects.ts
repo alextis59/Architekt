@@ -1,4 +1,4 @@
-import type { Project, System } from '@architekt/domain';
+import type { Flow, Project, System } from '@architekt/domain';
 import { apiRequest } from './client.js';
 
 export type ProjectSummary = Pick<Project, 'id' | 'name' | 'description' | 'tags' | 'rootSystemId'>;
@@ -104,4 +104,73 @@ export const deleteSystem = async (projectId: string, systemId: string): Promise
     method: 'DELETE'
   });
 };
+
+type StepPayload = {
+  id?: string;
+  name: string;
+  description: string;
+  sourceSystemId: string;
+  targetSystemId: string;
+  tags: string[];
+  alternateFlowIds: string[];
+};
+
+type FlowPayload = {
+  name: string;
+  description: string;
+  tags: string[];
+  systemScopeIds: string[];
+  steps: StepPayload[];
+};
+
+const sanitizeStepPayloads = (steps: StepPayload[]): StepPayload[] =>
+  steps.map((step) => ({
+    ...step,
+    name: step.name,
+    description: step.description,
+    tags: sanitizeTags(step.tags),
+    alternateFlowIds: Array.from(new Set(step.alternateFlowIds))
+  }));
+
+const prepareFlowPayload = (input: FlowPayload): FlowPayload => ({
+  name: input.name,
+  description: input.description,
+  tags: sanitizeTags(input.tags),
+  systemScopeIds: Array.from(new Set(input.systemScopeIds)),
+  steps: sanitizeStepPayloads(input.steps)
+});
+
+export const createFlow = async (projectId: string, input: FlowPayload): Promise<Flow> => {
+  const payload = prepareFlowPayload(input);
+
+  const response = await apiRequest<{ flow: Flow }>(`/projects/${projectId}/flows`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+  return response.flow;
+};
+
+export const updateFlow = async (
+  projectId: string,
+  flowId: string,
+  input: FlowPayload
+): Promise<Flow> => {
+  const payload = prepareFlowPayload(input);
+
+  const response = await apiRequest<{ flow: Flow }>(`/projects/${projectId}/flows/${flowId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+
+  return response.flow;
+};
+
+export const deleteFlow = async (projectId: string, flowId: string): Promise<void> => {
+  await apiRequest(`/projects/${projectId}/flows/${flowId}`, {
+    method: 'DELETE'
+  });
+};
+
+export type { FlowPayload, StepPayload };
 

@@ -30,7 +30,26 @@ const project = {
       isRoot: false
     }
   },
-  flows: {}
+  flows: {
+    'flow-1': {
+      id: 'flow-1',
+      name: 'Sample flow',
+      description: 'Smoke test flow',
+      tags: ['demo'],
+      systemScopeIds: ['sys-1'],
+      steps: [
+        {
+          id: 'step-a',
+          name: 'Initial step',
+          description: 'Synthetic step for tests',
+          sourceSystemId: 'sys-1',
+          targetSystemId: 'sys-1',
+          tags: ['demo'],
+          alternateFlowIds: []
+        }
+      ]
+    }
+  }
 };
 
 const apiMocks = vi.hoisted(() => ({
@@ -39,7 +58,10 @@ const apiMocks = vi.hoisted(() => ({
   fetchProjectDetails: vi.fn(),
   createSystem: vi.fn(),
   updateSystem: vi.fn(),
-  deleteSystem: vi.fn()
+  deleteSystem: vi.fn(),
+  createFlow: vi.fn(),
+  updateFlow: vi.fn(),
+  deleteFlow: vi.fn()
 }));
 
 vi.mock('./api/projects', () => apiMocks);
@@ -50,7 +72,10 @@ const {
   fetchProjectDetails: mockFetchProjectDetails,
   createSystem: mockCreateSystem,
   updateSystem: mockUpdateSystem,
-  deleteSystem: mockDeleteSystem
+  deleteSystem: mockDeleteSystem,
+  createFlow: mockCreateFlow,
+  updateFlow: mockUpdateFlow,
+  deleteFlow: mockDeleteFlow
 } = apiMocks;
 
 const renderWithRouter = (initialEntries: string[]) => {
@@ -65,7 +90,7 @@ const renderWithRouter = (initialEntries: string[]) => {
 };
 
 const resetStore = () => {
-  useProjectStore.setState({ selectedProjectId: null, selectedSystemId: null });
+  useProjectStore.setState({ selectedProjectId: null, selectedSystemId: null, selectedFlowId: null });
 };
 
 describe('App', () => {
@@ -84,6 +109,9 @@ describe('App', () => {
     mockCreateSystem.mockResolvedValue(project.systems[project.rootSystemId]);
     mockUpdateSystem.mockResolvedValue(project.systems[project.rootSystemId]);
     mockDeleteSystem.mockResolvedValue(undefined);
+    mockCreateFlow.mockResolvedValue({ ...project.flows['flow-1'] });
+    mockUpdateFlow.mockResolvedValue({ ...project.flows['flow-1'] });
+    mockDeleteFlow.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
