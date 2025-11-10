@@ -123,6 +123,32 @@ const ArchitectureWorkspace = () => {
       payload: { name: string; description: string; tags: string[]; parentId?: string };
     }) => createSystem(projectId, payload),
     onSuccess: (system, variables) => {
+      queryClient.setQueryData<Project | undefined>(queryKeys.project(variables.projectId), (previous) => {
+        if (!previous) {
+          return previous;
+        }
+
+        const parentId = variables.payload.parentId;
+        const nextSystems: Project['systems'] = {
+          ...previous.systems,
+          [system.id]: system
+        };
+
+        if (parentId && previous.systems[parentId]) {
+          const parent = previous.systems[parentId];
+          nextSystems[parentId] = {
+            ...parent,
+            childIds: parent.childIds.includes(system.id)
+              ? parent.childIds
+              : [...parent.childIds, system.id]
+          };
+        }
+
+        return {
+          ...previous,
+          systems: nextSystems
+        };
+      });
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
       selectSystem(system.id);
     }
