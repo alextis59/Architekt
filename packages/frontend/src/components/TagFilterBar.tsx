@@ -5,20 +5,31 @@ type TagFilterBarProps = {
   selectedTags: string[];
   onToggleTag: (tag: string) => void;
   onClear: () => void;
+  label?: string;
+  emptyLabel?: string;
+  ariaLabel?: string;
 };
 
-const TagFilterBar = ({ availableTags, selectedTags, onToggleTag, onClear }: TagFilterBarProps) => {
+const TagFilterBar = ({
+  availableTags,
+  selectedTags,
+  onToggleTag,
+  onClear,
+  label = 'Filter by tag',
+  emptyLabel = 'No tags defined yet.',
+  ariaLabel
+}: TagFilterBarProps) => {
   if (availableTags.length === 0) {
     return (
-      <div className="tag-filter" role="toolbar" aria-label="System tag filters">
-        <span className="tag-filter-empty">No tags defined yet.</span>
+      <div className="tag-filter" role="toolbar" aria-label={ariaLabel ?? label}>
+        <span className="tag-filter-empty">{emptyLabel}</span>
       </div>
     );
   }
 
   return (
-    <div className="tag-filter" role="toolbar" aria-label="System tag filters">
-      <span className="tag-filter-label">Filter by tag:</span>
+    <div className="tag-filter" role="toolbar" aria-label={ariaLabel ?? label}>
+      <span className="tag-filter-label">{label}:</span>
       <div className="tag-filter-buttons">
         {availableTags.map((tag) => (
           <button
