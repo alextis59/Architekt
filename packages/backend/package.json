@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "@architekt/domain": "^0.1.0",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "mongodb": "^6.8.0"
   },
   "devDependencies": {
     "tsx": "^4.7.0",

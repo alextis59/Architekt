@@ -55,3 +55,31 @@ test('persists and loads aggregate data', async () => {
 
   assert.deepEqual(loaded, aggregate);
 });
+
+test('creates backups when overwriting existing data', async () => {
+  const dataFile = await createTempFile();
+  const backupDir = path.join(path.dirname(dataFile), 'backups');
+  const persistence = createFileSystemPersistence({ dataFile, backupDir, maxBackups: 5 });
+
+  await persistence.save({ projects: {} });
+  await persistence.save({ projects: {} });
+
+  const backups = await fs.readdir(backupDir);
+  assert.equal(backups.length, 1);
+  assert.ok(backups[0].endsWith('.json'));
+});
+
+test('prunes old backups beyond the configured threshold', async () => {
+  const dataFile = await createTempFile();
+  const backupDir = path.join(path.dirname(dataFile), 'backups');
+  const persistence = createFileSystemPersistence({ dataFile, backupDir, maxBackups: 2 });
+
+  await persistence.save({ projects: {} });
+
+  for (let index = 0; index < 4; index += 1) {
+    await persistence.save({ projects: {} });
+  }
+
+  const backups = await fs.readdir(backupDir);
+  assert.equal(backups.length, 2);
+});
