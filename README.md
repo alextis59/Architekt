@@ -52,3 +52,7 @@ is saved. The `npm run data:export` script can snapshot the aggregate on demand,
 
 The GitHub Actions workflow in `.github/workflows/ci.yml` installs dependencies (no
 external downloads are required) and executes the shared `npm test` script.
+
+## Deployment
+
+- [Deploying to Google Cloud Run with Cloudflare](docs/deployment/cloud-run.md)
