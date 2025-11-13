@@ -1,9 +1,11 @@
 import path from 'node:path';
+import type { AuthConfig } from './auth.js';
 import type { PersistenceConfig } from './persistence/index.js';
 
 export type BackendConfig = {
   port: number;
   persistence: PersistenceConfig;
+  auth: AuthConfig;
 };
 
 const parseNumber = (value: string | undefined, fallback: number) => {
@@ -11,9 +13,36 @@ const parseNumber = (value: string | undefined, fallback: number) => {
   return Number.isNaN(parsed) ? fallback : parsed;
 };
 
+const parseAuthConfig = (): AuthConfig => {
+  const mode = (process.env.AUTH_MODE ?? 'local').toLowerCase();
+
+  if (mode === 'google') {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+
+    if (!clientId) {
+      throw new Error('GOOGLE_CLIENT_ID must be defined when using google authentication');
+    }
+
+    return {
+      mode: 'google',
+      clientId
+    };
+  }
+
+  const defaultUserId = process.env.DEFAULT_USER_ID?.trim() || 'local-user';
+  const defaultUserName = process.env.DEFAULT_USER_NAME?.trim() || 'Local User';
+
+  return {
+    mode: 'local',
+    defaultUserId,
+    defaultUserName
+  };
+};
+
 export const loadConfig = (): BackendConfig => {
   const port = parseNumber(process.env.PORT, 4000);
   const driver = (process.env.PERSISTENCE_DRIVER ?? 'filesystem').toLowerCase();
+  const auth = parseAuthConfig();
 
   if (driver === 'mongo') {
     const uri = process.env.MONGO_URI;
@@ -27,6 +56,7 @@ export const loadConfig = (): BackendConfig => {
 
     return {
       port,
+      auth,
       persistence: {
         driver: 'mongo',
         uri,
@@ -43,6 +73,7 @@ export const loadConfig = (): BackendConfig => {
 
   return {
     port,
+    auth,
     persistence: {
       driver: 'filesystem',
       dataFile,

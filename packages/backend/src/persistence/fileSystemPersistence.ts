@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { createEmptyDomainAggregate, validateDomainAggregate } from '@architekt/domain';
+import { createEmptyDomainAggregate, validateDomainAggregate, type DomainAggregate } from '@architekt/domain';
 import type { PersistenceAdapter } from './index.js';
 
 const toTimestamp = (date: Date) => date.toISOString().replace(/[:]/g, '-');
@@ -86,22 +86,52 @@ export const createFileSystemPersistence = ({
   backupDir,
   maxBackups = 10
 }: FileSystemPersistenceOptions): PersistenceAdapter => {
-  const read = async () => {
+  const sanitizeStore = (input: unknown): Record<string, DomainAggregate> => {
+    if (!input || typeof input !== 'object') {
+      return {};
+    }
+
+    if ('projects' in (input as Record<string, unknown>)) {
+      const aggregate = validateDomainAggregate(input);
+      return { 'local-user': aggregate };
+    }
+
+    const entries = Object.entries(input as Record<string, unknown>).flatMap(
+      ([userId, value]): [string, DomainAggregate][] => {
+        try {
+          const aggregate = validateDomainAggregate(value);
+          return [[userId, aggregate]];
+        } catch {
+          return [];
+        }
+      }
+    );
+
+    return Object.fromEntries(entries);
+  };
+
+  const readStore = async (): Promise<Record<string, DomainAggregate>> => {
     try {
       const raw = await fs.readFile(dataFile, 'utf-8');
       const parsed = JSON.parse(raw);
-      return validateDomainAggregate(parsed);
+      return sanitizeStore(parsed);
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return createEmptyDomainAggregate();
+        return {};
       }
 
       throw error;
     }
   };
 
-  const write = async (data: Parameters<PersistenceAdapter['save']>[0]) => {
-    const payload = JSON.stringify(validateDomainAggregate(data), null, 2);
+  const writeStore = async (store: Record<string, DomainAggregate>) => {
+    const payload = JSON.stringify(
+      Object.fromEntries(
+        Object.entries(store).map(([userId, aggregate]) => [userId, validateDomainAggregate(aggregate)])
+      ),
+      null,
+      2
+    );
     await fs.mkdir(path.dirname(dataFile), { recursive: true });
 
     if (backupDir) {
@@ -114,11 +144,15 @@ export const createFileSystemPersistence = ({
   };
 
   return {
-    async load() {
-      return read();
+    async load(userId) {
+      const store = await readStore();
+      const aggregate = store[userId];
+      return aggregate ? validateDomainAggregate(aggregate) : createEmptyDomainAggregate();
     },
-    async save(data) {
-      await write(data);
+    async save(userId, data) {
+      const store = await readStore();
+      const aggregate = validateDomainAggregate(data);
+      await writeStore({ ...store, [userId]: aggregate });
     }
   };
 };

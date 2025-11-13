@@ -4,8 +4,8 @@ import { createMemoryPersistence } from './memoryPersistence.js';
 import { createMongoPersistence } from './mongoPersistence.js';
 
 export type PersistenceAdapter = {
-  load: () => Promise<DomainAggregate>;
-  save: (data: DomainAggregate) => Promise<void>;
+  load: (userId: string) => Promise<DomainAggregate>;
+  save: (userId: string, data: DomainAggregate) => Promise<void>;
 };
 
 export type FileSystemPersistenceConfig = {

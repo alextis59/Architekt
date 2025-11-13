@@ -5,8 +5,23 @@ import { createApp } from './app.js';
 import { createMemoryPersistence } from './persistence/index.js';
 import { createProjectIndex } from '@architekt/domain';
 
+const testAuthConfig = {
+  mode: 'local' as const,
+  defaultUserId: 'test-user',
+  defaultUserName: 'Test User'
+};
+
+const createTestApp = (initialData?: unknown) => {
+  const persistence =
+    initialData === undefined
+      ? createMemoryPersistence()
+      : createMemoryPersistence({ [testAuthConfig.defaultUserId]: initialData });
+
+  return createApp({ persistence, auth: testAuthConfig });
+};
+
 test('GET /health responds with ok status', async () => {
-  const app = createApp({ persistence: createMemoryPersistence() });
+  const app = createTestApp();
 
   const response = await request(app).get('/health');
 
@@ -38,8 +53,7 @@ test('GET /projects returns sanitized projects', async () => {
       }
     }
   };
-  const persistence = createMemoryPersistence(aggregate);
-  const app = createApp({ persistence });
+  const app = createTestApp(aggregate);
 
   const response = await request(app).get('/projects');
 
@@ -48,8 +62,7 @@ test('GET /projects returns sanitized projects', async () => {
 });
 
 test('POST /projects creates a project with root system', async () => {
-  const persistence = createMemoryPersistence();
-  const app = createApp({ persistence });
+  const app = createTestApp();
 
   const response = await request(app)
     .post('/projects')
@@ -69,8 +82,7 @@ test('POST /projects creates a project with root system', async () => {
 });
 
 test('PUT /projects/:projectId updates project metadata', async () => {
-  const persistence = createMemoryPersistence();
-  const app = createApp({ persistence });
+  const app = createTestApp();
 
   const creation = await request(app).post('/projects').send({ name: 'Beta' });
   const projectId = creation.body.project.id;
@@ -89,8 +101,7 @@ test('PUT /projects/:projectId updates project metadata', async () => {
 });
 
 test('DELETE /projects/:projectId removes project', async () => {
-  const persistence = createMemoryPersistence();
-  const app = createApp({ persistence });
+  const app = createTestApp();
 
   const creation = await request(app).post('/projects').send({ name: 'Gamma' });
   const projectId = creation.body.project.id;
@@ -103,8 +114,7 @@ test('DELETE /projects/:projectId removes project', async () => {
 });
 
 test('System endpoints manage hierarchy with validation', async () => {
-  const persistence = createMemoryPersistence();
-  const app = createApp({ persistence });
+  const app = createTestApp();
 
   const creation = await request(app).post('/projects').send({ name: 'Delta' });
   const projectId = creation.body.project.id;
@@ -152,8 +162,7 @@ test('System endpoints manage hierarchy with validation', async () => {
 });
 
 test('Data model endpoints manage nested attributes', async () => {
-  const persistence = createMemoryPersistence();
-  const app = createApp({ persistence });
+  const app = createTestApp();
 
   const creation = await request(app).post('/projects').send({ name: 'Schemas' });
   const projectId = creation.body.project.id;
@@ -234,8 +243,7 @@ test('Data model endpoints manage nested attributes', async () => {
 });
 
 test('DELETE /projects/:projectId/systems/:systemId prevents root removal', async () => {
-  const persistence = createMemoryPersistence();
-  const app = createApp({ persistence });
+  const app = createTestApp();
 
   const creation = await request(app).post('/projects').send({ name: 'Epsilon' });
   const projectId = creation.body.project.id;
@@ -247,8 +255,7 @@ test('DELETE /projects/:projectId/systems/:systemId prevents root removal', asyn
 });
 
 test('Flow endpoints manage flows and steps with validation', async () => {
-  const persistence = createMemoryPersistence();
-  const app = createApp({ persistence });
+  const app = createTestApp();
 
   const projectCreation = await request(app).post('/projects').send({ name: 'Flow Project' });
   const projectId = projectCreation.body.project.id;
@@ -346,8 +353,7 @@ test('Flow endpoints manage flows and steps with validation', async () => {
 });
 
 test('GET /projects/:projectId/flows applies optional filters', async () => {
-  const persistence = createMemoryPersistence();
-  const app = createApp({ persistence });
+  const app = createTestApp();
 
   const projectCreation = await request(app).post('/projects').send({ name: 'Filtered Flow Project' });
   const projectId = projectCreation.body.project.id;
@@ -440,8 +446,7 @@ test('GET /projects/:projectId/flows applies optional filters', async () => {
 });
 
 test('Flow endpoints enforce scope and reference validation', async () => {
-  const persistence = createMemoryPersistence();
-  const app = createApp({ persistence });
+  const app = createTestApp();
 
   const projectCreation = await request(app).post('/projects').send({ name: 'Validation Project' });
   const projectId = projectCreation.body.project.id;

@@ -19,7 +19,7 @@ export const startServer = async (): Promise<Server> => {
   }
 
   const persistence = await createPersistence(persistenceConfig);
-  const app = createApp({ persistence });
+  const app = createApp({ persistence, auth: config.auth });
 
   return new Promise((resolve) => {
     const server = app.listen(config.port, () => {
