@@ -1,0 +1,11 @@
+# Example cloudflared configuration for exposing the Architekt Cloud Run service.
+# Copy this file to /etc/cloudflared/config.yaml (or another location) and update
+# the placeholder values before starting the tunnel.
+
+tunnel: architekt-cloud-run
+credentials-file: /etc/cloudflared/architekt-cloud-run.json
+
+ingress:
+  - hostname: api.example.com
+    service: https://architekt-backend-<hash>-uc.a.run.app
+  - service: http_status:404
