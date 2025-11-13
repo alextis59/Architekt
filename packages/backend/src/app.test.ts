@@ -33,7 +33,8 @@ test('GET /projects returns sanitized projects', async () => {
             isRoot: true
           }
         },
-        flows: {}
+        flows: {},
+        dataModels: {}
       }
     }
   };
@@ -64,6 +65,7 @@ test('POST /projects creates a project with root system', async () => {
   assert.ok(root);
   assert.equal(root.name, 'Alpha');
   assert.equal(root.isRoot, true);
+  assert.deepEqual(project.dataModels, {});
 });
 
 test('PUT /projects/:projectId updates project metadata', async () => {
@@ -147,6 +149,88 @@ test('System endpoints manage hierarchy with validation', async () => {
   assert.ok(!systemsAfterDeletion[systemId]);
   assert.ok(!systemsAfterDeletion[childId]);
   assert.deepEqual(systemsAfterDeletion[rootSystemId].childIds, []);
+});
+
+test('Data model endpoints manage nested attributes', async () => {
+  const persistence = createMemoryPersistence();
+  const app = createApp({ persistence });
+
+  const creation = await request(app).post('/projects').send({ name: 'Schemas' });
+  const projectId = creation.body.project.id;
+
+  const dataModelCreation = await request(app)
+    .post(`/projects/${projectId}/data-models`)
+    .send({
+      name: 'Customer',
+      description: 'Customer profile',
+      attributes: [
+        {
+          name: 'id',
+          description: 'Unique identifier',
+          type: 'string',
+          constraints: 'required',
+          readOnly: true,
+          encrypted: false,
+          attributes: []
+        }
+      ]
+    });
+
+  assert.equal(dataModelCreation.status, 201);
+  const dataModelId = dataModelCreation.body.dataModel.id;
+  const attributeId = dataModelCreation.body.dataModel.attributes[0].id;
+
+  const listResponse = await request(app).get(`/projects/${projectId}/data-models`);
+  assert.equal(listResponse.status, 200);
+  assert.equal(listResponse.body.dataModels.length, 1);
+
+  const updateResponse = await request(app)
+    .put(`/projects/${projectId}/data-models/${dataModelId}`)
+    .send({
+      description: 'Updated profile',
+      attributes: [
+        {
+          id: attributeId,
+          name: 'id',
+          description: 'Unique identifier',
+          type: 'string',
+          constraints: 'required',
+          readOnly: true,
+          encrypted: true,
+          attributes: [
+            {
+              name: 'format',
+              description: 'UUID format',
+              type: 'string',
+              constraints: '',
+              readOnly: true,
+              encrypted: false,
+              attributes: []
+            }
+          ]
+        }
+      ]
+    });
+
+  assert.equal(updateResponse.status, 200);
+  assert.equal(updateResponse.body.dataModel.description, 'Updated profile');
+  assert.equal(updateResponse.body.dataModel.attributes[0].encrypted, true);
+  assert.equal(updateResponse.body.dataModel.attributes[0].attributes.length, 1);
+  const childId = updateResponse.body.dataModel.attributes[0].attributes[0].id;
+
+  const retrieval = await request(app).get(
+    `/projects/${projectId}/data-models/${dataModelId}`
+  );
+  assert.equal(retrieval.status, 200);
+  assert.equal(retrieval.body.dataModel.attributes[0].attributes[0].id, childId);
+
+  const deletion = await request(app).delete(
+    `/projects/${projectId}/data-models/${dataModelId}`
+  );
+  assert.equal(deletion.status, 204);
+
+  const afterDeletion = await request(app).get(`/projects/${projectId}/data-models`);
+  assert.equal(afterDeletion.body.dataModels.length, 0);
 });
 
 test('DELETE /projects/:projectId/systems/:systemId prevents root removal', async () => {

@@ -17,6 +17,24 @@ export type Flow = {
   steps: Step[];
 };
 
+export type DataModelAttribute = {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  constraints: string;
+  readOnly: boolean;
+  encrypted: boolean;
+  attributes: DataModelAttribute[];
+};
+
+export type DataModel = {
+  id: string;
+  name: string;
+  description: string;
+  attributes: DataModelAttribute[];
+};
+
 export type System = {
   id: string;
   name: string;
@@ -34,6 +52,7 @@ export type Project = {
   rootSystemId: string;
   systems: Record<string, System>;
   flows: Record<string, Flow>;
+  dataModels: Record<string, DataModel>;
 };
 
 export type DomainAggregate = {
@@ -46,8 +65,11 @@ type SanitizedEntity<T> = T & { id: string; name: string };
 
 type StepInput = Partial<Step> & { id?: string };
 type FlowInput = Partial<Flow> & { id?: string; steps?: StepInput[] };
+type DataModelAttributeInput = Partial<DataModelAttribute> & { id?: string; attributes?: unknown };
+type DataModelInput = Partial<DataModel> & { id?: string; attributes?: unknown };
 type SystemInput = Partial<System> & { id?: string };
-type ProjectInput = Partial<Project> & { id?: string; systems?: UnknownRecord; flows?: UnknownRecord };
+type ProjectInput =
+  Partial<Project> & { id?: string; systems?: UnknownRecord; flows?: UnknownRecord; dataModels?: UnknownRecord };
 
 type DomainAggregateInput = {
   projects?: UnknownRecord;
@@ -97,6 +119,34 @@ const sanitizeFlow = (raw: FlowInput): Flow => ({
     : []
 });
 
+const sanitizeDataModelAttribute = (raw: DataModelAttributeInput): DataModelAttribute => ({
+  id: ensureString(raw?.id),
+  name: ensureString(raw?.name),
+  description: ensureString(raw?.description, ''),
+  type: ensureString(raw?.type),
+  constraints: ensureString(raw?.constraints, ''),
+  readOnly: ensureBoolean(raw?.readOnly, false),
+  encrypted: ensureBoolean(raw?.encrypted, false),
+  attributes: sanitizeDataModelAttributeList(raw?.attributes)
+});
+
+function sanitizeDataModelAttributeList(raw: unknown): DataModelAttribute[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw
+    .map((value) => sanitizeDataModelAttribute((value ?? {}) as DataModelAttributeInput))
+    .filter((attribute) => Boolean(attribute.id) && Boolean(attribute.name) && Boolean(attribute.type));
+}
+
+const sanitizeDataModel = (raw: DataModelInput): DataModel => ({
+  id: ensureString(raw?.id),
+  name: ensureString(raw?.name),
+  description: ensureString(raw?.description, ''),
+  attributes: sanitizeDataModelAttributeList(raw?.attributes)
+});
+
 const sanitizeSystem = (raw: SystemInput): System => ({
   id: ensureString(raw?.id),
   name: ensureString(raw?.name),
@@ -109,6 +159,7 @@ const sanitizeSystem = (raw: SystemInput): System => ({
 const sanitizeProject = (raw: ProjectInput): Project => {
   const systemsInput = raw?.systems && typeof raw.systems === 'object' ? raw.systems : {};
   const flowsInput = raw?.flows && typeof raw.flows === 'object' ? raw.flows : {};
+  const dataModelsInput = raw?.dataModels && typeof raw.dataModels === 'object' ? raw.dataModels : {};
 
   const systemEntries = Object.entries(systemsInput as Record<string, SystemInput>)
     .map(([id, value]): [string, System] => [id, sanitizeSystem({ id, ...value })])
@@ -124,6 +175,13 @@ const sanitizeProject = (raw: ProjectInput): Project => {
       return Boolean(flow.id) && Boolean(flow.name);
     });
 
+  const dataModelEntries = Object.entries(dataModelsInput as Record<string, DataModelInput>)
+    .map(([id, value]): [string, DataModel] => [id, sanitizeDataModel({ id, ...value })])
+    .filter((entry): entry is [string, DataModel] => {
+      const [, dataModel] = entry;
+      return Boolean(dataModel.id) && Boolean(dataModel.name);
+    });
+
   const rootSystemId = ensureString(raw?.rootSystemId);
 
   return {
@@ -133,7 +191,8 @@ const sanitizeProject = (raw: ProjectInput): Project => {
     tags: ensureStringArray(raw?.tags),
     rootSystemId,
     systems: Object.fromEntries(systemEntries),
-    flows: Object.fromEntries(flowEntries)
+    flows: Object.fromEntries(flowEntries),
+    dataModels: Object.fromEntries(dataModelEntries)
   };
 };
 

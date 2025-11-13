@@ -32,7 +32,12 @@ const createTestQueryClient = () =>
   });
 
 const resetStore = () => {
-  useProjectStore.setState({ selectedProjectId: null, selectedSystemId: null, selectedFlowId: null });
+  useProjectStore.setState({
+    selectedProjectId: null,
+    selectedSystemId: null,
+    selectedFlowId: null,
+    selectedDataModelId: null
+  });
 };
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
@@ -108,7 +113,8 @@ const projectFixture: Project = {
         }
       ]
     }
-  }
+  },
+  dataModels: {}
 };
 
 describe('FlowWorkspace', () => {
@@ -130,7 +136,12 @@ describe('FlowWorkspace', () => {
     const user = userEvent.setup();
     apiMocks.fetchProjectDetails.mockResolvedValue(projectFixture);
     await act(async () => {
-      useProjectStore.setState({ selectedProjectId: 'proj-1', selectedSystemId: null, selectedFlowId: 'flow-1' });
+      useProjectStore.setState({
+        selectedProjectId: 'proj-1',
+        selectedSystemId: null,
+        selectedFlowId: 'flow-1',
+        selectedDataModelId: null
+      });
     });
 
     const queryClient = createTestQueryClient();
@@ -162,7 +173,12 @@ describe('FlowWorkspace', () => {
     const user = userEvent.setup();
     apiMocks.fetchProjectDetails.mockResolvedValue(projectFixture);
     await act(async () => {
-      useProjectStore.setState({ selectedProjectId: 'proj-1', selectedSystemId: null, selectedFlowId: 'flow-1' });
+      useProjectStore.setState({
+        selectedProjectId: 'proj-1',
+        selectedSystemId: null,
+        selectedFlowId: 'flow-1',
+        selectedDataModelId: null
+      });
     });
 
     const queryClient = createTestQueryClient();

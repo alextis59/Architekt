@@ -5,18 +5,23 @@ import {
   createProject,
   createSystem,
   createFlow,
+  createDataModel,
   deleteProject,
   deleteSystem,
   deleteFlow,
+  deleteDataModel,
   getProject,
   getSystem,
   getFlow,
+  getDataModel,
   listProjects,
   listSystems,
   listFlows,
+  listDataModels,
   updateProject,
   updateSystem,
-  updateFlow
+  updateFlow,
+  updateDataModel
 } from './services/projectService.js';
 
 type AppOptions = {
@@ -193,6 +198,55 @@ export const createApp = ({ persistence }: AppOptions) => {
     '/projects/:projectId/flows/:flowId',
     asyncHandler(async (req, res) => {
       await deleteFlow(persistence, req.params.projectId, req.params.flowId);
+      res.status(204).send();
+    })
+  );
+
+  app.get(
+    '/projects/:projectId/data-models',
+    asyncHandler(async (req, res) => {
+      const dataModels = await listDataModels(persistence, req.params.projectId);
+      res.json({ dataModels });
+    })
+  );
+
+  app.post(
+    '/projects/:projectId/data-models',
+    asyncHandler(async (req, res) => {
+      const dataModel = await createDataModel(persistence, req.params.projectId, req.body ?? {});
+      res.status(201).json({ dataModel });
+    })
+  );
+
+  app.get(
+    '/projects/:projectId/data-models/:dataModelId',
+    asyncHandler(async (req, res) => {
+      const dataModel = await getDataModel(
+        persistence,
+        req.params.projectId,
+        req.params.dataModelId
+      );
+      res.json({ dataModel });
+    })
+  );
+
+  app.put(
+    '/projects/:projectId/data-models/:dataModelId',
+    asyncHandler(async (req, res) => {
+      const dataModel = await updateDataModel(
+        persistence,
+        req.params.projectId,
+        req.params.dataModelId,
+        req.body ?? {}
+      );
+      res.json({ dataModel });
+    })
+  );
+
+  app.delete(
+    '/projects/:projectId/data-models/:dataModelId',
+    asyncHandler(async (req, res) => {
+      await deleteDataModel(persistence, req.params.projectId, req.params.dataModelId);
       res.status(204).send();
     })
   );

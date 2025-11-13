@@ -44,7 +44,8 @@ test('persists and loads aggregate data', async () => {
             isRoot: true
           }
         },
-        flows: {}
+        flows: {},
+        dataModels: {}
       }
     }
   };
