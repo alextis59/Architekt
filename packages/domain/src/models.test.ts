@@ -3,7 +3,12 @@ import test from 'node:test';
 import {
   createEmptyDomainAggregate,
   createProjectIndex,
-  validateDomainAggregate
+  validateDomainAggregate,
+  findProjectById,
+  getRootSystem,
+  isValidDomainAggregate,
+  DomainSchemas,
+  default as DomainModels
 } from './models.js';
 
 test('validateDomainAggregate sanitizes invalid structures', () => {
@@ -80,6 +85,73 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
   assert.equal(attribute.attributes[0].id, 'attr-child-2');
 });
 
+test('validateDomainAggregate removes entities missing identifiers', () => {
+  const aggregate = validateDomainAggregate({
+    projects: {
+      'keep-me': {
+        id: 'keep-me',
+        name: 'Retained Project',
+        rootSystemId: 'root',
+        description: null,
+        tags: ['  tagged  ', null],
+        systems: {
+          root: { id: 'root', name: 'Root System', description: null, tags: ['sys'], childIds: ['child'], isRoot: true },
+          '': { name: 'missing id' },
+          child: { id: 'child', name: '', description: '', tags: [], childIds: [], isRoot: false }
+        },
+        flows: {
+          'valid-flow': {
+            id: 'valid-flow',
+            name: 'Valid Flow',
+            description: null,
+            systemScopeIds: [123, 'root'],
+            tags: ['primary', ''],
+            steps: [
+              {
+                id: 'step-1',
+                name: 'Valid Step',
+                description: null,
+                sourceSystemId: 'root',
+                targetSystemId: 'root',
+                tags: [''],
+                alternateFlowIds: ['alt']
+              },
+              { id: 'step-2', name: '', sourceSystemId: 'root', targetSystemId: 'root' }
+            ]
+          },
+          'missing-name': { id: 'missing-name', name: '', description: '', systemScopeIds: [], tags: [], steps: [] }
+        },
+        dataModels: {
+          'valid-model': {
+            id: 'valid-model',
+            name: 'Model',
+            description: null,
+            attributes: [
+              { id: 'attr-keep', name: 'Attribute', type: 'string', description: null, readOnly: true, encrypted: true },
+              { id: 'attr-drop', name: '', type: 'string' }
+            ]
+          },
+          'invalid-model': { id: '', name: 'no id', attributes: [] }
+        }
+      }
+    }
+  });
+
+  const project = aggregate.projects['keep-me'];
+  assert.ok(project);
+  assert.deepEqual(project.tags, ['  tagged  ']);
+  assert.deepEqual(Object.keys(project.systems), ['root']);
+  assert.equal(project.systems.root.description, '');
+  assert.deepEqual(project.systems.root.childIds, ['child']);
+  assert.deepEqual(Object.keys(project.flows), ['valid-flow']);
+  assert.equal(project.flows['valid-flow'].steps.length, 1);
+  assert.equal(project.flows['valid-flow'].steps[0].tags.length, 0);
+  assert.deepEqual(project.flows['valid-flow'].systemScopeIds, ['root']);
+  assert.equal(project.dataModels['valid-model'].attributes.length, 1);
+  assert.equal(project.dataModels['valid-model'].attributes[0].readOnly, true);
+  assert.equal(project.dataModels['valid-model'].attributes[0].encrypted, true);
+});
+
 test('createProjectIndex returns projects list', () => {
   const aggregate = createEmptyDomainAggregate();
   aggregate.projects['proj-1'] = {
@@ -94,4 +166,111 @@ test('createProjectIndex returns projects list', () => {
   };
 
   assert.deepEqual(createProjectIndex(aggregate), [aggregate.projects['proj-1']]);
+});
+
+test('findProjectById returns project or null when missing', () => {
+  const aggregate = createEmptyDomainAggregate();
+  aggregate.projects['existing'] = {
+    id: 'existing',
+    name: 'Existing Project',
+    description: '',
+    tags: [],
+    rootSystemId: 'root-1',
+    systems: {
+      'root-1': {
+        id: 'root-1',
+        name: 'Root',
+        description: '',
+        tags: [],
+        childIds: [],
+        isRoot: true
+      }
+    },
+    flows: {},
+    dataModels: {}
+  };
+
+  assert.equal(findProjectById(aggregate, 'existing')?.id, 'existing');
+  assert.equal(findProjectById(aggregate, 'missing'), null);
+});
+
+test('getRootSystem returns the primary system for the project', () => {
+  const aggregate = createEmptyDomainAggregate();
+  aggregate.projects['proj'] = {
+    id: 'proj',
+    name: 'With Root',
+    description: '',
+    tags: [],
+    rootSystemId: 'root-system',
+    systems: {
+      'root-system': {
+        id: 'root-system',
+        name: 'Root',
+        description: '',
+        tags: [],
+        childIds: [],
+        isRoot: true
+      }
+    },
+    flows: {},
+    dataModels: {}
+  };
+
+  const project = aggregate.projects['proj'];
+  assert.equal(getRootSystem(project)?.id, 'root-system');
+
+  const withoutRoot = { ...project, rootSystemId: 'missing' };
+  assert.equal(getRootSystem(withoutRoot), null);
+});
+
+test('isValidDomainAggregate validates aggregates without throwing', () => {
+  const validAggregate = {
+    projects: {
+      proj: {
+        id: 'proj',
+        name: 'Valid',
+        description: '',
+        tags: [],
+        rootSystemId: 'root',
+        systems: {
+          root: {
+            id: 'root',
+            name: 'Root',
+            description: '',
+            tags: [],
+            childIds: [],
+            isRoot: true
+          }
+        },
+        flows: {},
+        dataModels: {}
+      }
+    }
+  };
+
+  assert.equal(isValidDomainAggregate(validAggregate), true);
+  assert.equal(
+    isValidDomainAggregate({
+      projects: {
+        invalid: { id: 'proj', name: '', rootSystemId: '', systems: {}, flows: {}, dataModels: {} }
+      }
+    }),
+    false
+  );
+  assert.equal(isValidDomainAggregate({ projects: 'not-an-object' }), false);
+  assert.equal(isValidDomainAggregate({}), true);
+});
+
+test('DomainSchemas exposes schema helpers', () => {
+  assert.equal(DomainSchemas.validateDomainAggregate, validateDomainAggregate);
+  assert.equal(DomainSchemas.createEmptyDomainAggregate, createEmptyDomainAggregate);
+});
+
+test('default export mirrors named helpers', () => {
+  assert.equal(DomainModels.validateDomainAggregate, validateDomainAggregate);
+  assert.equal(DomainModels.createEmptyDomainAggregate, createEmptyDomainAggregate);
+  assert.equal(DomainModels.createProjectIndex, createProjectIndex);
+  assert.equal(DomainModels.findProjectById, findProjectById);
+  assert.equal(DomainModels.getRootSystem, getRootSystem);
+  assert.equal(DomainModels.isValidDomainAggregate, isValidDomainAggregate);
 });
