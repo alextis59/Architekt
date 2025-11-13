@@ -1,3 +1,5 @@
+import { getAuthToken, notifyUnauthorized } from '../auth/tokenStore.js';
+
 const DEFAULT_HEADERS: HeadersInit = {
   'Content-Type': 'application/json'
 };
@@ -18,11 +20,14 @@ export const apiRequest = async <TResponse>(
   path: string,
   options: RequestInit = {}
 ): Promise<TResponse> => {
+  const authToken = getAuthToken();
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
       ...DEFAULT_HEADERS,
-      ...(options.headers ?? {})
+      ...(options.headers ?? {}),
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
     }
   });
 
@@ -39,6 +44,10 @@ export const apiRequest = async <TResponse>(
     const error: ApiError = new Error('Request failed');
     error.status = response.status;
     error.payload = payload;
+    if (response.status === 401) {
+      notifyUnauthorized();
+    }
+
     throw error;
   }
 

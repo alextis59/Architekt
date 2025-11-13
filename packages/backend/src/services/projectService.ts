@@ -44,6 +44,17 @@ const cloneAggregate = (aggregate: DomainAggregate): DomainAggregate => ({
   projects: JSON.parse(JSON.stringify(aggregate.projects))
 });
 
+const loadAggregate = async (persistence: PersistenceAdapter, userId: string): Promise<DomainAggregate> =>
+  persistence.load(userId);
+
+const saveAggregate = async (
+  persistence: PersistenceAdapter,
+  userId: string,
+  aggregate: DomainAggregate
+): Promise<void> => {
+  await persistence.save(userId, aggregate);
+};
+
 type CreateProjectInput = {
   name: unknown;
   description?: unknown;
@@ -397,19 +408,20 @@ const validateExistingStepsAgainstScope = (steps: Step[], project: Project, scop
   }
 };
 
-export const listProjects = async (persistence: PersistenceAdapter) => {
-  const aggregate = await persistence.load();
+export const listProjects = async (persistence: PersistenceAdapter, userId: string) => {
+  const aggregate = await loadAggregate(persistence, userId);
   return createProjectIndex(aggregate);
 };
 
-export const getProject = async (persistence: PersistenceAdapter, projectId: string) => {
-  const aggregate = await persistence.load();
+export const getProject = async (persistence: PersistenceAdapter, userId: string, projectId: string) => {
+  const aggregate = await loadAggregate(persistence, userId);
   const project = getProjectOrThrow(aggregate, projectId);
   return project;
 };
 
 export const createProject = async (
   persistence: PersistenceAdapter,
+  userId: string,
   input: CreateProjectInput
 ) => {
   const name = ensureString(input.name);
@@ -420,7 +432,7 @@ export const createProject = async (
   const description = ensureString(input.description);
   const tags = ensureTags(input.tags);
 
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
 
   const projectId = randomUUID();
   const rootSystemId = randomUUID();
@@ -445,17 +457,18 @@ export const createProject = async (
     dataModels: {}
   };
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 
   return aggregate.projects[projectId];
 };
 
 export const updateProject = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   input: UpdateProjectInput
 ) => {
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
 
   const name = ensureString(input.name, project.name);
@@ -466,41 +479,44 @@ export const updateProject = async (
   project.description = description;
   project.tags = tags;
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 
   return project;
 };
 
-export const deleteProject = async (persistence: PersistenceAdapter, projectId: string) => {
-  const aggregate = cloneAggregate(await persistence.load());
+export const deleteProject = async (persistence: PersistenceAdapter, userId: string, projectId: string) => {
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
 
   delete aggregate.projects[project.id];
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 };
 
 export const listSystems = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string
 ): Promise<System[]> => {
-  const aggregate = await persistence.load();
+  const aggregate = await loadAggregate(persistence, userId);
   const project = getProjectOrThrow(aggregate, projectId);
   return Object.values(project.systems);
 };
 
 export const getSystem = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   systemId: string
 ) => {
-  const aggregate = await persistence.load();
+  const aggregate = await loadAggregate(persistence, userId);
   const project = getProjectOrThrow(aggregate, projectId);
   return getSystemOrThrow(project, systemId);
 };
 
 export const createSystem = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   input: CreateSystemInput
 ) => {
@@ -509,7 +525,7 @@ export const createSystem = async (
     throw new BadRequestError('System name is required');
   }
 
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
 
   const parentId = ensureString(input.parentId, project.rootSystemId);
@@ -530,18 +546,19 @@ export const createSystem = async (
 
   parent.childIds = Array.from(new Set([...parent.childIds, systemId]));
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 
   return project.systems[systemId];
 };
 
 export const updateSystem = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   systemId: string,
   input: UpdateSystemInput
 ) => {
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
   const system = getSystemOrThrow(project, systemId);
 
@@ -553,17 +570,18 @@ export const updateSystem = async (
   system.description = description;
   system.tags = tags;
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 
   return system;
 };
 
 export const deleteSystem = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   systemId: string
 ) => {
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
   const system = getSystemOrThrow(project, systemId);
 
@@ -583,7 +601,7 @@ export const deleteSystem = async (
     delete project.systems[id];
   }
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 };
 
 type FlowFilters = {
@@ -593,10 +611,11 @@ type FlowFilters = {
 
 export const listFlows = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   filters: FlowFilters = {}
 ): Promise<Flow[]> => {
-  const aggregate = await persistence.load();
+  const aggregate = await loadAggregate(persistence, userId);
   const project = getProjectOrThrow(aggregate, projectId);
   const flows = Object.values(project.flows);
 
@@ -618,20 +637,22 @@ export const listFlows = async (
 
 export const getFlow = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   flowId: string
 ) => {
-  const aggregate = await persistence.load();
+  const aggregate = await loadAggregate(persistence, userId);
   const project = getProjectOrThrow(aggregate, projectId);
   return getFlowOrThrow(project, flowId);
 };
 
 export const createFlow = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   input: CreateFlowInput
 ) => {
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
 
   const name = ensureString(input.name);
@@ -662,18 +683,19 @@ export const createFlow = async (
     steps
   };
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 
   return project.flows[flowId];
 };
 
 export const updateFlow = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   flowId: string,
   input: UpdateFlowInput
 ) => {
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
   const flow = getFlowOrThrow(project, flowId);
 
@@ -709,17 +731,18 @@ export const updateFlow = async (
   flow.systemScopeIds = systemScopeIds;
   flow.steps = steps;
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 
   return flow;
 };
 
 export const deleteFlow = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   flowId: string
 ) => {
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
   const flow = getFlowOrThrow(project, flowId);
 
@@ -731,30 +754,33 @@ export const deleteFlow = async (
     }
   }
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 };
 
 export const listDataModels = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string
 ): Promise<DataModel[]> => {
-  const aggregate = await persistence.load();
+  const aggregate = await loadAggregate(persistence, userId);
   const project = getProjectOrThrow(aggregate, projectId);
   return Object.values(project.dataModels);
 };
 
 export const getDataModel = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   dataModelId: string
 ) => {
-  const aggregate = await persistence.load();
+  const aggregate = await loadAggregate(persistence, userId);
   const project = getProjectOrThrow(aggregate, projectId);
   return getDataModelOrThrow(project, dataModelId);
 };
 
 export const createDataModel = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   input: CreateDataModelInput
 ) => {
@@ -766,7 +792,7 @@ export const createDataModel = async (
   const description =
     typeof input.description === 'string' ? input.description.trim() : '';
 
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
 
   const dataModelId = randomUUID();
@@ -779,18 +805,19 @@ export const createDataModel = async (
     attributes
   };
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 
   return project.dataModels[dataModelId];
 };
 
 export const updateDataModel = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   dataModelId: string,
   input: UpdateDataModelInput
 ) => {
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
   const dataModel = getDataModelOrThrow(project, dataModelId);
 
@@ -815,21 +842,22 @@ export const updateDataModel = async (
     dataModel.attributes = attributes;
   }
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 
   return dataModel;
 };
 
 export const deleteDataModel = async (
   persistence: PersistenceAdapter,
+  userId: string,
   projectId: string,
   dataModelId: string
 ) => {
-  const aggregate = cloneAggregate(await persistence.load());
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
   const dataModel = getDataModelOrThrow(project, dataModelId);
 
   delete project.dataModels[dataModel.id];
 
-  await persistence.save(aggregate);
+  await saveAggregate(persistence, userId, aggregate);
 };

@@ -10,7 +10,7 @@ type MongoPersistenceOptions = {
 
 type PersistenceDocument = {
   _id: string;
-  aggregate: DomainAggregate;
+  aggregates: Record<string, DomainAggregate>;
 };
 
 export const createMongoPersistence = ({
@@ -50,7 +50,7 @@ export const createMongoPersistence = ({
   };
 
   return {
-    async load() {
+    async load(userId) {
       const col = await getCollection();
       const document = await col.findOne({ _id: 'architekt' });
 
@@ -58,9 +58,15 @@ export const createMongoPersistence = ({
         return createEmptyDomainAggregate();
       }
 
-      return validateDomainAggregate(document.aggregate);
+      const aggregates = document.aggregates ??
+        ('aggregate' in document && document.aggregate
+          ? { 'local-user': validateDomainAggregate((document as { aggregate: DomainAggregate }).aggregate) }
+          : {});
+
+      const aggregate = aggregates[userId];
+      return aggregate ? validateDomainAggregate(aggregate) : createEmptyDomainAggregate();
     },
-    async save(data) {
+    async save(userId, data) {
       const col = await getCollection();
       const aggregate = validateDomainAggregate(data);
 
@@ -68,7 +74,7 @@ export const createMongoPersistence = ({
         { _id: 'architekt' },
         {
           $set: {
-            aggregate
+            [`aggregates.${userId}`]: aggregate
           }
         },
         { upsert: true }

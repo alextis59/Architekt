@@ -1,6 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import type { PersistenceAdapter } from './persistence/index.js';
-import { HttpError } from './httpError.js';
+import { HttpError, UnauthorizedError } from './httpError.js';
 import {
   createProject,
   createSystem,
@@ -23,9 +23,19 @@ import {
   updateFlow,
   updateDataModel
 } from './services/projectService.js';
+import { createAuthMiddleware, type AuthConfig } from './auth.js';
+
+const getAuthenticatedUser = (req: Request) => {
+  if (!req.user) {
+    throw new UnauthorizedError('Authentication required');
+  }
+
+  return req.user;
+};
 
 type AppOptions = {
   persistence: PersistenceAdapter;
+  auth: AuthConfig;
 };
 
 const asyncHandler = (
@@ -60,7 +70,7 @@ const sanitizeFilterValues = (values: string[]): string[] => {
   return [...deduplicated];
 };
 
-export const createApp = ({ persistence }: AppOptions) => {
+export const createApp = ({ persistence, auth }: AppOptions) => {
   const app = express();
   app.use(express.json());
 
@@ -71,10 +81,13 @@ export const createApp = ({ persistence }: AppOptions) => {
     })
   );
 
+  app.use(createAuthMiddleware(auth));
+
   app.get(
     '/projects',
-    asyncHandler(async (_req, res) => {
-      const projects = await listProjects(persistence);
+    asyncHandler(async (req, res) => {
+      const user = getAuthenticatedUser(req);
+      const projects = await listProjects(persistence, user.id);
       res.json({ projects });
     })
   );
@@ -82,7 +95,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.post(
     '/projects',
     asyncHandler(async (req, res) => {
-      const project = await createProject(persistence, req.body ?? {});
+      const user = getAuthenticatedUser(req);
+      const project = await createProject(persistence, user.id, req.body ?? {});
       res.status(201).json({ project });
     })
   );
@@ -90,7 +104,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.get(
     '/projects/:projectId',
     asyncHandler(async (req, res) => {
-      const project = await getProject(persistence, req.params.projectId);
+      const user = getAuthenticatedUser(req);
+      const project = await getProject(persistence, user.id, req.params.projectId);
       res.json({ project });
     })
   );
@@ -98,7 +113,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.put(
     '/projects/:projectId',
     asyncHandler(async (req, res) => {
-      const project = await updateProject(persistence, req.params.projectId, req.body ?? {});
+      const user = getAuthenticatedUser(req);
+      const project = await updateProject(persistence, user.id, req.params.projectId, req.body ?? {});
       res.json({ project });
     })
   );
@@ -106,7 +122,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.delete(
     '/projects/:projectId',
     asyncHandler(async (req, res) => {
-      await deleteProject(persistence, req.params.projectId);
+      const user = getAuthenticatedUser(req);
+      await deleteProject(persistence, user.id, req.params.projectId);
       res.status(204).send();
     })
   );
@@ -114,7 +131,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.get(
     '/projects/:projectId/systems',
     asyncHandler(async (req, res) => {
-      const systems = await listSystems(persistence, req.params.projectId);
+      const user = getAuthenticatedUser(req);
+      const systems = await listSystems(persistence, user.id, req.params.projectId);
       res.json({ systems });
     })
   );
@@ -122,7 +140,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.post(
     '/projects/:projectId/systems',
     asyncHandler(async (req, res) => {
-      const system = await createSystem(persistence, req.params.projectId, req.body ?? {});
+      const user = getAuthenticatedUser(req);
+      const system = await createSystem(persistence, user.id, req.params.projectId, req.body ?? {});
       res.status(201).json({ system });
     })
   );
@@ -130,7 +149,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.get(
     '/projects/:projectId/systems/:systemId',
     asyncHandler(async (req, res) => {
-      const system = await getSystem(persistence, req.params.projectId, req.params.systemId);
+      const user = getAuthenticatedUser(req);
+      const system = await getSystem(persistence, user.id, req.params.projectId, req.params.systemId);
       res.json({ system });
     })
   );
@@ -138,8 +158,10 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.put(
     '/projects/:projectId/systems/:systemId',
     asyncHandler(async (req, res) => {
+      const user = getAuthenticatedUser(req);
       const system = await updateSystem(
         persistence,
+        user.id,
         req.params.projectId,
         req.params.systemId,
         req.body ?? {}
@@ -151,7 +173,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.delete(
     '/projects/:projectId/systems/:systemId',
     asyncHandler(async (req, res) => {
-      await deleteSystem(persistence, req.params.projectId, req.params.systemId);
+      const user = getAuthenticatedUser(req);
+      await deleteSystem(persistence, user.id, req.params.projectId, req.params.systemId);
       res.status(204).send();
     })
   );
@@ -159,10 +182,11 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.get(
     '/projects/:projectId/flows',
     asyncHandler(async (req, res) => {
+      const user = getAuthenticatedUser(req);
       const scopeFilters = sanitizeFilterValues(parseQueryValues(req.query.scope));
       const tagFilters = sanitizeFilterValues(parseQueryValues(req.query.tag));
 
-      const flows = await listFlows(persistence, req.params.projectId, {
+      const flows = await listFlows(persistence, user.id, req.params.projectId, {
         scope: scopeFilters,
         tags: tagFilters
       });
@@ -173,7 +197,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.post(
     '/projects/:projectId/flows',
     asyncHandler(async (req, res) => {
-      const flow = await createFlow(persistence, req.params.projectId, req.body ?? {});
+      const user = getAuthenticatedUser(req);
+      const flow = await createFlow(persistence, user.id, req.params.projectId, req.body ?? {});
       res.status(201).json({ flow });
     })
   );
@@ -181,7 +206,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.get(
     '/projects/:projectId/flows/:flowId',
     asyncHandler(async (req, res) => {
-      const flow = await getFlow(persistence, req.params.projectId, req.params.flowId);
+      const user = getAuthenticatedUser(req);
+      const flow = await getFlow(persistence, user.id, req.params.projectId, req.params.flowId);
       res.json({ flow });
     })
   );
@@ -189,7 +215,14 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.put(
     '/projects/:projectId/flows/:flowId',
     asyncHandler(async (req, res) => {
-      const flow = await updateFlow(persistence, req.params.projectId, req.params.flowId, req.body ?? {});
+      const user = getAuthenticatedUser(req);
+      const flow = await updateFlow(
+        persistence,
+        user.id,
+        req.params.projectId,
+        req.params.flowId,
+        req.body ?? {}
+      );
       res.json({ flow });
     })
   );
@@ -197,7 +230,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.delete(
     '/projects/:projectId/flows/:flowId',
     asyncHandler(async (req, res) => {
-      await deleteFlow(persistence, req.params.projectId, req.params.flowId);
+      const user = getAuthenticatedUser(req);
+      await deleteFlow(persistence, user.id, req.params.projectId, req.params.flowId);
       res.status(204).send();
     })
   );
@@ -205,7 +239,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.get(
     '/projects/:projectId/data-models',
     asyncHandler(async (req, res) => {
-      const dataModels = await listDataModels(persistence, req.params.projectId);
+      const user = getAuthenticatedUser(req);
+      const dataModels = await listDataModels(persistence, user.id, req.params.projectId);
       res.json({ dataModels });
     })
   );
@@ -213,7 +248,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.post(
     '/projects/:projectId/data-models',
     asyncHandler(async (req, res) => {
-      const dataModel = await createDataModel(persistence, req.params.projectId, req.body ?? {});
+      const user = getAuthenticatedUser(req);
+      const dataModel = await createDataModel(persistence, user.id, req.params.projectId, req.body ?? {});
       res.status(201).json({ dataModel });
     })
   );
@@ -221,8 +257,10 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.get(
     '/projects/:projectId/data-models/:dataModelId',
     asyncHandler(async (req, res) => {
+      const user = getAuthenticatedUser(req);
       const dataModel = await getDataModel(
         persistence,
+        user.id,
         req.params.projectId,
         req.params.dataModelId
       );
@@ -233,8 +271,10 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.put(
     '/projects/:projectId/data-models/:dataModelId',
     asyncHandler(async (req, res) => {
+      const user = getAuthenticatedUser(req);
       const dataModel = await updateDataModel(
         persistence,
+        user.id,
         req.params.projectId,
         req.params.dataModelId,
         req.body ?? {}
@@ -246,7 +286,8 @@ export const createApp = ({ persistence }: AppOptions) => {
   app.delete(
     '/projects/:projectId/data-models/:dataModelId',
     asyncHandler(async (req, res) => {
-      await deleteDataModel(persistence, req.params.projectId, req.params.dataModelId);
+      const user = getAuthenticatedUser(req);
+      await deleteDataModel(persistence, user.id, req.params.projectId, req.params.dataModelId);
       res.status(204).send();
     })
   );
