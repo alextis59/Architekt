@@ -56,7 +56,12 @@ const createTestQueryClient = () =>
   });
 
 const resetStore = () => {
-  useProjectStore.setState({ selectedProjectId: null, selectedSystemId: null });
+  useProjectStore.setState({
+    selectedProjectId: null,
+    selectedSystemId: null,
+    selectedDataModelId: null,
+    selectedFlowId: null
+  });
 };
 
 const projectFixture: Project = {
@@ -91,7 +96,8 @@ const projectFixture: Project = {
       isRoot: false
     }
   },
-  flows: {}
+  flows: {},
+  dataModels: {}
 };
 
 const getLatestSystemTreeProps = () =>
@@ -105,7 +111,12 @@ describe('ArchitectureWorkspace', () => {
 
   it('surfaces project loading errors with context', async () => {
     apiMocks.fetchProjectDetails.mockRejectedValue(new Error('Boom'));
-    useProjectStore.setState({ selectedProjectId: 'proj-1', selectedSystemId: null });
+    useProjectStore.setState({
+      selectedProjectId: 'proj-1',
+      selectedSystemId: null,
+      selectedFlowId: null,
+      selectedDataModelId: null
+    });
 
     const queryClient = createTestQueryClient();
 
@@ -125,7 +136,12 @@ describe('ArchitectureWorkspace', () => {
     apiMocks.createSystem.mockResolvedValue(projectFixture.systems['sys-auth']);
     apiMocks.deleteSystem.mockResolvedValue(undefined);
 
-    useProjectStore.setState({ selectedProjectId: 'proj-1', selectedSystemId: null });
+    useProjectStore.setState({
+      selectedProjectId: 'proj-1',
+      selectedSystemId: null,
+      selectedFlowId: null,
+      selectedDataModelId: null
+    });
 
     const queryClient = createTestQueryClient();
 
@@ -156,7 +172,12 @@ describe('ArchitectureWorkspace', () => {
     apiMocks.createSystem.mockResolvedValue(projectFixture.systems['sys-auth']);
     apiMocks.deleteSystem.mockResolvedValue(undefined);
 
-    useProjectStore.setState({ selectedProjectId: 'proj-1', selectedSystemId: 'sys-root' });
+    useProjectStore.setState({
+      selectedProjectId: 'proj-1',
+      selectedSystemId: 'sys-root',
+      selectedFlowId: null,
+      selectedDataModelId: null
+    });
 
     const queryClient = createTestQueryClient();
 
@@ -193,7 +214,12 @@ describe('ArchitectureWorkspace', () => {
     apiMocks.createSystem.mockResolvedValue(projectFixture.systems['sys-auth']);
     apiMocks.deleteSystem.mockResolvedValue(undefined);
 
-    useProjectStore.setState({ selectedProjectId: 'proj-1', selectedSystemId: 'sys-root' });
+    useProjectStore.setState({
+      selectedProjectId: 'proj-1',
+      selectedSystemId: 'sys-root',
+      selectedFlowId: null,
+      selectedDataModelId: null
+    });
 
     const queryClient = createTestQueryClient();
 
@@ -243,7 +269,12 @@ describe('ArchitectureWorkspace', () => {
     });
     apiMocks.deleteSystem.mockResolvedValue(undefined);
 
-    useProjectStore.setState({ selectedProjectId: 'proj-1', selectedSystemId: 'sys-root' });
+    useProjectStore.setState({
+      selectedProjectId: 'proj-1',
+      selectedSystemId: 'sys-root',
+      selectedFlowId: null,
+      selectedDataModelId: null
+    });
 
     const queryClient = createTestQueryClient();
 

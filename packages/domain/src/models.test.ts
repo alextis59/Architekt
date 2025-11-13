@@ -34,6 +34,30 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
               }
             ]
           }
+        },
+        dataModels: {
+          ignored: { id: '', name: '', attributes: [] },
+          'model-1': {
+            id: 'model-1',
+            name: 'Customer',
+            description: null,
+            attributes: [
+              {
+                id: 'attr-1',
+                name: 'Full name',
+                description: null,
+                type: 'string',
+                constraints: '',
+                readOnly: 'no',
+                encrypted: 'yes',
+                attributes: [
+                  { id: 'attr-child', name: 'unused', description: '', type: '' },
+                  { id: 'attr-child-2', name: 'Legal', description: null, type: 'object', attributes: null }
+                ]
+              },
+              { id: 'attr-2', name: '', type: 'string' }
+            ]
+          }
         }
       }
     }
@@ -44,6 +68,16 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
   assert.equal(project.description, '');
   assert.equal(project.systems['root-1'].isRoot, false);
   assert.equal(project.flows['flow-1'].steps[0].alternateFlowIds.length, 0);
+  assert.equal(Object.keys(project.dataModels).length, 1);
+  const model = project.dataModels['model-1'];
+  assert.ok(model);
+  assert.equal(model.description, '');
+  assert.equal(model.attributes.length, 1);
+  const attribute = model.attributes[0];
+  assert.equal(attribute.readOnly, false);
+  assert.equal(attribute.encrypted, false);
+  assert.equal(attribute.attributes.length, 1);
+  assert.equal(attribute.attributes[0].id, 'attr-child-2');
 });
 
 test('createProjectIndex returns projects list', () => {
@@ -55,7 +89,8 @@ test('createProjectIndex returns projects list', () => {
     tags: [],
     rootSystemId: 'sys-1',
     systems: {},
-    flows: {}
+    flows: {},
+    dataModels: {}
   };
 
   assert.deepEqual(createProjectIndex(aggregate), [aggregate.projects['proj-1']]);

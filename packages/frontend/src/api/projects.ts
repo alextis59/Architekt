@@ -1,4 +1,4 @@
-import type { Flow, Project, System } from '@architekt/domain';
+import type { DataModel, Flow, Project, System } from '@architekt/domain';
 import { apiRequest } from './client.js';
 
 export type ProjectSummary = Pick<Project, 'id' | 'name' | 'description' | 'tags' | 'rootSystemId'>;
@@ -140,6 +140,60 @@ const prepareFlowPayload = (input: FlowPayload): FlowPayload => ({
   steps: sanitizeStepPayloads(input.steps)
 });
 
+type DataModelAttributePayload = {
+  id?: string;
+  name: string;
+  description: string;
+  type: string;
+  constraints: string;
+  readOnly: boolean;
+  encrypted: boolean;
+  attributes: DataModelAttributePayload[];
+};
+
+type DataModelPayload = {
+  name: string;
+  description: string;
+  attributes: DataModelAttributePayload[];
+};
+
+const sanitizeAttributePayload = (
+  attribute: DataModelAttributePayload
+): DataModelAttributePayload | null => {
+  const name = attribute.name.trim();
+  const type = attribute.type.trim();
+
+  if (!name || !type) {
+    return null;
+  }
+
+  const cleaned: DataModelAttributePayload = {
+    name,
+    description: attribute.description.trim(),
+    type,
+    constraints: attribute.constraints.trim(),
+    readOnly: Boolean(attribute.readOnly),
+    encrypted: Boolean(attribute.encrypted),
+    attributes: attribute.attributes
+      .map((child) => sanitizeAttributePayload(child))
+      .filter((child): child is DataModelAttributePayload => child !== null)
+  };
+
+  if (attribute.id) {
+    cleaned.id = attribute.id;
+  }
+
+  return cleaned;
+};
+
+const sanitizeDataModelPayload = (input: DataModelPayload): DataModelPayload => ({
+  name: input.name.trim(),
+  description: input.description.trim(),
+  attributes: input.attributes
+    .map((attribute) => sanitizeAttributePayload(attribute))
+    .filter((attribute): attribute is DataModelAttributePayload => attribute !== null)
+});
+
 export const createFlow = async (projectId: string, input: FlowPayload): Promise<Flow> => {
   const payload = prepareFlowPayload(input);
 
@@ -172,5 +226,49 @@ export const deleteFlow = async (projectId: string, flowId: string): Promise<voi
   });
 };
 
-export type { FlowPayload, StepPayload };
+export const createDataModel = async (
+  projectId: string,
+  input: DataModelPayload
+): Promise<DataModel> => {
+  const payload = sanitizeDataModelPayload(input);
+
+  const response = await apiRequest<{ dataModel: DataModel }>(
+    `/projects/${projectId}/data-models`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }
+  );
+
+  return response.dataModel;
+};
+
+export const updateDataModel = async (
+  projectId: string,
+  dataModelId: string,
+  input: DataModelPayload
+): Promise<DataModel> => {
+  const payload = sanitizeDataModelPayload(input);
+
+  const response = await apiRequest<{ dataModel: DataModel }>(
+    `/projects/${projectId}/data-models/${dataModelId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    }
+  );
+
+  return response.dataModel;
+};
+
+export const deleteDataModel = async (
+  projectId: string,
+  dataModelId: string
+): Promise<void> => {
+  await apiRequest(`/projects/${projectId}/data-models/${dataModelId}`, {
+    method: 'DELETE'
+  });
+};
+
+export type { FlowPayload, StepPayload, DataModelPayload, DataModelAttributePayload };
 

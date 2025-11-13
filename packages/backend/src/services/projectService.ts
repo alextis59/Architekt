@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import {
   createProjectIndex,
   findProjectById,
+  type DataModel,
+  type DataModelAttribute,
   type DomainAggregate,
   type Flow,
   type Project,
@@ -34,6 +36,9 @@ const ensureTags = (value: unknown): string[] => {
 
   return [...deduplicated];
 };
+
+const ensureBoolean = (value: unknown, fallback = false): boolean =>
+  typeof value === 'boolean' ? value : fallback;
 
 const cloneAggregate = (aggregate: DomainAggregate): DomainAggregate => ({
   projects: JSON.parse(JSON.stringify(aggregate.projects))
@@ -78,6 +83,27 @@ type UpdateFlowInput = Partial<CreateFlowInput> & {
   steps?: unknown;
 };
 
+type DataModelAttributeInput = {
+  id?: unknown;
+  name: unknown;
+  description?: unknown;
+  type: unknown;
+  constraints?: unknown;
+  readOnly?: unknown;
+  encrypted?: unknown;
+  attributes?: unknown;
+};
+
+type CreateDataModelInput = {
+  name: unknown;
+  description?: unknown;
+  attributes?: unknown;
+};
+
+type UpdateDataModelInput = Partial<CreateDataModelInput> & {
+  attributes?: unknown;
+};
+
 const getProjectOrThrow = (aggregate: DomainAggregate, projectId: string): Project => {
   const project = findProjectById(aggregate, projectId);
 
@@ -106,6 +132,16 @@ const getFlowOrThrow = (project: Project, flowId: string): Flow => {
   }
 
   return flow;
+};
+
+const getDataModelOrThrow = (project: Project, dataModelId: string): DataModel => {
+  const dataModel = project.dataModels[dataModelId];
+
+  if (!dataModel) {
+    throw new NotFoundError(`Data model ${dataModelId} not found in project ${project.id}`);
+  }
+
+  return dataModel;
 };
 
 const collectDescendants = (project: Project, systemId: string): string[] => {
@@ -193,6 +229,95 @@ const ensureAlternateFlows = (flowIds: Set<string>, value: unknown): string[] =>
   }
 
   return ids;
+};
+
+const cloneDataModelAttributes = (attributes: DataModelAttribute[]): DataModelAttribute[] =>
+  attributes.map((attribute) => ({
+    ...attribute,
+    attributes: cloneDataModelAttributes(attribute.attributes)
+  }));
+
+const sanitizeDataModelAttributes = ({
+  rawAttributes,
+  existing
+}: {
+  rawAttributes: unknown;
+  existing?: Map<string, DataModelAttribute>;
+}): DataModelAttribute[] => {
+  if (rawAttributes === undefined) {
+    if (!existing) {
+      return [];
+    }
+
+    return cloneDataModelAttributes(Array.from(existing.values()));
+  }
+
+  if (!Array.isArray(rawAttributes)) {
+    throw new BadRequestError('Data model attributes must be an array');
+  }
+
+  const result: DataModelAttribute[] = [];
+
+  for (const raw of rawAttributes) {
+    if (!raw || typeof raw !== 'object') {
+      throw new BadRequestError('Data model attribute must be an object');
+    }
+
+    const input = raw as DataModelAttributeInput;
+    const providedId = ensureString(input.id);
+    const previous = providedId && existing ? existing.get(providedId) : undefined;
+
+    if (previous && existing) {
+      existing.delete(providedId);
+    }
+
+    const name = ensureString(input.name);
+    if (!name) {
+      throw new BadRequestError('Attribute name is required');
+    }
+
+    const type = ensureString(input.type);
+    if (!type) {
+      throw new BadRequestError('Attribute type is required');
+    }
+
+    const id = previous?.id ?? (providedId || randomUUID());
+
+    const description =
+      typeof input.description === 'string'
+        ? input.description.trim()
+        : previous?.description ?? '';
+
+    const constraints =
+      typeof input.constraints === 'string'
+        ? input.constraints.trim()
+        : previous?.constraints ?? '';
+
+    const readOnly = ensureBoolean(input.readOnly, previous?.readOnly ?? false);
+    const encrypted = ensureBoolean(input.encrypted, previous?.encrypted ?? false);
+
+    const childExisting = previous
+      ? new Map(previous.attributes.map((attribute) => [attribute.id, attribute] as [string, DataModelAttribute]))
+      : undefined;
+
+    const attributes = sanitizeDataModelAttributes({
+      rawAttributes: input.attributes,
+      existing: childExisting
+    });
+
+    result.push({
+      id,
+      name,
+      description,
+      type,
+      constraints,
+      readOnly,
+      encrypted,
+      attributes
+    });
+  }
+
+  return result;
 };
 
 const sanitizeSteps = ({
@@ -316,7 +441,8 @@ export const createProject = async (
         isRoot: true
       }
     },
-    flows: {}
+    flows: {},
+    dataModels: {}
   };
 
   await persistence.save(aggregate);
@@ -604,6 +730,106 @@ export const deleteFlow = async (
       step.alternateFlowIds = step.alternateFlowIds.filter((id) => id !== flowId);
     }
   }
+
+  await persistence.save(aggregate);
+};
+
+export const listDataModels = async (
+  persistence: PersistenceAdapter,
+  projectId: string
+): Promise<DataModel[]> => {
+  const aggregate = await persistence.load();
+  const project = getProjectOrThrow(aggregate, projectId);
+  return Object.values(project.dataModels);
+};
+
+export const getDataModel = async (
+  persistence: PersistenceAdapter,
+  projectId: string,
+  dataModelId: string
+) => {
+  const aggregate = await persistence.load();
+  const project = getProjectOrThrow(aggregate, projectId);
+  return getDataModelOrThrow(project, dataModelId);
+};
+
+export const createDataModel = async (
+  persistence: PersistenceAdapter,
+  projectId: string,
+  input: CreateDataModelInput
+) => {
+  const name = ensureString(input.name);
+  if (!name) {
+    throw new BadRequestError('Data model name is required');
+  }
+
+  const description =
+    typeof input.description === 'string' ? input.description.trim() : '';
+
+  const aggregate = cloneAggregate(await persistence.load());
+  const project = getProjectOrThrow(aggregate, projectId);
+
+  const dataModelId = randomUUID();
+  const attributes = sanitizeDataModelAttributes({ rawAttributes: input.attributes });
+
+  project.dataModels[dataModelId] = {
+    id: dataModelId,
+    name,
+    description,
+    attributes
+  };
+
+  await persistence.save(aggregate);
+
+  return project.dataModels[dataModelId];
+};
+
+export const updateDataModel = async (
+  persistence: PersistenceAdapter,
+  projectId: string,
+  dataModelId: string,
+  input: UpdateDataModelInput
+) => {
+  const aggregate = cloneAggregate(await persistence.load());
+  const project = getProjectOrThrow(aggregate, projectId);
+  const dataModel = getDataModelOrThrow(project, dataModelId);
+
+  const name = ensureString(input.name, dataModel.name);
+  const description =
+    typeof input.description === 'string' ? input.description.trim() : dataModel.description;
+
+  let attributes: DataModelAttribute[] | null = null;
+  if (input.attributes !== undefined) {
+    const existing = new Map(
+      dataModel.attributes.map((attribute) => [attribute.id, attribute] as [string, DataModelAttribute])
+    );
+    attributes = sanitizeDataModelAttributes({
+      rawAttributes: input.attributes,
+      existing
+    });
+  }
+
+  dataModel.name = name;
+  dataModel.description = description;
+  if (attributes !== null) {
+    dataModel.attributes = attributes;
+  }
+
+  await persistence.save(aggregate);
+
+  return dataModel;
+};
+
+export const deleteDataModel = async (
+  persistence: PersistenceAdapter,
+  projectId: string,
+  dataModelId: string
+) => {
+  const aggregate = cloneAggregate(await persistence.load());
+  const project = getProjectOrThrow(aggregate, projectId);
+  const dataModel = getDataModelOrThrow(project, dataModelId);
+
+  delete project.dataModels[dataModel.id];
 
   await persistence.save(aggregate);
 };

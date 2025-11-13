@@ -49,6 +49,25 @@ const project = {
         }
       ]
     }
+  },
+  dataModels: {
+    'model-1': {
+      id: 'model-1',
+      name: 'Customer',
+      description: 'Customer profile',
+      attributes: [
+        {
+          id: 'attr-1',
+          name: 'id',
+          description: 'Primary identifier',
+          type: 'string',
+          constraints: 'required',
+          readOnly: true,
+          encrypted: false,
+          attributes: []
+        }
+      ]
+    }
   }
 };
 
@@ -61,7 +80,10 @@ const apiMocks = vi.hoisted(() => ({
   deleteSystem: vi.fn(),
   createFlow: vi.fn(),
   updateFlow: vi.fn(),
-  deleteFlow: vi.fn()
+  deleteFlow: vi.fn(),
+  createDataModel: vi.fn(),
+  updateDataModel: vi.fn(),
+  deleteDataModel: vi.fn()
 }));
 
 vi.mock('./api/projects', () => apiMocks);
@@ -75,7 +97,10 @@ const {
   deleteSystem: mockDeleteSystem,
   createFlow: mockCreateFlow,
   updateFlow: mockUpdateFlow,
-  deleteFlow: mockDeleteFlow
+  deleteFlow: mockDeleteFlow,
+  createDataModel: mockCreateDataModel,
+  updateDataModel: mockUpdateDataModel,
+  deleteDataModel: mockDeleteDataModel
 } = apiMocks;
 
 const renderWithRouter = (initialEntries: string[]) => {
@@ -90,7 +115,12 @@ const renderWithRouter = (initialEntries: string[]) => {
 };
 
 const resetStore = () => {
-  useProjectStore.setState({ selectedProjectId: null, selectedSystemId: null, selectedFlowId: null });
+  useProjectStore.setState({
+    selectedProjectId: null,
+    selectedSystemId: null,
+    selectedFlowId: null,
+    selectedDataModelId: null
+  });
 };
 
 describe('App', () => {
@@ -112,6 +142,9 @@ describe('App', () => {
     mockCreateFlow.mockResolvedValue({ ...project.flows['flow-1'] });
     mockUpdateFlow.mockResolvedValue({ ...project.flows['flow-1'] });
     mockDeleteFlow.mockResolvedValue(undefined);
+    mockCreateDataModel.mockResolvedValue({ ...project.dataModels['model-1'] });
+    mockUpdateDataModel.mockResolvedValue({ ...project.dataModels['model-1'] });
+    mockDeleteDataModel.mockResolvedValue(undefined);
   });
 
   afterEach(() => {

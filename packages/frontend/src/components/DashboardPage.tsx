@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import ArchitectureWorkspace from './ArchitectureWorkspace.js';
 import FlowWorkspace from './FlowWorkspace.js';
+import DataModelDesigner from './DataModelDesigner.js';
 import ProjectManager from './ProjectManager.js';
 import { selectSelectedProjectId, useProjectStore } from '../store/projectStore.js';
 
@@ -23,6 +24,7 @@ const DashboardPage = () => {
       <ProjectManager />
       <ArchitectureWorkspace />
       <FlowWorkspace />
+      <DataModelDesigner />
     </>
   );
 };
