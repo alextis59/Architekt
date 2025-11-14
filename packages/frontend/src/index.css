@@ -58,6 +58,7 @@ main.app {
   font-size: 0.95rem;
   color: #1e293b;
   font-weight: 600;
+  flex-wrap: wrap;
 }
 
 .auth-identity {
@@ -793,6 +794,91 @@ button.danger:hover:not(:disabled),
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  body {
+    padding: 1.5rem;
+    align-items: flex-start;
+  }
+
+  main.app {
+    padding: 2rem;
+    gap: 2rem;
+  }
+
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .component-designer-body {
+    grid-template-columns: 1fr;
+  }
+
+  .data-model-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .data-model-footer > * {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 1rem;
+  }
+
+  main.app {
+    padding: 1.5rem;
+  }
+
+  .hero {
+    align-items: stretch;
+    text-align: left;
+  }
+
+  .hero .lead {
+    font-size: 1rem;
+  }
+
+  .auth-status {
+    justify-content: flex-start;
+  }
+
+  .panel {
+    padding: 1.25rem;
+  }
+
+  .system-tree {
+    min-height: 320px;
+  }
+}
+
+@media (max-width: 640px) {
+  main.app {
+    border-radius: 22px;
+  }
+
+  .workspace-nav-list {
+    flex-direction: column;
+  }
+
+  .workspace-tab {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .action-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .action-row > * {
+    width: 100%;
+  }
 }
 
 .component-form {
