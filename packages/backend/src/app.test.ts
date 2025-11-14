@@ -23,7 +23,7 @@ const createTestApp = (initialData?: unknown) => {
 test('GET /health responds with ok status', async () => {
   const app = createTestApp();
 
-  const response = await request(app).get('/api/health');
+  const response = await request(app).get('/health');
 
   assert.equal(response.status, 200);
   assert.deepEqual(response.body, { status: 'ok' });
@@ -230,13 +230,13 @@ test('Data model endpoints manage nested attributes', async () => {
   const childId = updateResponse.body.dataModel.attributes[0].attributes[0].id;
 
   const retrieval = await request(app).get(
-    `/projects/${projectId}/data-models/${dataModelId}`
+    `/api/projects/${projectId}/data-models/${dataModelId}`
   );
   assert.equal(retrieval.status, 200);
   assert.equal(retrieval.body.dataModel.attributes[0].attributes[0].id, childId);
 
   const deletion = await request(app).delete(
-    `/projects/${projectId}/data-models/${dataModelId}`
+    `/api/projects/${projectId}/data-models/${dataModelId}`
   );
   assert.equal(deletion.status, 204);
 

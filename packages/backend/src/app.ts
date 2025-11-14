@@ -319,7 +319,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.post(
+  apiRouter.post(
     '/projects/:projectId/components',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
