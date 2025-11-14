@@ -11,6 +11,11 @@ const testAuthConfig = {
   defaultUserName: 'Test User'
 };
 
+const googleAuthConfig = {
+  mode: 'google' as const,
+  clientId: 'test-client-id'
+};
+
 const createTestApp = (initialData?: unknown) => {
   const persistence =
     initialData === undefined
@@ -20,6 +25,11 @@ const createTestApp = (initialData?: unknown) => {
   return createApp({ persistence, auth: testAuthConfig });
 };
 
+const createGoogleTestApp = () => {
+  const persistence = createMemoryPersistence();
+  return createApp({ persistence, auth: googleAuthConfig });
+};
+
 test('GET /health responds with ok status', async () => {
   const app = createTestApp();
 
@@ -27,6 +37,24 @@ test('GET /health responds with ok status', async () => {
 
   assert.equal(response.status, 200);
   assert.deepEqual(response.body, { status: 'ok' });
+});
+
+test('GET /api/auth/config returns local auth mode', async () => {
+  const app = createTestApp();
+
+  const response = await request(app).get('/api/auth/config');
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, { mode: 'local' });
+});
+
+test('GET /api/auth/config returns google auth mode', async () => {
+  const app = createGoogleTestApp();
+
+  const response = await request(app).get('/api/auth/config');
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, { mode: 'google', clientId: googleAuthConfig.clientId });
 });
 
 test('GET /projects returns sanitized projects', async () => {

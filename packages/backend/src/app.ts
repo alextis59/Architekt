@@ -98,6 +98,18 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
   // API routes under /api prefix
   const apiRouter = express.Router();
 
+  apiRouter.get(
+    '/auth/config',
+    asyncHandler(async (_req, res) => {
+      if (auth.mode === 'google') {
+        res.json({ mode: 'google', clientId: auth.clientId });
+        return;
+      }
+
+      res.json({ mode: 'local' });
+    })
+  );
+
   // Apply authentication middleware to all subsequent API routes
   apiRouter.use(createAuthMiddleware(auth));
 

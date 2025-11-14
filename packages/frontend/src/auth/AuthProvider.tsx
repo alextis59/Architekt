@@ -92,10 +92,26 @@ const loadGoogleIdentityScript = () => {
   });
 };
 
-const resolveAuthMode = (): AuthMode => {
-  const raw = (import.meta.env.VITE_AUTH_MODE as string | undefined)?.toLowerCase();
-  return raw === 'google' ? 'google' : 'local';
-};
+type RuntimeAuthConfig = { mode: 'local' } | { mode: 'google'; clientId: string };
+
+const STATIC_AUTH_CONFIG: RuntimeAuthConfig | null = (() => {
+  const rawMode = (import.meta.env.VITE_AUTH_MODE as string | undefined)?.toLowerCase();
+
+  if (rawMode === 'google') {
+    const clientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() ?? '';
+    return clientId ? { mode: 'google', clientId } : null;
+  }
+
+  if (rawMode === 'local') {
+    return { mode: 'local' };
+  }
+
+  if (import.meta.env.MODE === 'test') {
+    return { mode: 'local' };
+  }
+
+  return null;
+})();
 
 const LOCAL_USER_ID = (import.meta.env.VITE_DEFAULT_USER_ID as string | undefined)?.trim() || 'local-user';
 const LOCAL_USER_NAME = (import.meta.env.VITE_DEFAULT_USER_NAME as string | undefined)?.trim() || 'Local Explorer';
@@ -108,13 +124,74 @@ const LOCAL_USER: AuthenticatedUser = {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const mode = resolveAuthMode();
-  const googleClientId = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined)?.trim() ?? '';
-
-  const [user, setUser] = useState<AuthenticatedUser | null>(mode === 'local' ? LOCAL_USER : null);
+  const [mode, setMode] = useState<AuthMode>(STATIC_AUTH_CONFIG?.mode ?? 'local');
+  const [googleClientId, setGoogleClientId] = useState(() =>
+    STATIC_AUTH_CONFIG?.mode === 'google' ? STATIC_AUTH_CONFIG.clientId : ''
+  );
+  const [user, setUser] = useState<AuthenticatedUser | null>(
+    STATIC_AUTH_CONFIG?.mode === 'local' ? LOCAL_USER : null
+  );
   const [error, setError] = useState<string | null>(null);
-  const [isReady, setReady] = useState(mode === 'local');
+  const [isReady, setReady] = useState(STATIC_AUTH_CONFIG?.mode === 'local');
   const googleInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (STATIC_AUTH_CONFIG) {
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const loadAuthConfig = async () => {
+      try {
+        const response = await fetch('/api/auth/config', { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error('Failed to load authentication configuration.');
+        }
+
+        const config = (await response.json()) as RuntimeAuthConfig;
+        if (cancelled) {
+          return;
+        }
+
+        if (config.mode === 'google') {
+          setMode('google');
+          setGoogleClientId(config.clientId);
+          setUser(null);
+          setReady(false);
+          setError(null);
+          googleInitializedRef.current = false;
+        } else {
+          setMode('local');
+          setGoogleClientId('');
+          setUser(LOCAL_USER);
+          setReady(true);
+          setAuthToken(null);
+          writeStoredToken(null);
+          setError(null);
+          googleInitializedRef.current = false;
+        }
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+
+        setMode('google');
+        setGoogleClientId('');
+        setUser(null);
+        setError(err instanceof Error ? err.message : 'Failed to load authentication configuration.');
+        setReady(true);
+      }
+    };
+
+    loadAuthConfig();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, []);
 
   const signOut = useCallback(() => {
     if (mode === 'google') {
@@ -176,7 +253,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const initializeGoogle = async () => {
       if (!googleClientId) {
-        setError('Google client ID is not configured.');
+        setError((previous) => previous ?? 'Google client ID is not configured.');
         setReady(true);
         return;
       }
