@@ -6,22 +6,27 @@ import {
   createSystem,
   createFlow,
   createDataModel,
+  createComponent,
   deleteProject,
   deleteSystem,
   deleteFlow,
   deleteDataModel,
+  deleteComponent,
   getProject,
   getSystem,
   getFlow,
   getDataModel,
+  getComponent,
   listProjects,
   listSystems,
   listFlows,
   listDataModels,
+  listComponents,
   updateProject,
   updateSystem,
   updateFlow,
-  updateDataModel
+  updateDataModel,
+  updateComponent
 } from './services/projectService.js';
 import { createAuthMiddleware, type AuthConfig } from './auth.js';
 
@@ -288,6 +293,62 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
       await deleteDataModel(persistence, user.id, req.params.projectId, req.params.dataModelId);
+      res.status(204).send();
+    })
+  );
+
+  app.get(
+    '/projects/:projectId/components',
+    asyncHandler(async (req, res) => {
+      const user = getAuthenticatedUser(req);
+      const components = await listComponents(persistence, user.id, req.params.projectId);
+      res.json({ components });
+    })
+  );
+
+  app.post(
+    '/projects/:projectId/components',
+    asyncHandler(async (req, res) => {
+      const user = getAuthenticatedUser(req);
+      const component = await createComponent(persistence, user.id, req.params.projectId, req.body ?? {});
+      res.status(201).json({ component });
+    })
+  );
+
+  app.get(
+    '/projects/:projectId/components/:componentId',
+    asyncHandler(async (req, res) => {
+      const user = getAuthenticatedUser(req);
+      const component = await getComponent(
+        persistence,
+        user.id,
+        req.params.projectId,
+        req.params.componentId
+      );
+      res.json({ component });
+    })
+  );
+
+  app.put(
+    '/projects/:projectId/components/:componentId',
+    asyncHandler(async (req, res) => {
+      const user = getAuthenticatedUser(req);
+      const component = await updateComponent(
+        persistence,
+        user.id,
+        req.params.projectId,
+        req.params.componentId,
+        req.body ?? {}
+      );
+      res.json({ component });
+    })
+  );
+
+  app.delete(
+    '/projects/:projectId/components/:componentId',
+    asyncHandler(async (req, res) => {
+      const user = getAuthenticatedUser(req);
+      await deleteComponent(persistence, user.id, req.params.projectId, req.params.componentId);
       res.status(204).send();
     })
   );

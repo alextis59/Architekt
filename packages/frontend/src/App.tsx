@@ -71,7 +71,8 @@ const AppRoutes = () => {
         selectedProjectId: null,
         selectedSystemId: null,
         selectedFlowId: null,
-        selectedDataModelId: null
+        selectedDataModelId: null,
+        selectedComponentId: null
       });
       previousUserId.current = currentId;
     }

@@ -68,6 +68,27 @@ const project = {
         }
       ]
     }
+  },
+  components: {
+    'component-1': {
+      id: 'component-1',
+      name: 'Customer API',
+      description: 'Serves customer data',
+      entryPoints: [
+        {
+          id: 'entry-1',
+          name: 'Get customer',
+          description: 'Fetch a customer record',
+          type: 'http',
+          protocol: 'HTTP',
+          method: 'GET',
+          path: '/customers/:id',
+          target: '',
+          requestModelIds: ['model-1'],
+          responseModelIds: ['model-1']
+        }
+      ]
+    }
   }
 };
 
@@ -83,7 +104,10 @@ const apiMocks = vi.hoisted(() => ({
   deleteFlow: vi.fn(),
   createDataModel: vi.fn(),
   updateDataModel: vi.fn(),
-  deleteDataModel: vi.fn()
+  deleteDataModel: vi.fn(),
+  createComponent: vi.fn(),
+  updateComponent: vi.fn(),
+  deleteComponent: vi.fn()
 }));
 
 vi.mock('./api/projects', () => apiMocks);
@@ -100,7 +124,10 @@ const {
   deleteFlow: mockDeleteFlow,
   createDataModel: mockCreateDataModel,
   updateDataModel: mockUpdateDataModel,
-  deleteDataModel: mockDeleteDataModel
+  deleteDataModel: mockDeleteDataModel,
+  createComponent: mockCreateComponent,
+  updateComponent: mockUpdateComponent,
+  deleteComponent: mockDeleteComponent
 } = apiMocks;
 
 const renderWithRouter = (initialEntries: string[]) => {
@@ -119,7 +146,8 @@ const resetStore = () => {
     selectedProjectId: null,
     selectedSystemId: null,
     selectedFlowId: null,
-    selectedDataModelId: null
+    selectedDataModelId: null,
+    selectedComponentId: null
   });
 };
 
@@ -145,6 +173,9 @@ describe('App', () => {
     mockCreateDataModel.mockResolvedValue({ ...project.dataModels['model-1'] });
     mockUpdateDataModel.mockResolvedValue({ ...project.dataModels['model-1'] });
     mockDeleteDataModel.mockResolvedValue(undefined);
+    mockCreateComponent.mockResolvedValue({ ...project.components['component-1'] });
+    mockUpdateComponent.mockResolvedValue({ ...project.components['component-1'] });
+    mockDeleteComponent.mockResolvedValue(undefined);
   });
 
   afterEach(() => {

@@ -49,7 +49,8 @@ test('GET /projects returns sanitized projects', async () => {
           }
         },
         flows: {},
-        dataModels: {}
+        dataModels: {},
+        components: {}
       }
     }
   };
@@ -79,6 +80,7 @@ test('POST /projects creates a project with root system', async () => {
   assert.equal(root.name, 'Alpha');
   assert.equal(root.isRoot, true);
   assert.deepEqual(project.dataModels, {});
+  assert.deepEqual(project.components, {});
 });
 
 test('PUT /projects/:projectId updates project metadata', async () => {
@@ -240,6 +242,93 @@ test('Data model endpoints manage nested attributes', async () => {
 
   const afterDeletion = await request(app).get(`/projects/${projectId}/data-models`);
   assert.equal(afterDeletion.body.dataModels.length, 0);
+});
+
+test('Component endpoints manage entry points with data model references', async () => {
+  const app = createTestApp();
+
+  const creation = await request(app).post('/projects').send({ name: 'Interfaces' });
+  const projectId = creation.body.project.id;
+
+  const dataModelResponse = await request(app)
+    .post(`/projects/${projectId}/data-models`)
+    .send({
+      name: 'Customer',
+      description: '',
+      attributes: []
+    });
+
+  const dataModelId = dataModelResponse.body.dataModel.id;
+
+  const componentCreation = await request(app)
+    .post(`/projects/${projectId}/components`)
+    .send({
+      name: 'Customer API',
+      description: 'Handles customer interactions',
+      entryPoints: [
+        {
+          name: 'Get customer',
+          description: 'Retrieve a customer record',
+          type: 'http',
+          protocol: 'HTTP',
+          method: 'GET',
+          path: '/customers/:id',
+          target: '',
+          requestModelIds: [dataModelId],
+          responseModelIds: [dataModelId]
+        }
+      ]
+    });
+
+  assert.equal(componentCreation.status, 201);
+  const componentId = componentCreation.body.component.id;
+  const entryPointId = componentCreation.body.component.entryPoints[0].id;
+
+  const listResponse = await request(app).get(`/projects/${projectId}/components`);
+  assert.equal(listResponse.status, 200);
+  assert.equal(listResponse.body.components.length, 1);
+
+  const updateResponse = await request(app)
+    .put(`/projects/${projectId}/components/${componentId}`)
+    .send({
+      description: 'Updated interactions',
+      entryPoints: [
+        {
+          id: entryPointId,
+          name: 'Get customer',
+          description: 'Retrieve a customer record',
+          type: 'http',
+          protocol: 'HTTP',
+          method: 'GET',
+          path: '/customers/:id',
+          target: '',
+          requestModelIds: [dataModelId],
+          responseModelIds: [dataModelId]
+        },
+        {
+          name: 'Customer events',
+          description: 'Publish customer updates',
+          type: 'queue',
+          protocol: 'AMQP',
+          method: '',
+          path: 'customers.events',
+          target: 'broker',
+          requestModelIds: [dataModelId],
+          responseModelIds: []
+        }
+      ]
+    });
+
+  assert.equal(updateResponse.status, 200);
+  assert.equal(updateResponse.body.component.description, 'Updated interactions');
+  assert.equal(updateResponse.body.component.entryPoints.length, 2);
+
+  const deletion = await request(app).delete(`/projects/${projectId}/components/${componentId}`);
+  assert.equal(deletion.status, 204);
+
+  const afterDeletion = await request(app).get(`/projects/${projectId}/components`);
+  assert.equal(afterDeletion.status, 200);
+  assert.equal(afterDeletion.body.components.length, 0);
 });
 
 test('DELETE /projects/:projectId/systems/:systemId prevents root removal', async () => {
