@@ -360,7 +360,7 @@ const ComponentDesigner = () => {
             {components.length === 0 ? (
               <p className="status">Create your first component to get started.</p>
             ) : (
-              <ul className="component-list" role="list">
+              <ul className="component-list">
                 {components.map((component) => (
                   <li key={component.id}>
                     <button
