@@ -42,7 +42,6 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          credentials_json: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
       - uses: google-github-actions/setup-gcloud@v2
       - name: Configure Artifact Registry authentication
         run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
