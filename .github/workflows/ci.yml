@@ -62,4 +62,8 @@ jobs:
             --image="${{ steps.build-image.outputs.image }}" \
             --platform=managed \
             --allow-unauthenticated \
+            --set-env-vars="AUTH_MODE=google"
+            --set-env-vars="GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
+            --set-env-vars="PERSISTENCE_DRIVER=mongo"
+            --set-env-vars="MONGO_URI=${{ secrets.MONGO_URI }}" \
             --quiet

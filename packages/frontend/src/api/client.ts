@@ -4,7 +4,7 @@ const DEFAULT_HEADERS: HeadersInit = {
   'Content-Type': 'application/json'
 };
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:4000';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api';
 
 const isJsonResponse = (response: Response) => {
   const contentType = response.headers.get('content-type');

@@ -81,12 +81,13 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
   const app = express();
   app.use(express.json());
 
-  // Serve static frontend files
+  // Serve static frontend files (public - allows frontend to load and show Google Sign-In)
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
   const frontendDistPath = path.join(__dirname, '..', '..', 'frontend', 'dist');
   app.use(express.static(frontendDistPath));
 
+  // Health check endpoint (public)
   app.get(
     '/health',
     asyncHandler(async (_req, res) => {
@@ -94,9 +95,13 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.use(createAuthMiddleware(auth));
+  // API routes under /api prefix
+  const apiRouter = express.Router();
 
-  app.get(
+  // Apply authentication middleware to all subsequent API routes
+  apiRouter.use(createAuthMiddleware(auth));
+
+  apiRouter.get(
     '/projects',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -105,7 +110,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.post(
+  apiRouter.post(
     '/projects',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -114,7 +119,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.get(
+  apiRouter.get(
     '/projects/:projectId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -123,7 +128,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.put(
+  apiRouter.put(
     '/projects/:projectId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -132,7 +137,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.delete(
+  apiRouter.delete(
     '/projects/:projectId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -141,7 +146,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.get(
+  apiRouter.get(
     '/projects/:projectId/systems',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -150,7 +155,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.post(
+  apiRouter.post(
     '/projects/:projectId/systems',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -159,7 +164,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.get(
+  apiRouter.get(
     '/projects/:projectId/systems/:systemId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -168,7 +173,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.put(
+  apiRouter.put(
     '/projects/:projectId/systems/:systemId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -183,7 +188,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.delete(
+  apiRouter.delete(
     '/projects/:projectId/systems/:systemId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -192,7 +197,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.get(
+  apiRouter.get(
     '/projects/:projectId/flows',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -207,7 +212,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.post(
+  apiRouter.post(
     '/projects/:projectId/flows',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -216,7 +221,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.get(
+  apiRouter.get(
     '/projects/:projectId/flows/:flowId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -225,7 +230,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.put(
+  apiRouter.put(
     '/projects/:projectId/flows/:flowId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -240,7 +245,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.delete(
+  apiRouter.delete(
     '/projects/:projectId/flows/:flowId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -249,7 +254,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.get(
+  apiRouter.get(
     '/projects/:projectId/data-models',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -258,7 +263,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.post(
+  apiRouter.post(
     '/projects/:projectId/data-models',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -267,7 +272,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.get(
+  apiRouter.get(
     '/projects/:projectId/data-models/:dataModelId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -281,7 +286,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.put(
+  apiRouter.put(
     '/projects/:projectId/data-models/:dataModelId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -296,7 +301,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.delete(
+  apiRouter.delete(
     '/projects/:projectId/data-models/:dataModelId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -305,7 +310,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.get(
+  apiRouter.get(
     '/projects/:projectId/components',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -323,7 +328,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.get(
+  apiRouter.get(
     '/projects/:projectId/components/:componentId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -337,7 +342,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.put(
+  apiRouter.put(
     '/projects/:projectId/components/:componentId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -352,7 +357,7 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  app.delete(
+  apiRouter.delete(
     '/projects/:projectId/components/:componentId',
     asyncHandler(async (req, res) => {
       const user = getAuthenticatedUser(req);
@@ -361,13 +366,9 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     })
   );
 
-  // Catch-all route for SPA routing - serves index.html for any unmatched routes
-  app.get('*', (_req, res) => {
-    res.sendFile(path.join(frontendDistPath, 'index.html'));
-  });
-
+  // Error handler for API routes
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  apiRouter.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (error instanceof HttpError) {
       res.status(error.status).json({ message: error.message });
       return;
@@ -376,6 +377,14 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
     // eslint-disable-next-line no-console
     console.error('Unexpected error', error);
     res.status(500).json({ message: 'Internal Server Error' });
+  });
+
+  // Mount API router at /api
+  app.use('/api', apiRouter);
+
+  // Catch-all route for SPA routing - serves index.html for any unmatched routes
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
   });
 
   return app;
