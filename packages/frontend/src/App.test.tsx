@@ -184,17 +184,53 @@ describe('App', () => {
     resetStore();
   });
 
-  it('renders the architecture explorer workspace', async () => {
+  it('shows the project manager tab by default when viewing projects index', async () => {
     renderWithRouter(['/projects']);
 
     expect(screen.getByRole('heading', { level: 1, name: /Architekt/i })).toBeInTheDocument();
+
+    const tablist = await screen.findByRole('tablist', { name: /Workspace tools/i });
+    const projectsTab = within(tablist).getByRole('tab', { name: /Projects/i });
+    expect(projectsTab).toHaveAttribute('aria-selected', 'true');
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /^Projects$/i })).toBeInTheDocument();
+    });
+
+    expect(await screen.findByRole('button', { name: /Demo Project/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: /Architecture explorer/i })).not.toBeInTheDocument();
+  });
+
+  it('switches between workspace tools when selecting tabs', async () => {
+    renderWithRouter(['/projects']);
+
+    const tablist = await screen.findByRole('tablist', { name: /Workspace tools/i });
+    const architectureTab = within(tablist).getByRole('tab', { name: /Architecture/i });
+
+    await userEvent.click(architectureTab);
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: /Architecture explorer/i })).toBeInTheDocument();
     });
 
-    expect(await screen.findByRole('button', { name: /Demo Project/i })).toBeInTheDocument();
-    expect(screen.getByText(/visualize hierarchies/i)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: /^Projects$/i })).not.toBeInTheDocument();
+
+    const flowTab = within(tablist).getByRole('tab', { name: /Flows/i });
+
+    await userEvent.click(flowTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Flow designer/i })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole('heading', { level: 2, name: /Architecture explorer/i })).not.toBeInTheDocument();
+
+    const componentsTab = within(tablist).getByRole('tab', { name: /Components/i });
+    await userEvent.click(componentsTab);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Component designer/i })).toBeInTheDocument();
+    });
   });
 
   it('navigates to a project specific route when a project is selected', async () => {
@@ -206,10 +242,22 @@ describe('App', () => {
     await waitFor(() => {
       expect(history.location.pathname).toBe('/projects/proj-1');
     });
+
+    const tablist = await screen.findByRole('tablist', { name: /Workspace tools/i });
+    const architectureTab = within(tablist).getByRole('tab', { name: /Architecture/i });
+    expect(architectureTab).toHaveAttribute('aria-selected', 'true');
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Architecture explorer/i })).toBeInTheDocument();
+    });
   });
 
   it('loads project data when the URL already targets a project', async () => {
     renderWithRouter(['/projects/proj-1']);
+
+    const tablist = await screen.findByRole('tablist', { name: /Workspace tools/i });
+    const architectureTab = within(tablist).getByRole('tab', { name: /Architecture/i });
+    expect(architectureTab).toHaveAttribute('aria-selected', 'true');
 
     const detailsHeading = await screen.findByRole('heading', { level: 3, name: /Demo Platform/i });
     const detailsPanel = detailsHeading.closest('.system-details-panel');
