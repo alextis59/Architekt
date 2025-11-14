@@ -1,4 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { PersistenceAdapter } from './persistence/index.js';
 import { HttpError, UnauthorizedError } from './httpError.js';
 import {
@@ -78,6 +80,12 @@ const sanitizeFilterValues = (values: string[]): string[] => {
 export const createApp = ({ persistence, auth }: AppOptions) => {
   const app = express();
   app.use(express.json());
+
+  // Serve static frontend files
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const frontendDistPath = path.join(__dirname, '..', '..', 'frontend', 'dist');
+  app.use(express.static(frontendDistPath));
 
   app.get(
     '/health',
@@ -352,6 +360,11 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
       res.status(204).send();
     })
   );
+
+  // Catch-all route for SPA routing - serves index.html for any unmatched routes
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
