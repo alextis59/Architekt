@@ -63,6 +63,29 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
               { id: 'attr-2', name: '', type: 'string' }
             ]
           }
+        },
+        components: {
+          ignored: { id: '', name: '', entryPoints: [] },
+          'component-1': {
+            id: 'component-1',
+            name: 'Customer API',
+            description: null,
+            entryPoints: [
+              {
+                id: 'ep-1',
+                name: 'Get customer',
+                description: null,
+                type: 'http',
+                protocol: 'HTTP',
+                method: 'GET',
+                path: '/customers/:id',
+                target: '',
+                requestModelIds: ['model-1', ''],
+                responseModelIds: ['model-1']
+              },
+              { id: 'ep-2', name: '', type: 'queue', protocol: 'AMQP', path: 'queue' }
+            ]
+          }
         }
       }
     }
@@ -83,6 +106,14 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
   assert.equal(attribute.encrypted, false);
   assert.equal(attribute.attributes.length, 1);
   assert.equal(attribute.attributes[0].id, 'attr-child-2');
+  assert.equal(Object.keys(project.components).length, 1);
+  const component = project.components['component-1'];
+  assert.ok(component);
+  assert.equal(component.description, '');
+  assert.equal(component.entryPoints.length, 1);
+  const entryPoint = component.entryPoints[0];
+  assert.equal(entryPoint.protocol, 'HTTP');
+  assert.deepEqual(entryPoint.requestModelIds, ['model-1']);
 });
 
 test('validateDomainAggregate removes entities missing identifiers', () => {
@@ -132,6 +163,29 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
             ]
           },
           'invalid-model': { id: '', name: 'no id', attributes: [] }
+        },
+        components: {
+          'valid-component': {
+            id: 'valid-component',
+            name: 'Orders API',
+            description: null,
+            entryPoints: [
+              {
+                id: 'ep-keep',
+                name: 'List orders',
+                description: null,
+                type: 'http',
+                protocol: 'HTTP',
+                method: 'GET',
+                path: '/orders',
+                target: '',
+                requestModelIds: ['valid-model'],
+                responseModelIds: ['valid-model']
+              },
+              { id: 'ep-drop', name: '', type: 'http', protocol: 'HTTP' }
+            ]
+          },
+          'invalid-component': { id: '', name: 'Unnamed', entryPoints: [] }
         }
       }
     }
@@ -150,6 +204,9 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
   assert.equal(project.dataModels['valid-model'].attributes.length, 1);
   assert.equal(project.dataModels['valid-model'].attributes[0].readOnly, true);
   assert.equal(project.dataModels['valid-model'].attributes[0].encrypted, true);
+  assert.deepEqual(Object.keys(project.components), ['valid-component']);
+  assert.equal(project.components['valid-component'].entryPoints.length, 1);
+  assert.deepEqual(project.components['valid-component'].entryPoints[0].requestModelIds, ['valid-model']);
 });
 
 test('createProjectIndex returns projects list', () => {
@@ -162,7 +219,8 @@ test('createProjectIndex returns projects list', () => {
     rootSystemId: 'sys-1',
     systems: {},
     flows: {},
-    dataModels: {}
+    dataModels: {},
+    components: {}
   };
 
   assert.deepEqual(createProjectIndex(aggregate), [aggregate.projects['proj-1']]);
@@ -187,7 +245,8 @@ test('findProjectById returns project or null when missing', () => {
       }
     },
     flows: {},
-    dataModels: {}
+    dataModels: {},
+    components: {}
   };
 
   assert.equal(findProjectById(aggregate, 'existing')?.id, 'existing');
@@ -213,7 +272,8 @@ test('getRootSystem returns the primary system for the project', () => {
       }
     },
     flows: {},
-    dataModels: {}
+    dataModels: {},
+    components: {}
   };
 
   const project = aggregate.projects['proj'];
@@ -243,7 +303,8 @@ test('isValidDomainAggregate validates aggregates without throwing', () => {
           }
         },
         flows: {},
-        dataModels: {}
+        dataModels: {},
+        components: {}
       }
     }
   };
@@ -252,7 +313,15 @@ test('isValidDomainAggregate validates aggregates without throwing', () => {
   assert.equal(
     isValidDomainAggregate({
       projects: {
-        invalid: { id: 'proj', name: '', rootSystemId: '', systems: {}, flows: {}, dataModels: {} }
+        invalid: {
+          id: 'proj',
+          name: '',
+          rootSystemId: '',
+          systems: {},
+          flows: {},
+          dataModels: {},
+          components: {}
+        }
       }
     }),
     false

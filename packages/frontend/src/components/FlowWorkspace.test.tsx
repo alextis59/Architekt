@@ -36,7 +36,8 @@ const resetStore = () => {
     selectedProjectId: null,
     selectedSystemId: null,
     selectedFlowId: null,
-    selectedDataModelId: null
+    selectedDataModelId: null,
+    selectedComponentId: null
   });
 };
 
@@ -114,7 +115,8 @@ const projectFixture: Project = {
       ]
     }
   },
-  dataModels: {}
+  dataModels: {},
+  components: {}
 };
 
 describe('FlowWorkspace', () => {
@@ -140,7 +142,8 @@ describe('FlowWorkspace', () => {
         selectedProjectId: 'proj-1',
         selectedSystemId: null,
         selectedFlowId: 'flow-1',
-        selectedDataModelId: null
+        selectedDataModelId: null,
+        selectedComponentId: null
       });
     });
 
@@ -177,7 +180,8 @@ describe('FlowWorkspace', () => {
         selectedProjectId: 'proj-1',
         selectedSystemId: null,
         selectedFlowId: 'flow-1',
-        selectedDataModelId: null
+        selectedDataModelId: null,
+        selectedComponentId: null
       });
     });
 

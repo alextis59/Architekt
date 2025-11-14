@@ -5,10 +5,12 @@ type ProjectState = {
   selectedSystemId: string | null;
   selectedFlowId: string | null;
   selectedDataModelId: string | null;
+  selectedComponentId: string | null;
   selectProject: (projectId: string | null) => void;
   selectSystem: (systemId: string | null) => void;
   selectFlow: (flowId: string | null) => void;
   selectDataModel: (dataModelId: string | null) => void;
+  selectComponent: (componentId: string | null) => void;
 };
 
 export const useProjectStore = create<ProjectState>((set) => ({
@@ -16,12 +18,14 @@ export const useProjectStore = create<ProjectState>((set) => ({
   selectedSystemId: null,
   selectedFlowId: null,
   selectedDataModelId: null,
+  selectedComponentId: null,
   selectProject: (projectId) =>
     set(() => ({
       selectedProjectId: projectId,
       selectedSystemId: null,
       selectedFlowId: null,
-      selectedDataModelId: null
+      selectedDataModelId: null,
+      selectedComponentId: null
     })),
   selectSystem: (systemId) =>
     set((state) => ({
@@ -37,6 +41,11 @@ export const useProjectStore = create<ProjectState>((set) => ({
     set((state) => ({
       ...state,
       selectedDataModelId: dataModelId
+    })),
+  selectComponent: (componentId) =>
+    set((state) => ({
+      ...state,
+      selectedComponentId: componentId
     }))
 }));
 
@@ -44,4 +53,5 @@ export const selectSelectedProjectId = (state: ProjectState) => state.selectedPr
 export const selectSelectedSystemId = (state: ProjectState) => state.selectedSystemId;
 export const selectSelectedFlowId = (state: ProjectState) => state.selectedFlowId;
 export const selectSelectedDataModelId = (state: ProjectState) => state.selectedDataModelId;
+export const selectSelectedComponentId = (state: ProjectState) => state.selectedComponentId;
 

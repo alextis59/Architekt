@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import {
   createProjectIndex,
   findProjectById,
+  type Component,
+  type ComponentEntryPoint,
   type DataModel,
   type DataModelAttribute,
   type DomainAggregate,
@@ -115,6 +117,29 @@ type UpdateDataModelInput = Partial<CreateDataModelInput> & {
   attributes?: unknown;
 };
 
+type ComponentEntryPointInput = {
+  id?: unknown;
+  name: unknown;
+  description?: unknown;
+  type?: unknown;
+  protocol?: unknown;
+  method?: unknown;
+  path?: unknown;
+  target?: unknown;
+  requestModelIds?: unknown;
+  responseModelIds?: unknown;
+};
+
+type CreateComponentInput = {
+  name: unknown;
+  description?: unknown;
+  entryPoints?: unknown;
+};
+
+type UpdateComponentInput = Partial<CreateComponentInput> & {
+  entryPoints?: unknown;
+};
+
 const getProjectOrThrow = (aggregate: DomainAggregate, projectId: string): Project => {
   const project = findProjectById(aggregate, projectId);
 
@@ -153,6 +178,16 @@ const getDataModelOrThrow = (project: Project, dataModelId: string): DataModel =
   }
 
   return dataModel;
+};
+
+const getComponentOrThrow = (project: Project, componentId: string): Component => {
+  const component = project.components[componentId];
+
+  if (!component) {
+    throw new NotFoundError(`Component ${componentId} not found in project ${project.id}`);
+  }
+
+  return component;
 };
 
 const collectDescendants = (project: Project, systemId: string): string[] => {
@@ -248,6 +283,13 @@ const cloneDataModelAttributes = (attributes: DataModelAttribute[]): DataModelAt
     attributes: cloneDataModelAttributes(attribute.attributes)
   }));
 
+const cloneComponentEntryPoints = (entryPoints: ComponentEntryPoint[]): ComponentEntryPoint[] =>
+  entryPoints.map((entryPoint) => ({
+    ...entryPoint,
+    requestModelIds: [...entryPoint.requestModelIds],
+    responseModelIds: [...entryPoint.responseModelIds]
+  }));
+
 const sanitizeDataModelAttributes = ({
   rawAttributes,
   existing
@@ -329,6 +371,106 @@ const sanitizeDataModelAttributes = ({
   }
 
   return result;
+};
+
+const sanitizeComponentEntryPoints = ({
+  rawEntryPoints,
+  existing
+}: {
+  rawEntryPoints: unknown;
+  existing?: Map<string, ComponentEntryPoint>;
+}): ComponentEntryPoint[] => {
+  if (rawEntryPoints === undefined) {
+    if (!existing) {
+      return [];
+    }
+
+    return cloneComponentEntryPoints(Array.from(existing.values()));
+  }
+
+  if (!Array.isArray(rawEntryPoints)) {
+    throw new BadRequestError('Component entry points must be an array');
+  }
+
+  const result: ComponentEntryPoint[] = [];
+
+  for (const raw of rawEntryPoints) {
+    if (!raw || typeof raw !== 'object') {
+      throw new BadRequestError('Component entry point must be an object');
+    }
+
+    const input = raw as ComponentEntryPointInput;
+    const providedId = ensureString(input.id);
+    const previous = providedId && existing ? existing.get(providedId) : undefined;
+
+    if (previous && existing) {
+      existing.delete(providedId);
+    }
+
+    const name = ensureString(input.name);
+    if (!name) {
+      throw new BadRequestError('Entry point name is required');
+    }
+
+    const type = ensureString(input.type);
+    if (!type) {
+      throw new BadRequestError('Entry point type is required');
+    }
+
+    const id = previous?.id ?? (providedId || randomUUID());
+    const description =
+      typeof input.description === 'string' ? input.description.trim() : previous?.description ?? '';
+    const protocol =
+      typeof input.protocol === 'string' ? input.protocol.trim() : previous?.protocol ?? '';
+    const method = typeof input.method === 'string' ? input.method.trim() : previous?.method ?? '';
+    const path = typeof input.path === 'string' ? input.path.trim() : previous?.path ?? '';
+    const target = typeof input.target === 'string' ? input.target.trim() : previous?.target ?? '';
+
+    const requestModelIds =
+      input.requestModelIds !== undefined
+        ? ensureUniqueStrings(input.requestModelIds)
+        : previous?.requestModelIds ?? [];
+
+    const responseModelIds =
+      input.responseModelIds !== undefined
+        ? ensureUniqueStrings(input.responseModelIds)
+        : previous?.responseModelIds ?? [];
+
+    result.push({
+      id,
+      name,
+      description,
+      type,
+      protocol,
+      method,
+      path,
+      target,
+      requestModelIds,
+      responseModelIds
+    });
+  }
+
+  return result;
+};
+
+const validateComponentEntryPointModels = (project: Project, entryPoints: ComponentEntryPoint[]) => {
+  for (const entryPoint of entryPoints) {
+    for (const modelId of entryPoint.requestModelIds) {
+      if (!project.dataModels[modelId]) {
+        throw new BadRequestError(
+          `Entry point ${entryPoint.name} request model ${modelId} does not exist in project ${project.id}`
+        );
+      }
+    }
+
+    for (const modelId of entryPoint.responseModelIds) {
+      if (!project.dataModels[modelId]) {
+        throw new BadRequestError(
+          `Entry point ${entryPoint.name} response model ${modelId} does not exist in project ${project.id}`
+        );
+      }
+    }
+  }
 };
 
 const sanitizeSteps = ({
@@ -454,7 +596,8 @@ export const createProject = async (
       }
     },
     flows: {},
-    dataModels: {}
+    dataModels: {},
+    components: {}
   };
 
   await saveAggregate(persistence, userId, aggregate);
@@ -858,6 +1001,113 @@ export const deleteDataModel = async (
   const dataModel = getDataModelOrThrow(project, dataModelId);
 
   delete project.dataModels[dataModel.id];
+
+  await saveAggregate(persistence, userId, aggregate);
+};
+
+export const listComponents = async (
+  persistence: PersistenceAdapter,
+  userId: string,
+  projectId: string
+): Promise<Component[]> => {
+  const aggregate = await loadAggregate(persistence, userId);
+  const project = getProjectOrThrow(aggregate, projectId);
+  return Object.values(project.components);
+};
+
+export const getComponent = async (
+  persistence: PersistenceAdapter,
+  userId: string,
+  projectId: string,
+  componentId: string
+) => {
+  const aggregate = await loadAggregate(persistence, userId);
+  const project = getProjectOrThrow(aggregate, projectId);
+  return getComponentOrThrow(project, componentId);
+};
+
+export const createComponent = async (
+  persistence: PersistenceAdapter,
+  userId: string,
+  projectId: string,
+  input: CreateComponentInput
+) => {
+  const name = ensureString(input.name);
+  if (!name) {
+    throw new BadRequestError('Component name is required');
+  }
+
+  const description = typeof input.description === 'string' ? input.description.trim() : '';
+
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
+  const project = getProjectOrThrow(aggregate, projectId);
+
+  const componentId = randomUUID();
+  const entryPoints = sanitizeComponentEntryPoints({ rawEntryPoints: input.entryPoints });
+
+  validateComponentEntryPointModels(project, entryPoints);
+
+  project.components[componentId] = {
+    id: componentId,
+    name,
+    description,
+    entryPoints
+  };
+
+  await saveAggregate(persistence, userId, aggregate);
+
+  return project.components[componentId];
+};
+
+export const updateComponent = async (
+  persistence: PersistenceAdapter,
+  userId: string,
+  projectId: string,
+  componentId: string,
+  input: UpdateComponentInput
+) => {
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
+  const project = getProjectOrThrow(aggregate, projectId);
+  const component = getComponentOrThrow(project, componentId);
+
+  const name = ensureString(input.name, component.name);
+  const description =
+    typeof input.description === 'string' ? input.description.trim() : component.description;
+
+  let entryPoints: ComponentEntryPoint[] | null = null;
+  if (input.entryPoints !== undefined) {
+    const existing = new Map(
+      component.entryPoints.map((entryPoint) => [entryPoint.id, entryPoint] as [string, ComponentEntryPoint])
+    );
+    entryPoints = sanitizeComponentEntryPoints({ rawEntryPoints: input.entryPoints, existing });
+  }
+
+  if (entryPoints !== null) {
+    validateComponentEntryPointModels(project, entryPoints);
+  } else {
+    entryPoints = component.entryPoints;
+  }
+
+  component.name = name;
+  component.description = description;
+  component.entryPoints = entryPoints;
+
+  await saveAggregate(persistence, userId, aggregate);
+
+  return component;
+};
+
+export const deleteComponent = async (
+  persistence: PersistenceAdapter,
+  userId: string,
+  projectId: string,
+  componentId: string
+) => {
+  const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
+  const project = getProjectOrThrow(aggregate, projectId);
+  const component = getComponentOrThrow(project, componentId);
+
+  delete project.components[component.id];
 
   await saveAggregate(persistence, userId, aggregate);
 };

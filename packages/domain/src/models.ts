@@ -35,6 +35,26 @@ export type DataModel = {
   attributes: DataModelAttribute[];
 };
 
+export type ComponentEntryPoint = {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  protocol: string;
+  method: string;
+  path: string;
+  target: string;
+  requestModelIds: string[];
+  responseModelIds: string[];
+};
+
+export type Component = {
+  id: string;
+  name: string;
+  description: string;
+  entryPoints: ComponentEntryPoint[];
+};
+
 export type System = {
   id: string;
   name: string;
@@ -53,6 +73,7 @@ export type Project = {
   systems: Record<string, System>;
   flows: Record<string, Flow>;
   dataModels: Record<string, DataModel>;
+  components: Record<string, Component>;
 };
 
 export type DomainAggregate = {
@@ -67,9 +88,18 @@ type StepInput = Partial<Step> & { id?: string };
 type FlowInput = Partial<Flow> & { id?: string; steps?: StepInput[] };
 type DataModelAttributeInput = Partial<DataModelAttribute> & { id?: string; attributes?: unknown };
 type DataModelInput = Partial<DataModel> & { id?: string; attributes?: unknown };
+type ComponentEntryPointInput =
+  Partial<ComponentEntryPoint> & { id?: string; requestModelIds?: unknown; responseModelIds?: unknown };
+type ComponentInput = Partial<Component> & { id?: string; entryPoints?: unknown };
 type SystemInput = Partial<System> & { id?: string };
 type ProjectInput =
-  Partial<Project> & { id?: string; systems?: UnknownRecord; flows?: UnknownRecord; dataModels?: UnknownRecord };
+  Partial<Project> & {
+    id?: string;
+    systems?: UnknownRecord;
+    flows?: UnknownRecord;
+    dataModels?: UnknownRecord;
+    components?: UnknownRecord;
+  };
 
 type DomainAggregateInput = {
   projects?: UnknownRecord;
@@ -147,6 +177,36 @@ const sanitizeDataModel = (raw: DataModelInput): DataModel => ({
   attributes: sanitizeDataModelAttributeList(raw?.attributes)
 });
 
+const sanitizeComponentEntryPoint = (raw: ComponentEntryPointInput): ComponentEntryPoint => ({
+  id: ensureString(raw?.id),
+  name: ensureString(raw?.name),
+  description: ensureString(raw?.description, ''),
+  type: ensureString(raw?.type),
+  protocol: ensureString(raw?.protocol),
+  method: ensureString(raw?.method, ''),
+  path: ensureString(raw?.path, ''),
+  target: ensureString(raw?.target, ''),
+  requestModelIds: ensureStringArray(raw?.requestModelIds),
+  responseModelIds: ensureStringArray(raw?.responseModelIds)
+});
+
+const sanitizeComponentEntryPointList = (raw: unknown): ComponentEntryPoint[] => {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw
+    .map((value) => sanitizeComponentEntryPoint((value ?? {}) as ComponentEntryPointInput))
+    .filter((entryPoint) => Boolean(entryPoint.id) && Boolean(entryPoint.name) && Boolean(entryPoint.type));
+};
+
+const sanitizeComponent = (raw: ComponentInput): Component => ({
+  id: ensureString(raw?.id),
+  name: ensureString(raw?.name),
+  description: ensureString(raw?.description, ''),
+  entryPoints: sanitizeComponentEntryPointList(raw?.entryPoints)
+});
+
 const sanitizeSystem = (raw: SystemInput): System => ({
   id: ensureString(raw?.id),
   name: ensureString(raw?.name),
@@ -160,6 +220,7 @@ const sanitizeProject = (raw: ProjectInput): Project => {
   const systemsInput = raw?.systems && typeof raw.systems === 'object' ? raw.systems : {};
   const flowsInput = raw?.flows && typeof raw.flows === 'object' ? raw.flows : {};
   const dataModelsInput = raw?.dataModels && typeof raw.dataModels === 'object' ? raw.dataModels : {};
+  const componentsInput = raw?.components && typeof raw.components === 'object' ? raw.components : {};
 
   const systemEntries = Object.entries(systemsInput as Record<string, SystemInput>)
     .map(([id, value]): [string, System] => [id, sanitizeSystem({ id, ...value })])
@@ -182,6 +243,13 @@ const sanitizeProject = (raw: ProjectInput): Project => {
       return Boolean(dataModel.id) && Boolean(dataModel.name);
     });
 
+  const componentEntries = Object.entries(componentsInput as Record<string, ComponentInput>)
+    .map(([id, value]): [string, Component] => [id, sanitizeComponent({ id, ...value })])
+    .filter((entry): entry is [string, Component] => {
+      const [, component] = entry;
+      return Boolean(component.id) && Boolean(component.name);
+    });
+
   const rootSystemId = ensureString(raw?.rootSystemId);
 
   return {
@@ -192,7 +260,8 @@ const sanitizeProject = (raw: ProjectInput): Project => {
     rootSystemId,
     systems: Object.fromEntries(systemEntries),
     flows: Object.fromEntries(flowEntries),
-    dataModels: Object.fromEntries(dataModelEntries)
+    dataModels: Object.fromEntries(dataModelEntries),
+    components: Object.fromEntries(componentEntries)
   };
 };
 

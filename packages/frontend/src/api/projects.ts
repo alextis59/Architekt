@@ -1,4 +1,4 @@
-import type { DataModel, Flow, Project, System } from '@architekt/domain';
+import type { Component, DataModel, Flow, Project, System } from '@architekt/domain';
 import { apiRequest } from './client.js';
 
 export type ProjectSummary = Pick<Project, 'id' | 'name' | 'description' | 'tags' | 'rootSystemId'>;
@@ -7,6 +7,17 @@ const sanitizeTags = (tags: string[]): string[] => {
   const unique = new Set<string>();
   for (const tag of tags) {
     const trimmed = tag.trim();
+    if (trimmed.length > 0) {
+      unique.add(trimmed);
+    }
+  }
+  return [...unique];
+};
+
+const sanitizeIdentifiers = (identifiers: string[]): string[] => {
+  const unique = new Set<string>();
+  for (const identifier of identifiers) {
+    const trimmed = identifier.trim();
     if (trimmed.length > 0) {
       unique.add(trimmed);
     }
@@ -270,5 +281,112 @@ export const deleteDataModel = async (
   });
 };
 
-export type { FlowPayload, StepPayload, DataModelPayload, DataModelAttributePayload };
+type ComponentEntryPointPayload = {
+  id?: string;
+  name: string;
+  description: string;
+  type: string;
+  protocol: string;
+  method: string;
+  path: string;
+  target: string;
+  requestModelIds: string[];
+  responseModelIds: string[];
+};
+
+type ComponentPayload = {
+  name: string;
+  description: string;
+  entryPoints: ComponentEntryPointPayload[];
+};
+
+const sanitizeEntryPointPayload = (
+  entryPoint: ComponentEntryPointPayload
+): ComponentEntryPointPayload | null => {
+  const name = entryPoint.name.trim();
+  const type = entryPoint.type.trim();
+
+  if (!name || !type) {
+    return null;
+  }
+
+  const payload: ComponentEntryPointPayload = {
+    name,
+    description: entryPoint.description.trim(),
+    type,
+    protocol: entryPoint.protocol.trim(),
+    method: entryPoint.method.trim(),
+    path: entryPoint.path.trim(),
+    target: entryPoint.target.trim(),
+    requestModelIds: sanitizeIdentifiers(entryPoint.requestModelIds ?? []),
+    responseModelIds: sanitizeIdentifiers(entryPoint.responseModelIds ?? [])
+  };
+
+  if (entryPoint.id) {
+    payload.id = entryPoint.id;
+  }
+
+  return payload;
+};
+
+const sanitizeComponentPayload = (input: ComponentPayload): ComponentPayload => ({
+  name: input.name.trim(),
+  description: input.description.trim(),
+  entryPoints: input.entryPoints
+    .map((entryPoint) => sanitizeEntryPointPayload(entryPoint))
+    .filter((entryPoint): entryPoint is ComponentEntryPointPayload => entryPoint !== null)
+});
+
+export const createComponent = async (
+  projectId: string,
+  input: ComponentPayload
+): Promise<Component> => {
+  const payload = sanitizeComponentPayload(input);
+
+  const response = await apiRequest<{ component: Component }>(
+    `/projects/${projectId}/components`,
+    {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }
+  );
+
+  return response.component;
+};
+
+export const updateComponent = async (
+  projectId: string,
+  componentId: string,
+  input: ComponentPayload
+): Promise<Component> => {
+  const payload = sanitizeComponentPayload(input);
+
+  const response = await apiRequest<{ component: Component }>(
+    `/projects/${projectId}/components/${componentId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload)
+    }
+  );
+
+  return response.component;
+};
+
+export const deleteComponent = async (
+  projectId: string,
+  componentId: string
+): Promise<void> => {
+  await apiRequest(`/projects/${projectId}/components/${componentId}`, {
+    method: 'DELETE'
+  });
+};
+
+export type {
+  FlowPayload,
+  StepPayload,
+  DataModelPayload,
+  DataModelAttributePayload,
+  ComponentPayload,
+  ComponentEntryPointPayload
+};
 

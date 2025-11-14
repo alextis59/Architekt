@@ -47,7 +47,8 @@ test('persists and loads aggregate data', async () => {
           }
         },
         flows: {},
-        dataModels: {}
+        dataModels: {},
+        components: {}
       }
     }
   };
@@ -105,7 +106,8 @@ test('keeps data isolated per user', async () => {
           'root-a': { id: 'root-a', name: 'Alpha Root', description: '', tags: [], childIds: [], isRoot: true }
         },
         flows: {},
-        dataModels: {}
+        dataModels: {},
+        components: {}
       }
     }
   });
@@ -121,7 +123,8 @@ test('keeps data isolated per user', async () => {
           'root-b': { id: 'root-b', name: 'Beta Root', description: '', tags: [], childIds: [], isRoot: true }
         },
         flows: {},
-        dataModels: {}
+        dataModels: {},
+        components: {}
       }
     }
   });

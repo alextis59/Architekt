@@ -60,7 +60,8 @@ const resetStore = () => {
     selectedProjectId: null,
     selectedSystemId: null,
     selectedDataModelId: null,
-    selectedFlowId: null
+    selectedFlowId: null,
+    selectedComponentId: null
   });
 };
 
@@ -97,7 +98,8 @@ const projectFixture: Project = {
     }
   },
   flows: {},
-  dataModels: {}
+  dataModels: {},
+  components: {}
 };
 
 const getLatestSystemTreeProps = () =>
@@ -115,7 +117,8 @@ describe('ArchitectureWorkspace', () => {
       selectedProjectId: 'proj-1',
       selectedSystemId: null,
       selectedFlowId: null,
-      selectedDataModelId: null
+      selectedDataModelId: null,
+      selectedComponentId: null
     });
 
     const queryClient = createTestQueryClient();
@@ -140,7 +143,8 @@ describe('ArchitectureWorkspace', () => {
       selectedProjectId: 'proj-1',
       selectedSystemId: null,
       selectedFlowId: null,
-      selectedDataModelId: null
+      selectedDataModelId: null,
+      selectedComponentId: null
     });
 
     const queryClient = createTestQueryClient();
@@ -176,7 +180,8 @@ describe('ArchitectureWorkspace', () => {
       selectedProjectId: 'proj-1',
       selectedSystemId: 'sys-root',
       selectedFlowId: null,
-      selectedDataModelId: null
+      selectedDataModelId: null,
+      selectedComponentId: null
     });
 
     const queryClient = createTestQueryClient();
@@ -218,7 +223,8 @@ describe('ArchitectureWorkspace', () => {
       selectedProjectId: 'proj-1',
       selectedSystemId: 'sys-root',
       selectedFlowId: null,
-      selectedDataModelId: null
+      selectedDataModelId: null,
+      selectedComponentId: null
     });
 
     const queryClient = createTestQueryClient();
@@ -273,7 +279,8 @@ describe('ArchitectureWorkspace', () => {
       selectedProjectId: 'proj-1',
       selectedSystemId: 'sys-root',
       selectedFlowId: null,
-      selectedDataModelId: null
+      selectedDataModelId: null,
+      selectedComponentId: null
     });
 
     const queryClient = createTestQueryClient();
