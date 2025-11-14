@@ -16,7 +16,8 @@ All commands below assume you have the [`gcloud` CLI](https://cloud.google.com/s
 
 ```bash
 PROJECT_ID="your-gcp-project-id"
-REGION="us-central1"        # choose any Cloud Run supported region
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+REGION="europe-west9"        # choose any Cloud Run supported region
 REPOSITORY="architekt"      # Artifact Registry repository name
 SERVICE="architekt-backend" # Cloud Run service name
 ```
@@ -74,18 +75,21 @@ SERVICE="architekt-backend" # Cloud Run service name
    POOL_ID="architekt-github-pool"
 
    gcloud iam workload-identity-pools providers create-oidc github-provider \
-     --location="global" \
-     --workload-identity-pool="$POOL_ID" \
-     --display-name="GitHub provider" \
-     --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
-     --issuer-uri="https://token.actions.githubusercontent.com"
+       --location="global" \
+       --workload-identity-pool="$POOL_ID" \
+       --display-name="GitHub provider" \
+       --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+       --attribute-condition="assertion.repository_owner=='<OWNER>'" \
+       --issuer-uri="https://token.actions.githubusercontent.com"
 
    gcloud iam service-accounts add-iam-policy-binding "$SERVICE_ACCOUNT_EMAIL" \
      --role="roles/iam.workloadIdentityUser" \
-     --member="principalSet://iam.googleapis.com/projects/${PROJECT_ID}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.repository/<OWNER>/<REPO>"
+     --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL_ID}/attribute.repository/<OWNER>/<REPO>"
    ```
 
-   Replace `<OWNER>` and `<REPO>` with your GitHub organization/user and repository names. Note the following values—they are required when wiring up the GitHub Actions workflow:
+   Replace `<OWNER>` and `<REPO>` with your GitHub organization/user and repository names (e.g., `alextis59` and `architekt`). The `--attribute-condition` restricts which GitHub identities can authenticate; you can use `assertion.repository_owner=='<OWNER>'` to allow all repositories from an organization, or `assertion.repository=='<OWNER>/<REPO>'` to restrict to a specific repository.
+
+   Note the following values—they are required when wiring up the GitHub Actions workflow:
 
    - Workload Identity Provider resource name: `projects/<PROJECT_NUMBER>/locations/global/workloadIdentityPools/${POOL_ID}/providers/github-provider`
    - Service account email: `${SERVICE_ACCOUNT_EMAIL}`
