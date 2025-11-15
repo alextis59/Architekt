@@ -195,56 +195,38 @@ describe('ComponentDesigner', () => {
       );
     });
 
-    const editButton = await screen.findByRole('button', { name: 'Edit component' });
-    await user.click(editButton);
-
-    const modal = await screen.findByRole('dialog', { name: 'Edit component' });
-    const saveButton = within(modal).getByRole('button', { name: 'Save component' });
-    const componentForm = saveButton.closest('form');
-    expect(componentForm).not.toBeNull();
-
-    const componentNameInput = within(componentForm!).getByDisplayValue('Customer API');
-    await user.clear(componentNameInput);
-    await user.type(componentNameInput, ' Customer API updated  ');
-
-    const componentDescriptionInput = within(componentForm!).getByPlaceholderText(
-      'How does this component operate?'
-    );
-    await user.clear(componentDescriptionInput);
-    await user.type(componentDescriptionInput, '  Updated description  ');
-
-    const entryPointNameInput = within(componentForm!).getByDisplayValue('Get customer');
+    const entryPointNameInput = await screen.findByDisplayValue('Get customer');
     await user.clear(entryPointNameInput);
     await user.type(entryPointNameInput, ' Get customer details  ');
 
-    const [typeInput] = within(componentForm!).getAllByLabelText('Type');
+    const entryPointArticle = entryPointNameInput.closest('article');
+    expect(entryPointArticle).not.toBeNull();
+
+    const typeInput = within(entryPointArticle!).getByLabelText('Type');
     await user.clear(typeInput);
     await user.type(typeInput, '  http  ');
 
-    const [protocolInput] = within(componentForm!).getAllByLabelText('Protocol');
+    const protocolInput = within(entryPointArticle!).getByLabelText('Protocol');
     await user.clear(protocolInput);
     await user.type(protocolInput, '  http/2  ');
 
-    const [methodInput] = within(componentForm!).getAllByLabelText('Method / Verb');
+    const methodInput = within(entryPointArticle!).getByLabelText('Method / Verb');
     await user.clear(methodInput);
     await user.type(methodInput, '  get  ');
 
-    const [pathInput] = within(componentForm!).getAllByLabelText('Path or channel');
+    const pathInput = within(entryPointArticle!).getByLabelText('Path or channel');
     await user.clear(pathInput);
     await user.type(pathInput, '  /customers/  ');
 
-    const [targetInput] = within(componentForm!).getAllByLabelText('Target / endpoint');
+    const targetInput = within(entryPointArticle!).getByLabelText('Target / endpoint');
     await user.clear(targetInput);
     await user.type(targetInput, '  api.internal  ');
 
-    const entryPointDescription = within(componentForm!).getByPlaceholderText(
+    const entryPointDescription = within(entryPointArticle!).getByPlaceholderText(
       'What does this entry point do?'
     );
     await user.clear(entryPointDescription);
     await user.type(entryPointDescription, '  Retrieves customer info  ');
-
-    const entryPointArticle = entryPointNameInput.closest('article');
-    expect(entryPointArticle).not.toBeNull();
 
     const requestModelsSection = within(entryPointArticle!)
       .getByText('Request models')
@@ -259,9 +241,27 @@ describe('ComponentDesigner', () => {
     await user.click(within(requestModelsSection!).getByLabelText('Customer Profile'));
     await user.click(within(responseModelsSection!).getByLabelText('Audit Event'));
 
-    expect(saveButton).not.toBeDisabled();
+    const entryPointForm = entryPointArticle!.closest('form');
+    expect(entryPointForm).not.toBeNull();
+    const formSaveButton = within(entryPointForm!).getByRole('button', { name: 'Save changes' });
+    expect(formSaveButton).not.toBeDisabled();
 
-    await user.click(saveButton);
+    const editDetailsButton = screen.getByRole('button', { name: 'Edit component details' });
+    await user.click(editDetailsButton);
+
+    const modal = await screen.findByRole('dialog', { name: 'Edit component' });
+    const modalNameInput = within(modal).getByDisplayValue('Customer API');
+    await user.clear(modalNameInput);
+    await user.type(modalNameInput, ' Customer API updated  ');
+
+    const modalDescriptionInput = within(modal).getByPlaceholderText(
+      'How does this component operate?'
+    );
+    await user.clear(modalDescriptionInput);
+    await user.type(modalDescriptionInput, '  Updated description  ');
+
+    const modalSaveButton = within(modal).getByRole('button', { name: 'Save changes' });
+    await user.click(modalSaveButton);
 
     await waitFor(() => {
       expect(apiMocks.updateComponent).toHaveBeenCalledWith('proj-1', 'comp-1', {
@@ -430,7 +430,7 @@ describe('ComponentDesigner', () => {
       );
     });
 
-    const editButton = await screen.findByRole('button', { name: 'Edit component' });
+    const editButton = await screen.findByRole('button', { name: 'Edit component details' });
     await user.click(editButton);
 
     await screen.findByRole('dialog', { name: 'Edit component' });
