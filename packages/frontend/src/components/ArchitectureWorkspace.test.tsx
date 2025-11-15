@@ -235,6 +235,9 @@ describe('ArchitectureWorkspace', () => {
       </QueryClientProvider>
     );
 
+    const editButton = await screen.findByRole('button', { name: 'Edit system' });
+    await user.click(editButton);
+
     const saveButton = await screen.findByRole('button', { name: 'Save changes' });
     await user.click(saveButton);
 
@@ -290,6 +293,9 @@ describe('ArchitectureWorkspace', () => {
         <ArchitectureWorkspace />
       </QueryClientProvider>
     );
+
+    const addChildButton = await screen.findByRole('button', { name: 'Add child system' });
+    await user.click(addChildButton);
 
     const childNameInput = await screen.findByPlaceholderText('Authentication service');
     await user.clear(childNameInput);

@@ -56,15 +56,17 @@ describe('SystemDetails', () => {
       />
     );
 
-    const [nameInput] = screen.getAllByLabelText('Name');
+    await user.click(screen.getByRole('button', { name: 'Edit system' }));
+
+    const nameInput = screen.getByLabelText('Name');
     await user.clear(nameInput);
     await user.type(nameInput, '  API Platform  ');
 
-    const [descriptionInput] = screen.getAllByLabelText('Description');
+    const descriptionInput = screen.getByLabelText('Description');
     await user.clear(descriptionInput);
     await user.type(descriptionInput, '  Handles traffic   ');
 
-    const [tagsInput] = screen.getAllByLabelText('Tags');
+    const tagsInput = screen.getByLabelText('Tags');
     await user.clear(tagsInput);
     await user.type(tagsInput, ' edge , platform , edge , api  ');
 
@@ -93,13 +95,15 @@ describe('SystemDetails', () => {
       />
     );
 
-    const [, childNameInput] = screen.getAllByLabelText('Name');
+    await user.click(screen.getByRole('button', { name: 'Add child system' }));
+
+    const childNameInput = screen.getByLabelText('Name');
     await user.type(childNameInput, '  Queue Worker ');
 
-    const [, childDescriptionInput] = screen.getAllByLabelText('Description');
+    const childDescriptionInput = screen.getByLabelText('Description');
     await user.type(childDescriptionInput, '  Processes tasks  ');
 
-    const [, childTagsInput] = screen.getAllByLabelText('Tags');
+    const childTagsInput = screen.getByLabelText('Tags');
     await user.type(childTagsInput, ' queue , worker , queue ');
 
     await user.click(screen.getByRole('button', { name: 'Create child' }));
