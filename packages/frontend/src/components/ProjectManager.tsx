@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
 import { createProject, fetchProjects, type ProjectSummary } from '../api/projects.js';
@@ -32,6 +32,8 @@ const ProjectManager = () => {
     tags: ''
   });
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
+
+  const nameFieldRef = useRef<HTMLInputElement | null>(null);
 
   const resetForm = useCallback(() => {
     setFormState({ name: '', description: '', tags: '' });
@@ -69,6 +71,14 @@ const ProjectManager = () => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isCreateModalOpen, closeCreateModal]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) {
+      return;
+    }
+
+    nameFieldRef.current?.focus();
+  }, [isCreateModalOpen]);
 
   const projects = useMemo(() => (data ? sortProjects(data) : []), [data]);
 
@@ -149,14 +159,32 @@ const ProjectManager = () => {
         </div>
       </div>
       {isCreateModalOpen && (
-        <div className="modal-backdrop" onClick={closeCreateModal}>
+        <div
+          className="modal-backdrop"
+          role="button"
+          tabIndex={0}
+          aria-label="Dismiss create project dialog"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeCreateModal();
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.currentTarget !== event.target) {
+              return;
+            }
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              closeCreateModal();
+            }
+          }}
+        >
           <div
             className="modal"
             role="dialog"
             aria-modal="true"
             aria-labelledby="create-project-title"
             aria-describedby="create-project-description"
-            onClick={(event) => event.stopPropagation()}
           >
             <header className="modal-header">
               <h3 id="create-project-title">Create project</h3>
@@ -178,11 +206,11 @@ const ProjectManager = () => {
                 <span>Name</span>
                 <input
                   type="text"
+                  ref={nameFieldRef}
                   value={formState.name}
                   onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
                   required
                   placeholder="E.g. Payments Platform"
-                  autoFocus
                 />
               </label>
               <label className="field">
