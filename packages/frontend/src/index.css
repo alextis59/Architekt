@@ -1081,6 +1081,34 @@ button.danger:hover:not(:disabled),
   justify-content: flex-end;
 }
 
+.data-model-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.data-model-attributes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.data-model-attributes-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.data-model-attributes-header h4 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #0f172a;
+}
+
+.data-model-attributes-header .status {
+  margin: 0;
+}
+
 .data-model-modal {
   width: min(960px, 100%);
   max-height: min(90vh, 900px);
