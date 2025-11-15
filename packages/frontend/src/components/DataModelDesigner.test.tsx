@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -135,17 +135,19 @@ describe('DataModelDesigner', () => {
     const client = createClient();
     renderDesigner(client);
 
-    await screen.findByDisplayValue('Customer');
     const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /Edit data model/i }));
 
-    const modelNameInput = screen
+    const modal = await screen.findByRole('dialog', { name: /Edit data model/i });
+
+    const modelNameInput = within(modal)
       .getAllByLabelText(/^Name$/)
       .find((input) => (input as HTMLInputElement).value === 'Customer');
     if (!modelNameInput) {
       throw new Error('Data model name input not found');
     }
 
-    const modelDescription = screen
+    const modelDescription = within(modal)
       .getAllByLabelText(/^Description$/)
       .find((textarea) => (textarea as HTMLTextAreaElement).value === 'Original');
     if (!modelDescription) {
@@ -156,10 +158,10 @@ describe('DataModelDesigner', () => {
     await user.type(modelNameInput, '  Customer Updated  ');
     await user.clear(modelDescription);
     await user.type(modelDescription, ' Updated ');
-    await user.type(screen.getByLabelText(/Constraints/), ' required ');
-    await user.click(screen.getByLabelText(/Read-only/));
+    await user.type(within(modal).getByLabelText(/Constraints/), ' required ');
+    await user.click(within(modal).getByLabelText(/Read-only/));
 
-    await user.click(screen.getByRole('button', { name: /Save changes/i }));
+    await user.click(within(modal).getByRole('button', { name: /Save changes/i }));
 
     await waitFor(() => {
       expect(apiMocks.updateDataModel).toHaveBeenCalled();
@@ -214,7 +216,9 @@ describe('DataModelDesigner', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /Delete/ }));
+    await user.click(await screen.findByRole('button', { name: /Edit data model/i }));
+    const modal = await screen.findByRole('dialog', { name: /Edit data model/i });
+    await user.click(within(modal).getByRole('button', { name: /Delete/ }));
 
     await waitFor(() => {
       expect(apiMocks.deleteDataModel).toHaveBeenCalled();
