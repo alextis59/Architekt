@@ -195,7 +195,11 @@ describe('ComponentDesigner', () => {
       );
     });
 
-    const saveButton = await screen.findByRole('button', { name: 'Save component' });
+    const editButton = await screen.findByRole('button', { name: 'Edit component' });
+    await user.click(editButton);
+
+    const modal = await screen.findByRole('dialog', { name: 'Edit component' });
+    const saveButton = within(modal).getByRole('button', { name: 'Save component' });
     const componentForm = saveButton.closest('form');
     expect(componentForm).not.toBeNull();
 
@@ -281,11 +285,11 @@ describe('ComponentDesigner', () => {
     });
 
     await waitFor(() => {
-      expect(saveButton).toBeDisabled();
+      expect(screen.queryByRole('dialog', { name: 'Edit component' })).not.toBeInTheDocument();
     });
   });
 
-  it('creates a component through the sidebar form', async () => {
+  it('creates a component through the modal form', async () => {
     const user = userEvent.setup();
     const queryClient = createTestQueryClient();
     const project = structuredClone(emptyProjectFixture);
@@ -324,13 +328,17 @@ describe('ComponentDesigner', () => {
       );
     });
 
-    const nameInput = await screen.findByPlaceholderText('Component name');
-    const descriptionInput = screen.getByPlaceholderText('Optional description');
+    const createButton = await screen.findByRole('button', { name: 'New component' });
+    await user.click(createButton);
+
+    let modal = await screen.findByRole('dialog', { name: 'Create component' });
+    const nameInput = within(modal).getByLabelText('Name');
+    const descriptionInput = within(modal).getByLabelText('Description');
 
     await user.type(nameInput, '  Notifications Service  ');
     await user.type(descriptionInput, '  Handles notifications  ');
 
-    await user.click(screen.getByRole('button', { name: 'Add component' }));
+    await user.click(within(modal).getByRole('button', { name: 'Create component' }));
 
     await waitFor(() => {
       expect(apiMocks.createComponent).toHaveBeenCalledWith('proj-empty', {
@@ -346,8 +354,92 @@ describe('ComponentDesigner', () => {
     });
 
     await waitFor(() => {
-      expect(nameInput).toHaveValue('');
-      expect(descriptionInput).toHaveValue('');
+      expect(screen.queryByRole('dialog', { name: 'Create component' })).not.toBeInTheDocument();
     });
+
+    await user.click(createButton);
+    modal = await screen.findByRole('dialog', { name: 'Create component' });
+    expect(within(modal).getByLabelText('Name')).toHaveValue('');
+    expect(within(modal).getByLabelText('Description')).toHaveValue('');
+  });
+
+  it('restores focus to the create button after closing the create modal', async () => {
+    const user = userEvent.setup();
+    const queryClient = createTestQueryClient();
+    const project = structuredClone(emptyProjectFixture);
+
+    apiMocks.fetchProjectDetails.mockImplementation(async () => project);
+
+    await act(async () => {
+      useProjectStore.setState({
+        selectedProjectId: 'proj-empty',
+        selectedSystemId: null,
+        selectedFlowId: null,
+        selectedDataModelId: null,
+        selectedComponentId: null
+      });
+    });
+
+    queryClient.setQueryData(queryKeys.project('proj-empty'), project);
+
+    await act(async () => {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <ComponentDesigner />
+        </QueryClientProvider>
+      );
+    });
+
+    const createButton = await screen.findByRole('button', { name: 'New component' });
+    await user.click(createButton);
+
+    const modal = await screen.findByRole('dialog', { name: 'Create component' });
+    await user.click(within(modal).getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Create component' })).not.toBeInTheDocument();
+    });
+
+    expect(createButton).toHaveFocus();
+  });
+
+  it('restores focus to the edit button after closing the edit modal', async () => {
+    const user = userEvent.setup();
+    const queryClient = createTestQueryClient();
+    const project = structuredClone(projectFixture);
+
+    apiMocks.fetchProjectDetails.mockImplementation(async () => project);
+
+    await act(async () => {
+      useProjectStore.setState({
+        selectedProjectId: 'proj-1',
+        selectedSystemId: null,
+        selectedFlowId: null,
+        selectedDataModelId: null,
+        selectedComponentId: 'comp-1'
+      });
+    });
+
+    queryClient.setQueryData(queryKeys.project('proj-1'), project);
+
+    await act(async () => {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <ComponentDesigner />
+        </QueryClientProvider>
+      );
+    });
+
+    const editButton = await screen.findByRole('button', { name: 'Edit component' });
+    await user.click(editButton);
+
+    await screen.findByRole('dialog', { name: 'Edit component' });
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Edit component' })).not.toBeInTheDocument();
+    });
+
+    expect(editButton).toHaveFocus();
   });
 });
