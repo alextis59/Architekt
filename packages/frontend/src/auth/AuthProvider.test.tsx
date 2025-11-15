@@ -7,6 +7,7 @@ type AuthModule = typeof import('./AuthProvider.js');
 const resetEnvironment = () => {
   vi.unstubAllEnvs();
   sessionStorage.clear();
+  localStorage.clear();
   vi.restoreAllMocks();
   delete (window as { google?: unknown }).google;
   const existingScript = document.getElementById('google-identity-services');
