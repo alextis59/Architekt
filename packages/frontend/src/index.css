@@ -442,20 +442,6 @@ button.danger:hover:not(:disabled),
   gap: 1.25rem;
 }
 
-.flow-modal {
-  width: min(960px, 100%);
-}
-
-.flow-modal-create .modal-body,
-.flow-modal-edit .modal-body {
-  max-height: min(80vh, 720px);
-}
-
-.flow-modal .flow-actions {
-  justify-content: flex-end;
-  gap: 0.75rem;
-}
-
 .modal-header {
   display: flex;
   align-items: center;
@@ -708,10 +694,23 @@ button.danger:hover:not(:disabled),
   gap: 1.5rem;
 }
 
+.flow-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .flow-sidebar {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.flow-sidebar-heading {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #312e81;
 }
 
 .flow-list {
@@ -750,6 +749,17 @@ button.danger:hover:not(:disabled),
   border-color: #7c3aed;
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.4);
   background: rgba(124, 58, 237, 0.22);
+}
+
+.flow-sidebar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: auto;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px dashed rgba(124, 58, 237, 0.35);
+  border-radius: 16px;
+  padding: 1rem;
 }
 
 .data-model-workspace {
@@ -1657,6 +1667,46 @@ button.danger:hover:not(:disabled),
   flex-direction: column;
   gap: 1.25rem;
   min-width: 0;
+}
+
+.flow-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.flow-builder {
+  background: rgba(248, 250, 252, 0.96);
+  border-radius: 18px;
+  padding: 1.25rem;
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.flow-builder-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.flow-builder-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #1f2937;
+}
+
+.flow-builder-description {
+  margin: 0.35rem 0 0;
+  color: #475569;
+}
+
+.flow-builder-hint {
+  margin: 0;
+  color: #4338ca;
+  max-width: 260px;
 }
 
 .flow-view-tabs {
