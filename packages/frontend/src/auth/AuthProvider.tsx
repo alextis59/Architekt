@@ -41,7 +41,26 @@ const TOKEN_STORAGE_KEY = 'architekt.idToken';
 
 const readStoredToken = (): string | null => {
   try {
-    return window.sessionStorage.getItem(TOKEN_STORAGE_KEY);
+    const persistedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (persistedToken) {
+      return persistedToken;
+    }
+  } catch {
+    // Ignore storage errors (e.g. disabled cookies)
+  }
+
+  try {
+    const legacyToken = window.sessionStorage.getItem(TOKEN_STORAGE_KEY);
+    if (legacyToken) {
+      // Migrate legacy session-based tokens to persistent storage.
+      window.sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      try {
+        window.localStorage.setItem(TOKEN_STORAGE_KEY, legacyToken);
+      } catch {
+        // Ignore storage errors for migration as well.
+      }
+    }
+    return legacyToken;
   } catch {
     return null;
   }
@@ -50,12 +69,18 @@ const readStoredToken = (): string | null => {
 const writeStoredToken = (token: string | null) => {
   try {
     if (token) {
-      window.sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
     } else {
-      window.sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     }
   } catch {
     // Ignore storage errors (e.g. disabled cookies)
+  }
+
+  try {
+    window.sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors when cleaning up legacy storage.
   }
 };
 
