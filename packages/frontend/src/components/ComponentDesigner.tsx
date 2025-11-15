@@ -23,6 +23,23 @@ import {
   toComponentPayload
 } from './ComponentDesigner.helpers.js';
 
+const cloneEntryPointDraft = (entryPoint: EntryPointDraft): EntryPointDraft => ({
+  ...entryPoint,
+  requestModelIds: [...entryPoint.requestModelIds],
+  responseModelIds: [...entryPoint.responseModelIds]
+});
+
+const cloneDraft = (draft: ComponentDraft | null): ComponentDraft | null => {
+  if (!draft) {
+    return draft;
+  }
+
+  return {
+    ...draft,
+    entryPoints: draft.entryPoints.map(cloneEntryPointDraft)
+  };
+};
+
 const ComponentDesigner = () => {
   const queryClient = useQueryClient();
   const selectedProjectId = useProjectStore(selectSelectedProjectId);
@@ -37,6 +54,7 @@ const ComponentDesigner = () => {
   const createNameFieldRef = useRef<HTMLInputElement | null>(null);
   const editNameFieldRef = useRef<HTMLInputElement | null>(null);
   const modalActivatorRef = useRef<HTMLElement | null>(null);
+  const previousDraftStateRef = useRef<{ draft: ComponentDraft | null; isDirty: boolean } | null>(null);
 
   const projectQuery = useQuery({
     queryKey: selectedProjectId ? queryKeys.project(selectedProjectId) : ['project', 'none'],
@@ -126,6 +144,7 @@ const ComponentDesigner = () => {
       setCreationForm({ name: '', description: '' });
       setActiveModal(null);
       focusModalActivator();
+      previousDraftStateRef.current = null;
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     }
   });
@@ -158,6 +177,7 @@ const ComponentDesigner = () => {
       setIsDirty(false);
       setActiveModal(null);
       focusModalActivator();
+      previousDraftStateRef.current = null;
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     }
   });
@@ -192,6 +212,7 @@ const ComponentDesigner = () => {
       setIsDirty(false);
       setActiveModal(null);
       focusModalActivator();
+      previousDraftStateRef.current = null;
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     }
   });
@@ -356,7 +377,7 @@ const ComponentDesigner = () => {
     : 'create-component-description';
   const modalHeading = isEditModalOpen ? 'Edit component' : 'Create component';
   const modalDescription = isEditModalOpen
-    ? 'Update service details, entry points, and data model associations.'
+    ? 'Update service name and description.'
     : 'Define the name and description for the new component. Entry points can be configured after creation.';
   const activeMutation = isEditModalOpen ? updateComponentMutation : createComponentMutation;
 
@@ -365,6 +386,7 @@ const ComponentDesigner = () => {
     updateComponentMutation.reset();
     deleteComponentMutation.reset();
     setCreationForm({ name: '', description: '' });
+    previousDraftStateRef.current = null;
     modalActivatorRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setActiveModal('create');
@@ -378,7 +400,11 @@ const ComponentDesigner = () => {
     updateComponentMutation.reset();
     createComponentMutation.reset();
     deleteComponentMutation.reset();
-    resetDraftToSelected();
+    previousDraftStateRef.current = { draft: cloneDraft(draft), isDirty };
+    if (!draft) {
+      setDraft(createComponentDraft(selectedComponent));
+      setIsDirty(false);
+    }
     modalActivatorRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setActiveModal('edit');
@@ -388,14 +414,19 @@ const ComponentDesigner = () => {
     createComponentMutation.reset();
     updateComponentMutation.reset();
     deleteComponentMutation.reset();
+    if (activeModal === 'edit' && previousDraftStateRef.current) {
+      const { draft: previousDraft, isDirty: previousIsDirty } = previousDraftStateRef.current;
+      setDraft(previousDraft ? cloneDraft(previousDraft) : previousDraft);
+      setIsDirty(previousIsDirty);
+    }
     setActiveModal(null);
-    resetDraftToSelected();
+    previousDraftStateRef.current = null;
     focusModalActivator();
   }, [
+    activeModal,
     createComponentMutation,
     deleteComponentMutation,
     focusModalActivator,
-    resetDraftToSelected,
     updateComponentMutation
   ]);
 
@@ -428,18 +459,18 @@ const ComponentDesigner = () => {
   }, [isEditModalOpen]);
 
   const associatedModelCount = useMemo(() => {
-    if (!selectedComponent) {
+    if (!draft) {
       return 0;
     }
 
     const models = new Set<string>();
-    selectedComponent.entryPoints.forEach((entryPoint) => {
+    draft.entryPoints.forEach((entryPoint) => {
       entryPoint.requestModelIds.forEach((id) => models.add(id));
       entryPoint.responseModelIds.forEach((id) => models.add(id));
     });
 
     return models.size;
-  }, [selectedComponent]);
+  }, [draft]);
 
   return (
     <section className="workspace component-designer panel">
@@ -503,248 +534,62 @@ const ComponentDesigner = () => {
               </button>
             </div>
           </aside>
-          <div className="component-overview">
+          <div className="component-editor">
             {!selectedComponent && (
-              <p className="status">Select a component to review its details.</p>
+              <p className="status">Select a component to review and edit its details.</p>
             )}
-            {selectedComponent && (
-              <div className="component-summary">
-                <header className="component-summary-header">
-                  <div className="component-summary-heading">
-                    <h3>{selectedComponent.name}</h3>
-                    {selectedComponent.description && (
-                      <p className="component-summary-description">{selectedComponent.description}</p>
-                    )}
-                  </div>
-                  <div className="component-summary-actions">
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={handleDeleteComponent}
-                      disabled={deleteComponentMutation.isPending}
-                    >
-                      {deleteComponentMutation.isPending ? 'Deleting…' : 'Delete component'}
-                    </button>
-                    <button type="button" className="primary" onClick={openEditModal}>
-                      Edit component
-                    </button>
-                  </div>
-                </header>
-                <dl className="component-summary-stats">
-                  <div>
-                    <dt>Entry points</dt>
-                    <dd>{selectedComponent.entryPoints.length}</dd>
-                  </div>
-                  <div>
-                    <dt>Associated models</dt>
-                    <dd>{associatedModelCount}</dd>
-                  </div>
-                </dl>
-                {selectedComponent.entryPoints.length === 0 ? (
-                  <p className="status">No entry points documented yet. Use the edit dialog to add one.</p>
-                ) : (
-                  <div className="component-summary-entry-points">
-                    {selectedComponent.entryPoints.map((entryPoint) => {
-                      const requestModels = entryPoint.requestModelIds
-                        .map((modelId) => project?.dataModels[modelId]?.name ?? modelId)
-                        .filter(Boolean);
-                      const responseModels = entryPoint.responseModelIds
-                        .map((modelId) => project?.dataModels[modelId]?.name ?? modelId)
-                        .filter(Boolean);
-
-                      return (
-                        <article key={entryPoint.id} className="component-summary-entry">
-                          <header>
-                            <h4>{entryPoint.name}</h4>
-                            {entryPoint.description && <p>{entryPoint.description}</p>}
-                          </header>
-                          <dl>
-                            <div>
-                              <dt>Type</dt>
-                              <dd>{entryPoint.type || '—'}</dd>
-                            </div>
-                            <div>
-                              <dt>Protocol</dt>
-                              <dd>{entryPoint.protocol || '—'}</dd>
-                            </div>
-                            <div>
-                              <dt>Method / Verb</dt>
-                              <dd>{entryPoint.method || '—'}</dd>
-                            </div>
-                            <div>
-                              <dt>Path or channel</dt>
-                              <dd>{entryPoint.path || '—'}</dd>
-                            </div>
-                            <div>
-                              <dt>Target / endpoint</dt>
-                              <dd>{entryPoint.target || '—'}</dd>
-                            </div>
-                          </dl>
-                          <div className="component-summary-associations">
-                            <div>
-                              <h5>Request models</h5>
-                              {requestModels.length === 0 ? (
-                                <p className="status">None</p>
-                              ) : (
-                                <ul>
-                                  {requestModels.map((name) => (
-                                    <li key={name}>{name}</li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                            <div>
-                              <h5>Response models</h5>
-                              {responseModels.length === 0 ? (
-                                <p className="status">None</p>
-                              ) : (
-                                <ul>
-                                  {responseModels.map((name) => (
-                                    <li key={name}>{name}</li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-                {deleteComponentMutation.isError && (
-                  <p className="status error" role="alert">
-                    Unable to delete component.
+            {selectedComponent && draft && (
+              <div className="component-detail">
+                <section className="component-summary">
+                  <header className="component-summary-header">
+                    <div className="component-summary-heading">
+                      <h3>{draft.name}</h3>
+                      {draft.description.trim() && (
+                        <p className="component-summary-description">{draft.description}</p>
+                      )}
+                    </div>
+                    <div className="component-summary-actions">
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={handleDeleteComponent}
+                        disabled={deleteComponentMutation.isPending}
+                      >
+                        {deleteComponentMutation.isPending ? 'Deleting…' : 'Delete component'}
+                      </button>
+                      <button type="button" className="primary" onClick={openEditModal}>
+                        Edit component details
+                      </button>
+                    </div>
+                  </header>
+                  <dl className="component-summary-stats">
+                    <div>
+                      <dt>Entry points</dt>
+                      <dd>{draft.entryPoints.length}</dd>
+                    </div>
+                    <div>
+                      <dt>Associated models</dt>
+                      <dd>{associatedModelCount}</dd>
+                    </div>
+                  </dl>
+                  <p className="status">
+                    Use the editor below to document interfaces and integrations.
                   </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {isModalOpen && (
-        <div
-          className="modal-backdrop"
-          role="button"
-          tabIndex={0}
-          aria-label={`Dismiss ${isEditModalOpen ? 'edit' : 'create'} component dialog`}
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              dismissModal();
-            }
-          }}
-          onKeyDown={(event) => {
-            if (event.currentTarget !== event.target) {
-              return;
-            }
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              dismissModal();
-            }
-          }}
-        >
-          <div
-            className={`modal${isEditModalOpen ? ' component-modal' : ''}`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={modalTitleId}
-            aria-describedby={modalDescriptionId}
-          >
-            <header className="modal-header">
-              <h3 id={modalTitleId}>{modalHeading}</h3>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={dismissModal}
-                aria-label={`Close ${isEditModalOpen ? 'edit' : 'create'} component dialog`}
-                disabled={activeMutation.isPending || deleteComponentMutation.isPending}
-              >
-                ×
-              </button>
-            </header>
-            <p id={modalDescriptionId} className="modal-description">
-              {modalDescription}
-            </p>
-            <div className="modal-body">
-              {isCreateModalOpen && (
-                <form className="modal-form" onSubmit={handleCreateComponent}>
-                  <label className="field">
-                    <span>Name</span>
-                    <input
-                      type="text"
-                      ref={createNameFieldRef}
-                      value={creationForm.name}
-                      onChange={(event) =>
-                        setCreationForm((previous) => ({
-                          ...previous,
-                          name: event.target.value
-                        }))
-                      }
-                      placeholder="Component name"
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Description</span>
-                    <textarea
-                      value={creationForm.description}
-                      onChange={(event) =>
-                        setCreationForm((previous) => ({
-                          ...previous,
-                          description: event.target.value
-                        }))
-                      }
-                      placeholder="Optional description"
-                      rows={3}
-                    />
-                  </label>
-                  {createComponentMutation.isError && (
+                  {deleteComponentMutation.isError && (
                     <p className="status error" role="alert">
-                      Unable to create component.
+                      Unable to delete component.
                     </p>
                   )}
-                  <div className="modal-actions">
-                    <button
-                      className="secondary"
-                      type="button"
-                      onClick={dismissModal}
-                      disabled={createComponentMutation.isPending}
-                    >
-                      Cancel
-                    </button>
-                    <button className="primary" type="submit" disabled={createComponentMutation.isPending}>
-                      {createComponentMutation.isPending ? 'Creating…' : 'Create component'}
-                    </button>
-                  </div>
-                </form>
-              )}
-              {isEditModalOpen && draft && (
-                <form className="component-form" onSubmit={handleSaveDraft}>
-                  <div className="component-fields">
-                    <label className="field">
-                      <span>Name</span>
-                      <input
-                        type="text"
-                        ref={editNameFieldRef}
-                        value={draft.name}
-                        onChange={(event) => handleComponentFieldChange('name', event.target.value)}
-                        required
-                        disabled={isMutating}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Description</span>
-                      <textarea
-                        value={draft.description}
-                        onChange={(event) => handleComponentFieldChange('description', event.target.value)}
-                        rows={3}
-                        placeholder="How does this component operate?"
-                        disabled={isMutating}
-                      />
-                    </label>
-                  </div>
-                  <section className="entry-points">
-                    <div className="entry-points-header">
-                      <h3>Entry points</h3>
+                </section>
+                <section className="component-entry-editor">
+                  <form className="component-form" onSubmit={handleSaveDraft}>
+                    <div className="entry-points-header component-entry-header">
+                      <div className="component-entry-header-text">
+                        <h4>Entry points</h4>
+                        <p className="status">
+                          Update the interfaces this component exposes and map related data models.
+                        </p>
+                      </div>
                       <button
                         type="button"
                         className="secondary"
@@ -755,7 +600,7 @@ const ComponentDesigner = () => {
                       </button>
                     </div>
                     {draft.entryPoints.length === 0 && (
-                      <p className="status">Define the interfaces this component exposes.</p>
+                      <p className="status">No entry points yet. Add your first entry point.</p>
                     )}
                     {draft.entryPoints.map((entryPoint) => (
                       <article key={entryPoint.localId} className="entry-point">
@@ -873,7 +718,11 @@ const ComponentDesigner = () => {
                                         type="checkbox"
                                         checked={entryPoint.requestModelIds.includes(model.id)}
                                         onChange={() =>
-                                          toggleEntryPointModel(entryPoint.localId, 'requestModelIds', model.id)
+                                          toggleEntryPointModel(
+                                            entryPoint.localId,
+                                            'requestModelIds',
+                                            model.id
+                                          )
                                         }
                                         disabled={isMutating}
                                       />
@@ -897,7 +746,11 @@ const ComponentDesigner = () => {
                                         type="checkbox"
                                         checked={entryPoint.responseModelIds.includes(model.id)}
                                         onChange={() =>
-                                          toggleEntryPointModel(entryPoint.localId, 'responseModelIds', model.id)
+                                          toggleEntryPointModel(
+                                            entryPoint.localId,
+                                            'responseModelIds',
+                                            model.id
+                                          )
                                         }
                                         disabled={isMutating}
                                       />
@@ -911,38 +764,172 @@ const ComponentDesigner = () => {
                         </div>
                       </article>
                     ))}
-                  </section>
-                  <footer className="component-actions">
-                    <button type="submit" className="primary" disabled={!canSave || isMutating}>
-                      Save component
-                    </button>
+                    <footer className="component-actions">
+                      <button type="submit" className="primary" disabled={!canSave || isMutating}>
+                        Save changes
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={handleResetDraft}
+                        disabled={!isDirty || isMutating}
+                      >
+                        Reset changes
+                      </button>
+                    </footer>
+                    {updateComponentMutation.isError && (
+                      <p className="status error" role="alert">
+                        Unable to save component.
+                      </p>
+                    )}
+                  </form>
+                </section>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {isModalOpen && (
+        <div
+          className="modal-backdrop"
+          role="button"
+          tabIndex={0}
+          aria-label={`Dismiss ${isEditModalOpen ? 'edit' : 'create'} component dialog`}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              dismissModal();
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.currentTarget !== event.target) {
+              return;
+            }
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              dismissModal();
+            }
+          }}
+        >
+          <div
+            className={`modal${isEditModalOpen ? ' component-modal' : ''}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={modalTitleId}
+            aria-describedby={modalDescriptionId}
+          >
+            <header className="modal-header">
+              <h3 id={modalTitleId}>{modalHeading}</h3>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={dismissModal}
+                aria-label={`Close ${isEditModalOpen ? 'edit' : 'create'} component dialog`}
+                disabled={activeMutation.isPending || deleteComponentMutation.isPending}
+              >
+                ×
+              </button>
+            </header>
+            <p id={modalDescriptionId} className="modal-description">
+              {modalDescription}
+            </p>
+            <div className="modal-body">
+              {isCreateModalOpen && (
+                <form className="modal-form" onSubmit={handleCreateComponent}>
+                  <label className="field">
+                    <span>Name</span>
+                    <input
+                      type="text"
+                      ref={createNameFieldRef}
+                      value={creationForm.name}
+                      onChange={(event) =>
+                        setCreationForm((previous) => ({
+                          ...previous,
+                          name: event.target.value
+                        }))
+                      }
+                      placeholder="Component name"
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Description</span>
+                    <textarea
+                      value={creationForm.description}
+                      onChange={(event) =>
+                        setCreationForm((previous) => ({
+                          ...previous,
+                          description: event.target.value
+                        }))
+                      }
+                      placeholder="Optional description"
+                      rows={3}
+                    />
+                  </label>
+                  {createComponentMutation.isError && (
+                    <p className="status error" role="alert">
+                      Unable to create component.
+                    </p>
+                  )}
+                  <div className="modal-actions">
                     <button
-                      type="button"
                       className="secondary"
-                      onClick={handleResetDraft}
-                      disabled={isMutating}
-                    >
-                      Reset changes
-                    </button>
-                    <button
                       type="button"
-                      className="danger"
-                      onClick={handleDeleteComponent}
-                      disabled={isMutating}
+                      onClick={dismissModal}
+                      disabled={createComponentMutation.isPending}
                     >
-                      Delete component
+                      Cancel
                     </button>
-                  </footer>
+                    <button className="primary" type="submit" disabled={createComponentMutation.isPending}>
+                      {createComponentMutation.isPending ? 'Creating…' : 'Create component'}
+                    </button>
+                  </div>
+                </form>
+              )}
+              {isEditModalOpen && draft && (
+                <form className="modal-form" onSubmit={handleSaveDraft}>
+                  <label className="field">
+                    <span>Name</span>
+                    <input
+                      type="text"
+                      ref={editNameFieldRef}
+                      value={draft.name}
+                      onChange={(event) => handleComponentFieldChange('name', event.target.value)}
+                      required
+                      disabled={isMutating}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Description</span>
+                    <textarea
+                      value={draft.description}
+                      onChange={(event) => handleComponentFieldChange('description', event.target.value)}
+                      rows={3}
+                      placeholder="How does this component operate?"
+                      disabled={isMutating}
+                    />
+                  </label>
                   {updateComponentMutation.isError && (
                     <p className="status error" role="alert">
                       Unable to save component.
                     </p>
                   )}
-                  {deleteComponentMutation.isError && (
-                    <p className="status error" role="alert">
-                      Unable to delete component.
-                    </p>
-                  )}
+                  <div className="modal-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={dismissModal}
+                      disabled={updateComponentMutation.isPending || deleteComponentMutation.isPending}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="primary"
+                      type="submit"
+                      disabled={!canSave || updateComponentMutation.isPending}
+                    >
+                      {updateComponentMutation.isPending ? 'Saving…' : 'Save changes'}
+                    </button>
+                  </div>
                 </form>
               )}
             </div>
