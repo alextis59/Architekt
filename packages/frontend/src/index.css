@@ -599,6 +599,10 @@ button.danger:hover:not(:disabled),
   gap: 1rem;
 }
 
+.data-model-editor {
+  min-width: 0;
+}
+
 .data-model-sidebar .data-model-heading {
   margin: 0;
   font-size: 1rem;
@@ -815,6 +819,16 @@ button.danger:hover:not(:disabled),
     grid-template-columns: 1fr;
   }
 
+  .flow-layout,
+  .data-model-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-sidebar,
+  .data-model-sidebar {
+    max-width: 100%;
+  }
+
   .data-model-footer {
     flex-direction: column;
     align-items: stretch;
@@ -992,6 +1006,7 @@ button.danger:hover:not(:disabled),
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  min-width: 0;
 }
 
 .flow-view-tabs {
