@@ -26,6 +26,17 @@
   ```
 - The custom TSX runner expects test files that match `*.test.ts` or `*.test.tsx` underneath the specified roots.
 
+## Pre-submit checklist
+Before sending work for review, run the following commands from the repository root and ensure they succeed:
+
+```bash
+npm run lint
+npm run build
+npm test
+```
+
+These commands catch lint regressions, verify production builds, and confirm the automated test suites still pass.
+
 ## Development workflows
 - Start the backend API locally with:
   ```bash

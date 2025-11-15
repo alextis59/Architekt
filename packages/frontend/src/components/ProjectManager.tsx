@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
 import { createProject, fetchProjects, type ProjectSummary } from '../api/projects.js';
@@ -31,16 +31,54 @@ const ProjectManager = () => {
     description: '',
     tags: ''
   });
+  const [isCreateModalOpen, setCreateModalOpen] = useState(false);
+
+  const nameFieldRef = useRef<HTMLInputElement | null>(null);
+
+  const resetForm = useCallback(() => {
+    setFormState({ name: '', description: '', tags: '' });
+  }, []);
 
   const createProjectMutation = useMutation({
     mutationFn: createProject,
     onSuccess: (project) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
       selectProject(project.id);
-      setFormState({ name: '', description: '', tags: '' });
+      resetForm();
+      setCreateModalOpen(false);
       navigate(`/projects/${project.id}`);
     }
   });
+
+  const closeCreateModal = useCallback(() => {
+    setCreateModalOpen(false);
+    resetForm();
+    createProjectMutation.reset();
+  }, [resetForm, createProjectMutation]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeCreateModal();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isCreateModalOpen, closeCreateModal]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) {
+      return;
+    }
+
+    nameFieldRef.current?.focus();
+  }, [isCreateModalOpen]);
 
   const projects = useMemo(() => (data ? sortProjects(data) : []), [data]);
 
@@ -72,7 +110,7 @@ const ProjectManager = () => {
             </p>
           )}
           {!isLoading && !projects.length && (
-            <p className="status">Start by creating a project using the form below.</p>
+            <p className="status">Start by creating a project using the button below.</p>
           )}
           {projects.length > 0 && (
             <ul className="project-list">
@@ -113,47 +151,110 @@ const ProjectManager = () => {
           <h3>Create project</h3>
           <p className="panel-subtitle">A root system is created automatically and can’t be removed.</p>
         </header>
-        <form className="panel-content project-form" onSubmit={handleSubmit}>
-          <label className="field">
-            <span>Name</span>
-            <input
-              type="text"
-              value={formState.name}
-              onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
-              required
-              placeholder="E.g. Payments Platform"
-            />
-          </label>
-          <label className="field">
-            <span>Description</span>
-            <textarea
-              value={formState.description}
-              onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
-              rows={3}
-              placeholder="Optional summary to help collaborators."
-            />
-          </label>
-          <label className="field">
-            <span>Tags</span>
-            <input
-              type="text"
-              value={formState.tags}
-              onChange={(event) => setFormState((prev) => ({ ...prev, tags: event.target.value }))}
-              placeholder="Comma separated"
-            />
-          </label>
-          <button className="primary" type="submit" disabled={createProjectMutation.isPending}>
-            {createProjectMutation.isPending ? 'Creating…' : 'Create project'}
+        <div className="panel-content project-form-launcher">
+          <p className="status">Kick off a fresh architecture workspace for your team.</p>
+          <button className="primary" type="button" onClick={() => setCreateModalOpen(true)}>
+            New project
           </button>
-          {createProjectMutation.isError && (
-            <p className="status error" role="alert">
-              {createProjectMutation.error instanceof Error
-                ? createProjectMutation.error.message
-                : 'Unable to create project'}
-            </p>
-          )}
-        </form>
+        </div>
       </div>
+      {isCreateModalOpen && (
+        <div
+          className="modal-backdrop"
+          role="button"
+          tabIndex={0}
+          aria-label="Dismiss create project dialog"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeCreateModal();
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.currentTarget !== event.target) {
+              return;
+            }
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              closeCreateModal();
+            }
+          }}
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-project-title"
+            aria-describedby="create-project-description"
+          >
+            <header className="modal-header">
+              <h3 id="create-project-title">Create project</h3>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={closeCreateModal}
+                aria-label="Close create project dialog"
+                disabled={createProjectMutation.isPending}
+              >
+                ×
+              </button>
+            </header>
+            <p id="create-project-description" className="modal-description">
+              A root system is created automatically and can’t be removed.
+            </p>
+            <form className="project-form modal-form" onSubmit={handleSubmit}>
+              <label className="field">
+                <span>Name</span>
+                <input
+                  type="text"
+                  ref={nameFieldRef}
+                  value={formState.name}
+                  onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
+                  required
+                  placeholder="E.g. Payments Platform"
+                />
+              </label>
+              <label className="field">
+                <span>Description</span>
+                <textarea
+                  value={formState.description}
+                  onChange={(event) => setFormState((prev) => ({ ...prev, description: event.target.value }))}
+                  rows={3}
+                  placeholder="Optional summary to help collaborators."
+                />
+              </label>
+              <label className="field">
+                <span>Tags</span>
+                <input
+                  type="text"
+                  value={formState.tags}
+                  onChange={(event) => setFormState((prev) => ({ ...prev, tags: event.target.value }))}
+                  placeholder="Comma separated"
+                />
+              </label>
+              {createProjectMutation.isError && (
+                <p className="status error" role="alert">
+                  {createProjectMutation.error instanceof Error
+                    ? createProjectMutation.error.message
+                    : 'Unable to create project'}
+                </p>
+              )}
+              <div className="modal-actions">
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={closeCreateModal}
+                  disabled={createProjectMutation.isPending}
+                >
+                  Cancel
+                </button>
+                <button className="primary" type="submit" disabled={createProjectMutation.isPending}>
+                  {createProjectMutation.isPending ? 'Creating…' : 'Create project'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 };

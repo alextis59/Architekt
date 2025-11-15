@@ -115,15 +115,18 @@ describe('ProjectManager', () => {
     });
 
     const user = userEvent.setup();
-    const nameInput = screen.getByLabelText(/Name/);
-    const descriptionInput = screen.getByLabelText(/Description/);
-    const tagsInput = screen.getByLabelText(/Tags/);
+    await user.click(screen.getByRole('button', { name: /New project/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Create project/i });
+    const nameInput = within(dialog).getByLabelText(/Name/);
+    const descriptionInput = within(dialog).getByLabelText(/Description/);
+    const tagsInput = within(dialog).getByLabelText(/Tags/);
 
     await user.type(nameInput, '  New Project  ');
     await user.type(descriptionInput, ' Desc ');
     await user.type(tagsInput, ' core, core , ');
 
-    await user.click(screen.getByRole('button', { name: /Create project/i }));
+    await user.click(within(dialog).getByRole('button', { name: /^Create project$/i }));
 
     await waitFor(() => {
       expect(projectManagerMocks.api.createProject).toHaveBeenCalled();
@@ -136,9 +139,16 @@ describe('ProjectManager', () => {
 
     expect(useProjectStore.getState().selectedProjectId).toBe('new');
     expect(projectManagerMocks.navigate).toHaveBeenCalledWith('/projects/new');
-    expect((nameInput as HTMLInputElement).value).toBe('');
-    expect((descriptionInput as HTMLTextAreaElement).value).toBe('');
-    expect((tagsInput as HTMLInputElement).value).toBe('');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /Create project/i })).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /New project/i }));
+    const reopenedDialog = await screen.findByRole('dialog', { name: /Create project/i });
+    expect((within(reopenedDialog).getByLabelText(/Name/) as HTMLInputElement).value).toBe('');
+    expect((within(reopenedDialog).getByLabelText(/Description/) as HTMLTextAreaElement).value).toBe('');
+    expect((within(reopenedDialog).getByLabelText(/Tags/) as HTMLInputElement).value).toBe('');
   });
 
   it('shows an error when project creation fails', async () => {
@@ -153,8 +163,11 @@ describe('ProjectManager', () => {
     });
 
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText(/Name/), 'Failure');
-    await user.click(screen.getByRole('button', { name: /Create project/i }));
+    await user.click(screen.getByRole('button', { name: /New project/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Create project/i });
+    await user.type(within(dialog).getByLabelText(/Name/), 'Failure');
+    await user.click(within(dialog).getByRole('button', { name: /^Create project$/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/Unable to create project/);
