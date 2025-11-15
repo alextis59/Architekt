@@ -202,17 +202,14 @@ describe('ComponentDesigner', () => {
     const entryPointArticle = entryPointNameInput.closest('article');
     expect(entryPointArticle).not.toBeNull();
 
-    const typeInput = within(entryPointArticle!).getByLabelText('Type');
-    await user.clear(typeInput);
-    await user.type(typeInput, '  http  ');
+    const typeSelect = within(entryPointArticle!).getByLabelText('Type');
+    await user.selectOptions(typeSelect, 'http');
 
-    const protocolInput = within(entryPointArticle!).getByLabelText('Protocol');
-    await user.clear(protocolInput);
-    await user.type(protocolInput, '  http/2  ');
+    const protocolSelect = within(entryPointArticle!).getByLabelText('Protocol');
+    await user.selectOptions(protocolSelect, 'http/2');
 
-    const methodInput = within(entryPointArticle!).getByLabelText('Method / Verb');
-    await user.clear(methodInput);
-    await user.type(methodInput, '  get  ');
+    const methodSelect = within(entryPointArticle!).getByLabelText('Method / Verb');
+    await user.selectOptions(methodSelect, 'get');
 
     const pathInput = within(entryPointArticle!).getByLabelText('Path or channel');
     await user.clear(pathInput);

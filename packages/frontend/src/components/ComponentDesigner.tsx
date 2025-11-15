@@ -22,6 +22,12 @@ import {
   createEmptyEntryPointDraft,
   toComponentPayload
 } from './ComponentDesigner.helpers.js';
+import {
+  ENTRY_POINT_METHOD_OPTIONS,
+  ENTRY_POINT_PROTOCOL_OPTIONS,
+  ENTRY_POINT_TYPE_OPTIONS,
+  type EntryPointSelectOption
+} from './ComponentDesigner.constants.js';
 
 const cloneEntryPointDraft = (entryPoint: EntryPointDraft): EntryPointDraft => ({
   ...entryPoint,
@@ -38,6 +44,17 @@ const cloneDraft = (draft: ComponentDraft | null): ComponentDraft | null => {
     ...draft,
     entryPoints: draft.entryPoints.map(cloneEntryPointDraft)
   };
+};
+
+const withExistingEntryPointValue = (
+  value: string,
+  options: EntryPointSelectOption[]
+): EntryPointSelectOption[] => {
+  if (!value || options.some((option) => option.value === value)) {
+    return options;
+  }
+
+  return [{ value, label: value }, ...options];
 };
 
 const ComponentDesigner = () => {
@@ -629,41 +646,65 @@ const ComponentDesigner = () => {
                         <div className="entry-point-grid">
                           <label className="field">
                             <span>Type</span>
-                            <input
-                              type="text"
+                            <select
                               value={entryPoint.type}
                               onChange={(event) =>
                                 updateEntryPoint(entryPoint.localId, { type: event.target.value })
                               }
-                              placeholder="HTTP, queue, cron…"
                               disabled={isMutating}
-                            />
+                            >
+                              <option value="">Select type</option>
+                              {withExistingEntryPointValue(
+                                entryPoint.type,
+                                ENTRY_POINT_TYPE_OPTIONS
+                              ).map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
                           </label>
                           <label className="field">
                             <span>Protocol</span>
-                            <input
-                              type="text"
+                            <select
                               value={entryPoint.protocol}
                               onChange={(event) =>
                                 updateEntryPoint(entryPoint.localId, {
                                   protocol: event.target.value
                                 })
                               }
-                              placeholder="HTTP, gRPC, AMQP…"
                               disabled={isMutating}
-                            />
+                            >
+                              <option value="">Select protocol</option>
+                              {withExistingEntryPointValue(
+                                entryPoint.protocol,
+                                ENTRY_POINT_PROTOCOL_OPTIONS
+                              ).map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
                           </label>
                           <label className="field">
                             <span>Method / Verb</span>
-                            <input
-                              type="text"
+                            <select
                               value={entryPoint.method}
                               onChange={(event) =>
                                 updateEntryPoint(entryPoint.localId, { method: event.target.value })
                               }
-                              placeholder="GET, POST, LISTEN…"
                               disabled={isMutating}
-                            />
+                            >
+                              <option value="">Select method (optional)</option>
+                              {withExistingEntryPointValue(
+                                entryPoint.method,
+                                ENTRY_POINT_METHOD_OPTIONS
+                              ).map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
                           </label>
                           <label className="field">
                             <span>Path or channel</span>
