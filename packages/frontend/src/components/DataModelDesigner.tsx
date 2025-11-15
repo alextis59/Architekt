@@ -17,6 +17,7 @@ import {
 } from '../store/projectStore.js';
 import {
   AttributeDraft,
+  AttributeConstraintDraft,
   DataModelDraft,
   createDataModelDraft,
   createEmptyAttributeDraft,
@@ -25,8 +26,41 @@ import {
 
 const TYPE_OPTIONS = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'date'];
 
+const STRING_CONSTRAINTS: AttributeConstraintDraft['type'][] = ['regex', 'minLength', 'maxLength'];
+const NUMERIC_CONSTRAINTS: AttributeConstraintDraft['type'][] = ['min', 'max'];
+
+const getConstraintTypesForAttribute = (type: string): AttributeConstraintDraft['type'][] => {
+  const normalized = type.trim().toLowerCase();
+  if (normalized === 'string') {
+    return STRING_CONSTRAINTS;
+  }
+  if (normalized === 'number' || normalized === 'integer') {
+    return NUMERIC_CONSTRAINTS;
+  }
+  return [];
+};
+
+const formatConstraintDisplay = (constraint: AttributeConstraintDraft): string => {
+  const value = constraint.value.trim();
+  switch (constraint.type) {
+    case 'regex':
+      return value ? `Regex: ${value}` : 'Regex';
+    case 'minLength':
+      return value ? `Min length: ${value}` : 'Min length';
+    case 'maxLength':
+      return value ? `Max length: ${value}` : 'Max length';
+    case 'min':
+      return value ? `Min: ${value}` : 'Min';
+    case 'max':
+      return value ? `Max: ${value}` : 'Max';
+    default:
+      return value || constraint.type;
+  }
+};
+
 const cloneAttributeDraft = (attribute: AttributeDraft): AttributeDraft => ({
   ...attribute,
+  constraints: attribute.constraints.map((constraint) => ({ ...constraint })),
   attributes: attribute.attributes.map(cloneAttributeDraft)
 });
 
@@ -896,7 +930,10 @@ const AttributeItem = ({
   const canNest = attribute.type.trim().toLowerCase() === 'object';
   const displayName = attribute.name.trim() || 'Unnamed attribute';
   const displayType = attribute.type.trim() || '—';
-  const displayConstraints = attribute.constraints.trim() || '—';
+  const displayConstraints =
+    attribute.constraints.length > 0
+      ? attribute.constraints.map((constraint) => formatConstraintDisplay(constraint)).join(', ')
+      : '—';
   const displayDescription = attribute.description.trim() || '—';
 
   return (
@@ -933,6 +970,8 @@ const AttributeItem = ({
               <dt>Flags</dt>
               <dd>
                 <div className="attribute-flags">
+                  <span className={clsx('attribute-flag', { active: attribute.required })}>Required</span>
+                  <span className={clsx('attribute-flag', { active: attribute.unique })}>Unique</span>
                   <span className={clsx('attribute-flag', { active: attribute.readOnly })}>
                     Read-only
                   </span>
@@ -989,33 +1028,148 @@ type AttributeModalProps = {
 };
 
 const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: AttributeModalProps) => {
-  const [formState, setFormState] = useState({
+  const cloneConstraints = useCallback(
+    (constraints: AttributeDraft['constraints']) => constraints.map((constraint) => ({ ...constraint })),
+    []
+  );
+
+  const [formState, setFormState] = useState(() => ({
     name: attribute.name,
     type: attribute.type,
-    constraints: attribute.constraints,
     description: attribute.description,
+    required: attribute.required,
+    unique: attribute.unique,
+    constraints: cloneConstraints(attribute.constraints),
     readOnly: attribute.readOnly,
     encrypted: attribute.encrypted
-  });
+  }));
+
+  const [constraintDraft, setConstraintDraft] = useState<{
+    type: AttributeConstraintDraft['type'] | '';
+    value: string;
+  }>({ type: '', value: '' });
+
+  const [constraintError, setConstraintError] = useState<string | null>(null);
 
   useEffect(() => {
     setFormState({
       name: attribute.name,
       type: attribute.type,
-      constraints: attribute.constraints,
       description: attribute.description,
+      required: attribute.required,
+      unique: attribute.unique,
+      constraints: cloneConstraints(attribute.constraints),
       readOnly: attribute.readOnly,
       encrypted: attribute.encrypted
     });
-  }, [attribute]);
+  }, [attribute, cloneConstraints]);
+
+  const constraintTypes = useMemo(
+    () => getConstraintTypesForAttribute(formState.type),
+    [formState.type]
+  );
+
+  const availableConstraintTypes = useMemo(
+    () =>
+      constraintTypes.filter(
+        (type) => !formState.constraints.some((constraint) => constraint.type === type)
+      ),
+    [constraintTypes, formState.constraints]
+  );
+
+  useEffect(() => {
+    setConstraintDraft((previous) => {
+      const nextType = previous.type && availableConstraintTypes.includes(previous.type)
+        ? previous.type
+        : availableConstraintTypes[0] ?? '';
+      return { type: nextType, value: '' };
+    });
+    setConstraintError(null);
+  }, [availableConstraintTypes]);
+
+  const removeConstraint = (typeToRemove: AttributeConstraintDraft['type']) => {
+    setFormState((previous) => ({
+      ...previous,
+      constraints: previous.constraints.filter((constraint) => constraint.type !== typeToRemove)
+    }));
+    setConstraintError(null);
+  };
+
+  const handleAddConstraint = () => {
+    if (!constraintDraft.type) {
+      setConstraintError('Select a constraint type.');
+      return;
+    }
+
+    const trimmedValue = constraintDraft.value.trim();
+    if (!trimmedValue) {
+      setConstraintError('Enter a constraint value.');
+      return;
+    }
+
+    if (constraintDraft.type === 'regex') {
+      setFormState((previous) => ({
+        ...previous,
+        constraints: [...previous.constraints, { type: 'regex', value: trimmedValue }]
+      }));
+      setConstraintDraft((previous) => ({ ...previous, value: '' }));
+      setConstraintError(null);
+      return;
+    }
+
+    const numeric = Number(trimmedValue);
+    if (!Number.isFinite(numeric)) {
+      setConstraintError('Enter a valid numeric value.');
+      return;
+    }
+
+    if (constraintDraft.type === 'minLength' || constraintDraft.type === 'maxLength') {
+      const integer = Math.trunc(numeric);
+      if (!Number.isFinite(integer) || integer < 0) {
+        setConstraintError('Enter a non-negative integer value.');
+        return;
+      }
+      setFormState((previous) => ({
+        ...previous,
+        constraints: [...previous.constraints, { type: constraintDraft.type, value: String(integer) }]
+      }));
+      setConstraintDraft((previous) => ({ ...previous, value: '' }));
+      setConstraintError(null);
+      return;
+    }
+
+    setFormState((previous) => ({
+      ...previous,
+      constraints: [...previous.constraints, { type: constraintDraft.type, value: String(numeric) }]
+    }));
+    setConstraintDraft((previous) => ({ ...previous, value: '' }));
+    setConstraintError(null);
+  };
+
+  const constraintValueInputType =
+    !constraintDraft.type || constraintDraft.type === 'regex' ? 'text' : 'number';
+  const constraintValueStep =
+    constraintDraft.type === 'minLength' || constraintDraft.type === 'maxLength'
+      ? 1
+      : constraintDraft.type === 'min' || constraintDraft.type === 'max'
+      ? 'any'
+      : undefined;
+  const constraintPlaceholder =
+    constraintDraft.type === 'regex'
+      ? 'Pattern, e.g. ^[A-Z]+$'
+      : constraintDraft.type
+      ? 'Value'
+      : 'Select a constraint';
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     onSubmit(attribute.localId, {
       name: formState.name,
       type: formState.type,
-      constraints: formState.constraints,
       description: formState.description,
+      required: formState.required,
+      unique: formState.unique,
+      constraints: cloneConstraints(formState.constraints),
       readOnly: formState.readOnly,
       encrypted: formState.encrypted
     });
@@ -1079,9 +1233,16 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
             <span>Type</span>
             <select
               value={formState.type}
-              onChange={(event) =>
-                setFormState((previous) => ({ ...previous, type: event.target.value }))
-              }
+              onChange={(event) => {
+                const nextType = event.target.value;
+                setFormState((previous) => ({
+                  ...previous,
+                  type: nextType,
+                  constraints: []
+                }));
+                setConstraintDraft({ type: '', value: '' });
+                setConstraintError(null);
+              }}
               required
             >
               <option value="" disabled>
@@ -1094,17 +1255,75 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
               ))}
             </select>
           </label>
-          <label className="field">
+          <div className="field constraint-field">
             <span>Constraints</span>
-            <input
-              type="text"
-              value={formState.constraints}
-              onChange={(event) =>
-                setFormState((previous) => ({ ...previous, constraints: event.target.value }))
-              }
-              placeholder="Optional, e.g. required"
-            />
-          </label>
+            <div className="constraint-editor">
+              {formState.constraints.length > 0 ? (
+                <ul className="constraint-list">
+                  {formState.constraints.map((constraint) => (
+                    <li key={constraint.type} className="constraint-item">
+                      <span>{formatConstraintDisplay(constraint)}</span>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => removeConstraint(constraint.type)}
+                        aria-label={`Remove ${constraint.type} constraint`}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="status">No constraints added.</p>
+              )}
+              {constraintError && (
+                <p className="status error" role="alert">
+                  {constraintError}
+                </p>
+              )}
+              {availableConstraintTypes.length > 0 ? (
+                <div className="constraint-form">
+                  <select
+                    value={constraintDraft.type}
+                    onChange={(event) => {
+                      const nextType = event.target.value as AttributeConstraintDraft['type'] | '';
+                      setConstraintDraft({ type: nextType, value: '' });
+                    }}
+                    aria-label="Constraint type"
+                  >
+                    <option value="">Select constraint</option>
+                    {availableConstraintTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type={constraintValueInputType}
+                    value={constraintDraft.value}
+                    onChange={(event) =>
+                      setConstraintDraft((previous) => ({ ...previous, value: event.target.value }))
+                    }
+                    aria-label="Constraint value"
+                    placeholder={constraintPlaceholder}
+                    disabled={!constraintDraft.type}
+                    step={constraintValueStep}
+                  />
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={handleAddConstraint}
+                    disabled={!constraintDraft.type}
+                  >
+                    Add constraint
+                  </button>
+                </div>
+              ) : (
+                <p className="status">No additional constraints available for this type.</p>
+              )}
+            </div>
+          </div>
           <label className="field">
             <span>Description</span>
             <textarea
@@ -1114,6 +1333,26 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
               }
               rows={3}
             />
+          </label>
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={formState.required}
+              onChange={(event) =>
+                setFormState((previous) => ({ ...previous, required: event.target.checked }))
+              }
+            />
+            <span>Required</span>
+          </label>
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={formState.unique}
+              onChange={(event) =>
+                setFormState((previous) => ({ ...previous, unique: event.target.checked }))
+              }
+            />
+            <span>Unique</span>
           </label>
           <label className="checkbox-field">
             <input

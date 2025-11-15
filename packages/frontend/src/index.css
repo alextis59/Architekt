@@ -984,6 +984,52 @@ button.danger:hover:not(:disabled),
   font-weight: 600;
 }
 
+.constraint-field .status {
+  margin: 0;
+}
+
+.constraint-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.constraint-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.constraint-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: rgba(129, 140, 248, 0.15);
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.5rem;
+}
+
+.constraint-item span {
+  flex: 1;
+}
+
+.constraint-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.constraint-form select,
+.constraint-form input {
+  flex: 1 1 140px;
+  min-width: 120px;
+}
+
 .attribute-actions {
   display: flex;
   gap: 0.5rem;

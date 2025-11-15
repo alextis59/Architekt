@@ -161,7 +161,13 @@ describe('projects API helpers', () => {
           name: '  Name  ',
           description: ' Details ',
           type: ' string ',
-          constraints: ' required ',
+          required: true,
+          unique: false,
+          constraints: [
+            { type: 'regex', value: ' ^[A-Z]+$ ' },
+            { type: 'minLength', value: ' 5 ' },
+            { type: 'minLength', value: ' 10 ' }
+          ],
           readOnly: true,
           encrypted: false,
           attributes: [
@@ -169,7 +175,9 @@ describe('projects API helpers', () => {
               name: 'Child',
               description: '',
               type: '',
-              constraints: '',
+              required: false,
+              unique: false,
+              constraints: [],
               readOnly: false,
               encrypted: false,
               attributes: []
@@ -180,7 +188,9 @@ describe('projects API helpers', () => {
           name: '  ',
           description: '',
           type: '',
-          constraints: '',
+          required: false,
+          unique: false,
+          constraints: [],
           readOnly: false,
           encrypted: false,
           attributes: []
@@ -203,7 +213,12 @@ describe('projects API helpers', () => {
           name: 'Name',
           description: 'Details',
           type: 'string',
-          constraints: 'required',
+          required: true,
+          unique: false,
+          constraints: [
+            { type: 'regex', value: '^[A-Z]+$' },
+            { type: 'minLength', value: 5 }
+          ],
           readOnly: true,
           encrypted: false,
           attributes: []

@@ -61,7 +61,9 @@ const project = {
           name: 'id',
           description: 'Primary identifier',
           type: 'string',
-          constraints: 'required',
+          required: true,
+          unique: false,
+          constraints: [{ type: 'regex', value: '^[A-Z0-9-]+$' }],
           readOnly: true,
           encrypted: false,
           attributes: []

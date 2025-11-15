@@ -42,6 +42,21 @@ const ensureTags = (value: unknown): string[] => {
 const ensureBoolean = (value: unknown, fallback = false): boolean =>
   typeof value === 'boolean' ? value : fallback;
 
+const ensureNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+};
+
 const cloneAggregate = (aggregate: DomainAggregate): DomainAggregate => ({
   projects: JSON.parse(JSON.stringify(aggregate.projects))
 });
@@ -102,6 +117,8 @@ type DataModelAttributeInput = {
   description?: unknown;
   type: unknown;
   constraints?: unknown;
+  required?: unknown;
+  unique?: unknown;
   readOnly?: unknown;
   encrypted?: unknown;
   attributes?: unknown;
@@ -277,9 +294,14 @@ const ensureAlternateFlows = (flowIds: Set<string>, value: unknown): string[] =>
   return ids;
 };
 
+const cloneAttributeConstraints = (
+  constraints: DataModelAttribute['constraints']
+): DataModelAttribute['constraints'] => constraints.map((constraint) => ({ ...constraint }));
+
 const cloneDataModelAttributes = (attributes: DataModelAttribute[]): DataModelAttribute[] =>
   attributes.map((attribute) => ({
     ...attribute,
+    constraints: cloneAttributeConstraints(attribute.constraints),
     attributes: cloneDataModelAttributes(attribute.attributes)
   }));
 
@@ -289,6 +311,84 @@ const cloneComponentEntryPoints = (entryPoints: ComponentEntryPoint[]): Componen
     requestModelIds: [...entryPoint.requestModelIds],
     responseModelIds: [...entryPoint.responseModelIds]
   }));
+
+const parseAttributeConstraint = (raw: unknown): DataModelAttribute['constraints'][number] => {
+  if (!raw || typeof raw !== 'object') {
+    throw new BadRequestError('Data model attribute constraint must be an object');
+  }
+
+  const candidate = raw as { type?: unknown; value?: unknown };
+  const type = ensureString(candidate.type);
+
+  switch (type) {
+    case 'regex': {
+      const value = ensureString(candidate.value);
+      if (!value) {
+        throw new BadRequestError('Regex constraint requires a pattern');
+      }
+      return { type: 'regex', value };
+    }
+    case 'minLength':
+    case 'maxLength': {
+      const numeric = ensureNumber(candidate.value);
+      if (numeric === null) {
+        throw new BadRequestError(`${type} constraint requires an integer value`);
+      }
+      const integer = Math.trunc(numeric);
+      if (!Number.isFinite(integer) || integer < 0) {
+        throw new BadRequestError(`${type} constraint must be a non-negative integer`);
+      }
+      return { type, value: integer };
+    }
+    case 'min':
+    case 'max': {
+      const numeric = ensureNumber(candidate.value);
+      if (numeric === null) {
+        throw new BadRequestError(`${type} constraint requires a numeric value`);
+      }
+      return { type, value: numeric };
+    }
+    default:
+      throw new BadRequestError(`Unsupported constraint type: ${type || 'unknown'}`);
+  }
+};
+
+const sanitizeAttributeConstraints = ({
+  rawConstraints,
+  previous
+}: {
+  rawConstraints: unknown;
+  previous?: DataModelAttribute['constraints'];
+}): DataModelAttribute['constraints'] => {
+  if (rawConstraints === undefined) {
+    return previous ? cloneAttributeConstraints(previous) : [];
+  }
+
+  if (rawConstraints === null) {
+    return [];
+  }
+
+  if (typeof rawConstraints === 'string') {
+    return [];
+  }
+
+  if (!Array.isArray(rawConstraints)) {
+    throw new BadRequestError('Data model attribute constraints must be an array');
+  }
+
+  const seen = new Set<DataModelAttribute['constraints'][number]['type']>();
+  const result: DataModelAttribute['constraints'] = [];
+
+  for (const rawConstraint of rawConstraints) {
+    const constraint = parseAttributeConstraint(rawConstraint);
+    if (!seen.has(constraint.type)) {
+      seen.add(constraint.type);
+      result.push(constraint);
+    }
+  }
+
+  return result;
+};
 
 const sanitizeDataModelAttributes = ({
   rawAttributes,
@@ -341,10 +441,13 @@ const sanitizeDataModelAttributes = ({
         ? input.description.trim()
         : previous?.description ?? '';
 
-    const constraints =
-      typeof input.constraints === 'string'
-        ? input.constraints.trim()
-        : previous?.constraints ?? '';
+    const constraints = sanitizeAttributeConstraints({
+      rawConstraints: input.constraints,
+      previous: previous?.constraints
+    });
+
+    const required = ensureBoolean(input.required, previous?.required ?? false);
+    const unique = ensureBoolean(input.unique, previous?.unique ?? false);
 
     const readOnly = ensureBoolean(input.readOnly, previous?.readOnly ?? false);
     const encrypted = ensureBoolean(input.encrypted, previous?.encrypted ?? false);
@@ -363,6 +466,8 @@ const sanitizeDataModelAttributes = ({
       name,
       description,
       type,
+      required,
+      unique,
       constraints,
       readOnly,
       encrypted,

@@ -20,7 +20,9 @@ describe('DataModelDesigner helpers', () => {
           name: 'id',
           description: 'Primary key',
           type: 'string',
-          constraints: 'required',
+          required: true,
+          unique: true,
+          constraints: [{ type: 'minLength', value: 3 }],
           readOnly: true,
           encrypted: false,
           attributes: []
@@ -41,7 +43,9 @@ describe('DataModelDesigner helpers', () => {
           name: 'id',
           description: 'Primary key',
           type: 'string',
-          constraints: 'required',
+          required: true,
+          unique: true,
+          constraints: [{ type: 'minLength', value: '3' }],
           readOnly: true,
           encrypted: false,
           attributes: []
@@ -62,7 +66,12 @@ describe('DataModelDesigner helpers', () => {
           name: ' name ',
           description: ' primary ',
           type: ' string ',
-          constraints: ' required ',
+          required: true,
+          unique: false,
+          constraints: [
+            { type: 'regex', value: ' ^[A-Z]+$ ' },
+            { type: 'minLength', value: ' 5 ' }
+          ],
           readOnly: false,
           encrypted: true,
           attributes: []
@@ -81,7 +90,12 @@ describe('DataModelDesigner helpers', () => {
           name: 'name',
           description: 'primary',
           type: 'string',
-          constraints: 'required',
+          required: true,
+          unique: false,
+          constraints: [
+            { type: 'regex', value: '^[A-Z]+$' },
+            { type: 'minLength', value: 5 }
+          ],
           readOnly: false,
           encrypted: true,
           attributes: []
@@ -98,7 +112,9 @@ describe('DataModelDesigner helpers', () => {
     expect(draft.name).toBe('');
     expect(draft.description).toBe('');
     expect(draft.type).toBe('');
-    expect(draft.constraints).toBe('');
+    expect(draft.required).toBe(false);
+    expect(draft.unique).toBe(false);
+    expect(draft.constraints).toEqual([]);
     expect(draft.readOnly).toBe(false);
     expect(draft.encrypted).toBe(false);
     expect(draft.attributes).toEqual([]);
