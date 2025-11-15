@@ -503,6 +503,7 @@ const FlowWorkspace = () => {
   const [stepTagFilters, setStepTagFilters] = useState<string[]>([]);
   const [activeView, setActiveView] = useState<FlowView>('linear');
   const [isCreatingNewFlow, setIsCreatingNewFlow] = useState(false);
+  const [activeModal, setActiveModal] = useState<'create' | 'edit' | null>(null);
   const [draft, setDraft] = useState<FlowDraft | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [alternateLinkError, setAlternateLinkError] = useState<string | null>(null);
@@ -521,6 +522,7 @@ const FlowWorkspace = () => {
     setStepTagFilters([]);
     setActiveView('linear');
     setIsCreatingNewFlow(false);
+    setActiveModal(null);
     setDraft(null);
     setFormError(null);
     setAlternateLinkError(null);
@@ -630,6 +632,7 @@ const FlowWorkspace = () => {
         };
       });
       setIsCreatingNewFlow(false);
+      setActiveModal(null);
       selectFlow(flow.id);
       setDraft(createDraftFromFlow(flow));
       setStepTagFilters([]);
@@ -682,6 +685,7 @@ const FlowWorkspace = () => {
         };
       });
       setDraft(createDraftFromFlow(flow));
+      setActiveModal(null);
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     },
     onError: (error) => {
@@ -718,6 +722,7 @@ const FlowWorkspace = () => {
       setDraft(null);
       setIsCreatingNewFlow(false);
       setPendingAlternateLink(null);
+      setActiveModal(null);
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     },
     onError: (error) => {
@@ -838,6 +843,7 @@ const FlowWorkspace = () => {
     setStepTagFilters([]);
     setFormError(null);
     setAlternateLinkError(null);
+    setActiveModal('create');
   };
 
   const handleToggleFlowTag = (tag: string) => {
@@ -855,6 +861,7 @@ const FlowWorkspace = () => {
   const handleSelectFlow = (flowId: string) => {
     setIsCreatingNewFlow(false);
     setPendingAlternateLink(null);
+    setActiveModal(null);
     selectFlow(flowId);
   };
 
@@ -989,6 +996,41 @@ const FlowWorkspace = () => {
     startCreateFlow({ template, linkFrom: { flowId: draft.id, stepId: step.id } });
   };
 
+  const openEditModal = () => {
+    if (!project || !draft?.id) {
+      return;
+    }
+
+    const latestFlow = project.flows[draft.id];
+    if (latestFlow) {
+      setDraft(createDraftFromFlow(latestFlow));
+    }
+
+    setIsCreatingNewFlow(false);
+    setFormError(null);
+    setAlternateLinkError(null);
+    setActiveModal('edit');
+  };
+
+  const dismissModal = () => {
+    if (createFlowMutation.isPending || updateFlowMutation.isPending || deleteFlowMutation.isPending) {
+      return;
+    }
+
+    setActiveModal(null);
+
+    if (isCreatingNewFlow) {
+      setIsCreatingNewFlow(false);
+      setDraft(null);
+    } else if (selectedFlowId && project?.flows[selectedFlowId]) {
+      setDraft(createDraftFromFlow(project.flows[selectedFlowId]));
+    }
+
+    setPendingAlternateLink(null);
+    setFormError(null);
+    setAlternateLinkError(null);
+  };
+
   const scopeOptions = useMemo(
     () => [...systems].sort((a, b) => a.name.localeCompare(b.name)),
     [systems]
@@ -1020,6 +1062,16 @@ const FlowWorkspace = () => {
         return <FlowLinearView steps={displayedSteps} systemsById={systemsById} flowsById={flowsById} />;
     }
   };
+
+  const isCreateModalOpen = activeModal === 'create';
+  const isEditModalOpen = activeModal === 'edit';
+  const isModalOpen = activeModal !== null;
+  const modalTitleId = isEditModalOpen ? 'edit-flow-title' : 'create-flow-title';
+  const modalDescriptionId = isEditModalOpen ? 'edit-flow-description' : 'create-flow-description';
+  const modalHeading = isEditModalOpen ? 'Edit flow' : 'Create flow';
+  const modalDescription = isEditModalOpen
+    ? 'Update flow details, scope, tags, and steps.'
+    : 'Define flow details, scope, tags, and steps.';
 
   const isMutating =
     createFlowMutation.isPending ||
@@ -1087,7 +1139,7 @@ const FlowWorkspace = () => {
               ))}
             </ul>
             <button type="button" className="primary" onClick={() => startCreateFlow()}>
-              {isCreatingNewFlow ? 'Editing new flow' : 'New flow'}
+              New flow
             </button>
           </aside>
           <div className="flow-editor">
@@ -1117,218 +1169,343 @@ const FlowWorkspace = () => {
             <div className="flow-visualization" role="region" aria-live="polite">
               {renderView()}
             </div>
-            <form className="flow-form" onSubmit={handleSubmit}>
-              <div className="flow-form-grid">
-                <label className="field">
-                  <span>Name</span>
-                  <input
-                    type="text"
-                    value={draft?.name ?? ''}
-                    onChange={(event) => updateDraftField('name', event.target.value)}
-                    placeholder="E.g. Checkout happy path"
-                    required
-                  />
-                </label>
-                <label className="field">
-                  <span>Tags</span>
-                  <input
-                    type="text"
-                    value={draft ? draft.tags.join(', ') : ''}
-                    onChange={(event) => updateDraftField('tags', parseTagInput(event.target.value))}
-                    placeholder="Comma separated tags"
-                  />
-                </label>
-              </div>
-              <label className="field">
-                <span>Description</span>
-                <textarea
-                  value={draft?.description ?? ''}
-                  onChange={(event) => updateDraftField('description', event.target.value)}
-                  rows={3}
-                  placeholder="Provide context for collaborators"
-                />
-              </label>
-              <div className="scope-selector">
-                <span className="scope-label">Systems in scope</span>
-                <div className="scope-grid">
-                  {scopeOptions.map((system) => (
-                    <label key={system.id} className="scope-option">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(draft?.systemScopeIds.includes(system.id))}
-                        onChange={() => handleScopeToggle(system.id)}
-                      />
-                      <span>{system.name}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              {validation.flow.length > 0 && (
-                <ul className="field-errors" role="alert">
-                  {validation.flow.map((message) => (
-                    <li key={message}>{message}</li>
-                  ))}
-                </ul>
-              )}
-              <div className="steps-editor">
-                <div className="steps-header">
-                  <h3>Steps</h3>
-                  <button type="button" className="secondary" onClick={handleAddStep}>
-                    Add step
-                  </button>
-                </div>
-                {draft?.steps.length === 0 && <p className="status">Add steps to define the flow journey.</p>}
-                {draft?.steps.map((step, index) => (
-                  <article key={step.id ?? index} className="step-editor">
-                    <header className="step-editor-header">
-                      <h4>Step {index + 1}</h4>
-                      <div className="step-actions">
-                        <button
-                          type="button"
-                          className="link-button"
-                          onClick={() => handleCreateAlternateFlow(index)}
-                          disabled={!step.id || !draft.id}
-                        >
-                          Create alternate flow
-                        </button>
-                        <button type="button" className="link-button" onClick={() => handleRemoveStep(index)}>
-                          Remove step
-                        </button>
-                      </div>
-                    </header>
-                    <div className="step-fields">
-                      <label className="field">
-                        <span>Name</span>
-                        <input
-                          type="text"
-                          value={step.name}
-                          onChange={(event) => updateStepAt(index, (current) => ({ ...current, name: event.target.value }))}
-                          placeholder="E.g. Validate cart"
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Description</span>
-                        <textarea
-                          value={step.description}
-                          onChange={(event) =>
-                            updateStepAt(index, (current) => ({ ...current, description: event.target.value }))
-                          }
-                          rows={2}
-                          placeholder="Optional details"
-                        />
-                      </label>
-                      <div className="step-system-row">
-                        <label className="field">
-                          <span>Source system</span>
-                          <select
-                            value={step.sourceSystemId}
-                            onChange={(event) =>
-                              updateStepAt(index, (current) => ({ ...current, sourceSystemId: event.target.value }))
-                            }
-                          >
-                            <option value="">Select system</option>
-                            {scopedSystems.map((system) => (
-                              <option key={system.id} value={system.id}>
-                                {system.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="field">
-                          <span>Target system</span>
-                          <select
-                            value={step.targetSystemId}
-                            onChange={(event) =>
-                              updateStepAt(index, (current) => ({ ...current, targetSystemId: event.target.value }))
-                            }
-                          >
-                            <option value="">Select system</option>
-                            {scopedSystems.map((system) => (
-                              <option key={system.id} value={system.id}>
-                                {system.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                      <label className="field">
-                        <span>Tags</span>
-                        <input
-                          type="text"
-                          value={step.tags.join(', ')}
-                          onChange={(event) => handleStepTagChange(index, event.target.value)}
-                          placeholder="Comma separated tags"
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Alternate flows</span>
-                        <select
-                          multiple
-                          value={step.alternateFlowIds}
-                          onChange={(event) =>
-                            handleStepAlternateChange(
-                              index,
-                              Array.from(event.target.selectedOptions).map((option) => option.value)
-                            )
-                          }
-                        >
-                          {flows
-                            .filter((flow) => flow.id !== draft.id)
-                            .map((flow) => (
-                              <option key={flow.id} value={flow.id}>
-                                {flow.name}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
-                      {validation.steps[index]?.length > 0 && (
-                        <ul className="field-errors" role="alert">
-                          {validation.steps[index].map((message) => (
-                            <li key={message}>{message}</li>
-                          ))}
-                        </ul>
+            <div className="flow-summary">
+              {draft ? (
+                <>
+                  <header className="flow-summary-header">
+                    <div className="flow-summary-heading">
+                      <h3>{draft.name || 'Untitled flow'}</h3>
+                      {draft.description && (
+                        <p className="flow-summary-description">{draft.description}</p>
                       )}
                     </div>
-                  </article>
-                ))}
-              </div>
-              <div className="flow-actions">
-                <button className="primary" type="submit" disabled={!draft || !validation.isValid || isMutating}>
-                  {isCreatingNewFlow || !draft?.id
-                    ? createFlowMutation.isPending
-                      ? 'Creating…'
-                      : 'Create flow'
-                    : updateFlowMutation.isPending
-                      ? 'Saving…'
-                      : 'Save flow'}
-                </button>
-                {draft?.id && (
+                    {draft.id && (
+                      <div className="flow-summary-actions">
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={openEditModal}
+                          disabled={
+                            createFlowMutation.isPending ||
+                            updateFlowMutation.isPending ||
+                            deleteFlowMutation.isPending
+                          }
+                        >
+                          Edit flow
+                        </button>
+                      </div>
+                    )}
+                  </header>
+                  <dl className="flow-summary-stats">
+                    <div>
+                      <dt>Steps</dt>
+                      <dd>{draft.steps.length}</dd>
+                    </div>
+                    <div>
+                      <dt>Tags</dt>
+                      <dd>{draft.tags.length}</dd>
+                    </div>
+                  </dl>
+                  <div className="flow-summary-sections">
+                    <section className="flow-summary-section">
+                      <h4>Flow tags</h4>
+                      {draft.tags.length > 0 ? (
+                        <div className="tag-list">
+                          {draft.tags.map((tag) => (
+                            <span key={tag} className="tag">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="status">No tags assigned yet.</p>
+                      )}
+                    </section>
+                    <section className="flow-summary-section">
+                      <h4>Systems in scope</h4>
+                      {scopedSystems.length > 0 ? (
+                        <ul className="flow-summary-scope">
+                          {scopedSystems.map((system) => (
+                            <li key={system.id}>{system.name}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="status">No systems selected.</p>
+                      )}
+                    </section>
+                  </div>
+                </>
+              ) : (
+                <p className="status">Select a flow to review details or create a new one.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {isModalOpen && (
+        <div
+          className="modal-backdrop"
+          role="button"
+          tabIndex={0}
+          aria-label={`Dismiss ${isEditModalOpen ? 'edit' : 'create'} flow dialog`}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              dismissModal();
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.currentTarget !== event.target) {
+              return;
+            }
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              dismissModal();
+            }
+          }}
+        >
+          <div
+            className={`modal flow-modal${isEditModalOpen ? ' flow-modal-edit' : ''}${
+              isCreateModalOpen ? ' flow-modal-create' : ''
+            }`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={modalTitleId}
+            aria-describedby={modalDescriptionId}
+          >
+            <header className="modal-header">
+              <h3 id={modalTitleId}>{modalHeading}</h3>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={dismissModal}
+                aria-label={`Close ${isEditModalOpen ? 'edit' : 'create'} flow dialog`}
+                disabled={createFlowMutation.isPending || updateFlowMutation.isPending || deleteFlowMutation.isPending}
+              >
+                ×
+              </button>
+            </header>
+            <p id={modalDescriptionId} className="modal-description">
+              {modalDescription}
+            </p>
+            <div className="modal-body">
+              <form className="flow-form" onSubmit={handleSubmit}>
+                <div className="flow-form-grid">
+                  <label className="field">
+                    <span>Name</span>
+                    <input
+                      type="text"
+                      value={draft?.name ?? ''}
+                      onChange={(event) => updateDraftField('name', event.target.value)}
+                      placeholder="E.g. Checkout happy path"
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Tags</span>
+                    <input
+                      type="text"
+                      value={draft ? draft.tags.join(', ') : ''}
+                      onChange={(event) => updateDraftField('tags', parseTagInput(event.target.value))}
+                      placeholder="Comma separated tags"
+                    />
+                  </label>
+                </div>
+                <label className="field">
+                  <span>Description</span>
+                  <textarea
+                    value={draft?.description ?? ''}
+                    onChange={(event) => updateDraftField('description', event.target.value)}
+                    rows={3}
+                    placeholder="Provide context for collaborators"
+                  />
+                </label>
+                <div className="scope-selector">
+                  <span className="scope-label">Systems in scope</span>
+                  <div className="scope-grid">
+                    {scopeOptions.map((system) => (
+                      <label key={system.id} className="scope-option">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(draft?.systemScopeIds.includes(system.id))}
+                          onChange={() => handleScopeToggle(system.id)}
+                        />
+                        <span>{system.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {validation.flow.length > 0 && (
+                  <ul className="field-errors" role="alert">
+                    {validation.flow.map((message) => (
+                      <li key={message}>{message}</li>
+                    ))}
+                  </ul>
+                )}
+                <div className="steps-editor">
+                  <div className="steps-header">
+                    <h3>Steps</h3>
+                    <button type="button" className="secondary" onClick={handleAddStep}>
+                      Add step
+                    </button>
+                  </div>
+                  {draft?.steps.length === 0 && <p className="status">Add steps to define the flow journey.</p>}
+                  {draft?.steps.map((step, index) => (
+                    <article key={step.id ?? index} className="step-editor">
+                      <header className="step-editor-header">
+                        <h4>Step {index + 1}</h4>
+                        <div className="step-actions">
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={() => handleCreateAlternateFlow(index)}
+                            disabled={!step.id || !draft?.id}
+                          >
+                            Create alternate flow
+                          </button>
+                          <button type="button" className="link-button" onClick={() => handleRemoveStep(index)}>
+                            Remove step
+                          </button>
+                        </div>
+                      </header>
+                      <div className="step-fields">
+                        <label className="field">
+                          <span>Name</span>
+                          <input
+                            type="text"
+                            value={step.name}
+                            onChange={(event) =>
+                              updateStepAt(index, (current) => ({ ...current, name: event.target.value }))
+                            }
+                            placeholder="E.g. Validate cart"
+                          />
+                        </label>
+                        <label className="field">
+                          <span>Description</span>
+                          <textarea
+                            value={step.description}
+                            onChange={(event) =>
+                              updateStepAt(index, (current) => ({ ...current, description: event.target.value }))
+                            }
+                            rows={2}
+                            placeholder="Optional details"
+                          />
+                        </label>
+                        <div className="step-system-row">
+                          <label className="field">
+                            <span>Source system</span>
+                            <select
+                              value={step.sourceSystemId}
+                              onChange={(event) =>
+                                updateStepAt(index, (current) => ({ ...current, sourceSystemId: event.target.value }))
+                              }
+                            >
+                              <option value="">Select system</option>
+                              {scopedSystems.map((system) => (
+                                <option key={system.id} value={system.id}>
+                                  {system.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span>Target system</span>
+                            <select
+                              value={step.targetSystemId}
+                              onChange={(event) =>
+                                updateStepAt(index, (current) => ({ ...current, targetSystemId: event.target.value }))
+                              }
+                            >
+                              <option value="">Select system</option>
+                              {scopedSystems.map((system) => (
+                                <option key={system.id} value={system.id}>
+                                  {system.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <label className="field">
+                          <span>Tags</span>
+                          <input
+                            type="text"
+                            value={step.tags.join(', ')}
+                            onChange={(event) => handleStepTagChange(index, event.target.value)}
+                            placeholder="Comma separated tags"
+                          />
+                        </label>
+                        <label className="field">
+                          <span>Alternate flows</span>
+                          <select
+                            multiple
+                            value={step.alternateFlowIds}
+                            onChange={(event) =>
+                              handleStepAlternateChange(
+                                index,
+                                Array.from(event.target.selectedOptions).map((option) => option.value)
+                              )
+                            }
+                          >
+                            {flows
+                              .filter((flow) => flow.id !== draft?.id)
+                              .map((flow) => (
+                                <option key={flow.id} value={flow.id}>
+                                  {flow.name}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        {validation.steps[index]?.length > 0 && (
+                          <ul className="field-errors" role="alert">
+                            {validation.steps[index].map((message) => (
+                              <li key={message}>{message}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                <div className="flow-actions">
                   <button
                     type="button"
-                    className="danger"
-                    onClick={handleDeleteFlow}
-                    disabled={deleteFlowMutation.isPending}
+                    className="secondary"
+                    onClick={dismissModal}
+                    disabled={isMutating || deleteFlowMutation.isPending}
                   >
-                    {deleteFlowMutation.isPending ? 'Deleting…' : 'Delete flow'}
+                    Cancel
                   </button>
-                )}
-                {isCreatingNewFlow && !createFlowMutation.isPending && (
-                  <button type="button" className="link-button" onClick={() => setIsCreatingNewFlow(false)}>
-                    Cancel new flow
+                  <button className="primary" type="submit" disabled={!draft || !validation.isValid || isMutating}>
+                    {isCreatingNewFlow || !draft?.id
+                      ? createFlowMutation.isPending
+                        ? 'Creating…'
+                        : 'Create flow'
+                      : updateFlowMutation.isPending
+                        ? 'Saving…'
+                        : 'Save flow'}
                   </button>
+                  {draft?.id && (
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={handleDeleteFlow}
+                      disabled={deleteFlowMutation.isPending}
+                    >
+                      {deleteFlowMutation.isPending ? 'Deleting…' : 'Delete flow'}
+                    </button>
+                  )}
+                </div>
+                {formError && (
+                  <p className="status error" role="alert">
+                    {formError}
+                  </p>
                 )}
-              </div>
-              {formError && (
-                <p className="status error" role="alert">
-                  {formError}
-                </p>
-              )}
-              {alternateLinkError && (
-                <p className="status error" role="alert">
-                  {alternateLinkError}
-                </p>
-              )}
-            </form>
+                {alternateLinkError && (
+                  <p className="status error" role="alert">
+                    {alternateLinkError}
+                  </p>
+                )}
+              </form>
+            </div>
           </div>
         </div>
       )}
