@@ -173,12 +173,18 @@ const prepareFlowPayload = (input: FlowPayload): FlowPayload => ({
   steps: sanitizeStepPayloads(input.steps)
 });
 
+type AttributeConstraintPayload =
+  | { type: 'regex'; value: string }
+  | { type: 'minLength' | 'maxLength' | 'min' | 'max'; value: number };
+
 type DataModelAttributePayload = {
   id?: string;
   name: string;
   description: string;
   type: string;
-  constraints: string;
+  required: boolean;
+  unique: boolean;
+  constraints: AttributeConstraintPayload[];
   readOnly: boolean;
   encrypted: boolean;
   attributes: DataModelAttributePayload[];
@@ -188,6 +194,46 @@ type DataModelPayload = {
   name: string;
   description: string;
   attributes: DataModelAttributePayload[];
+};
+
+type AttributeConstraintInput = { type?: unknown; value?: unknown };
+
+const sanitizeAttributeConstraintPayload = (
+  constraint: AttributeConstraintInput
+): AttributeConstraintPayload | null => {
+  const type = typeof constraint.type === 'string' ? constraint.type.trim() : '';
+
+  switch (type) {
+    case 'regex': {
+      const value = typeof constraint.value === 'string' ? constraint.value.trim() : '';
+      if (!value) {
+        return null;
+      }
+      return { type: 'regex', value };
+    }
+    case 'minLength':
+    case 'maxLength': {
+      const numeric = Number(constraint.value);
+      if (!Number.isFinite(numeric)) {
+        return null;
+      }
+      const integer = Math.trunc(numeric);
+      if (!Number.isFinite(integer) || integer < 0) {
+        return null;
+      }
+      return { type, value: integer };
+    }
+    case 'min':
+    case 'max': {
+      const numeric = Number(constraint.value);
+      if (!Number.isFinite(numeric)) {
+        return null;
+      }
+      return { type, value: numeric };
+    }
+    default:
+      return null;
+  }
 };
 
 const sanitizeAttributePayload = (
@@ -200,11 +246,27 @@ const sanitizeAttributePayload = (
     return null;
   }
 
+  const constraintInputs = Array.isArray(attribute.constraints)
+    ? attribute.constraints
+    : [];
+  const seen = new Set<AttributeConstraintPayload['type']>();
+  const constraints: AttributeConstraintPayload[] = [];
+
+  for (const rawConstraint of constraintInputs) {
+    const sanitized = sanitizeAttributeConstraintPayload(rawConstraint);
+    if (sanitized && !seen.has(sanitized.type)) {
+      seen.add(sanitized.type);
+      constraints.push(sanitized);
+    }
+  }
+
   const cleaned: DataModelAttributePayload = {
     name,
     description: attribute.description.trim(),
     type,
-    constraints: attribute.constraints.trim(),
+    required: Boolean(attribute.required),
+    unique: Boolean(attribute.unique),
+    constraints,
     readOnly: Boolean(attribute.readOnly),
     encrypted: Boolean(attribute.encrypted),
     attributes: attribute.attributes

@@ -53,6 +53,8 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
                 description: null,
                 type: 'string',
                 constraints: '',
+                required: 'yes',
+                unique: null,
                 readOnly: 'no',
                 encrypted: 'yes',
                 attributes: [
@@ -102,10 +104,15 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
   assert.equal(model.description, '');
   assert.equal(model.attributes.length, 1);
   const attribute = model.attributes[0];
+  assert.equal(attribute.required, false);
+  assert.equal(attribute.unique, false);
+  assert.deepEqual(attribute.constraints, []);
   assert.equal(attribute.readOnly, false);
   assert.equal(attribute.encrypted, false);
   assert.equal(attribute.attributes.length, 1);
   assert.equal(attribute.attributes[0].id, 'attr-child-2');
+  assert.equal(attribute.attributes[0].required, false);
+  assert.equal(attribute.attributes[0].unique, false);
   assert.equal(Object.keys(project.components).length, 1);
   const component = project.components['component-1'];
   assert.ok(component);

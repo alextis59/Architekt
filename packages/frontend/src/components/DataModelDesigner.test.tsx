@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -111,16 +111,18 @@ describe('DataModelDesigner', () => {
           description: 'Original',
           attributes: [
             {
-              id: 'attr-1',
-              name: 'Name',
-              description: 'Full name',
-              type: 'string',
-              constraints: '',
-              readOnly: false,
-              encrypted: false,
-              attributes: []
-            }
-          ]
+          id: 'attr-1',
+          name: 'Name',
+          description: 'Full name',
+          type: 'string',
+          required: false,
+          unique: false,
+          constraints: [],
+          readOnly: false,
+          encrypted: false,
+          attributes: []
+        }
+      ]
         }
       },
       components: {}
@@ -142,7 +144,12 @@ describe('DataModelDesigner', () => {
 
     const attributeModal = await screen.findByRole('dialog', { name: /Edit attribute/i });
 
-    await user.type(within(attributeModal).getByLabelText(/Constraints/), ' required ');
+    const constraintTypeSelect = within(attributeModal).getByLabelText(/Constraint type/i);
+    await user.selectOptions(constraintTypeSelect, 'regex');
+    const constraintValueInput = within(attributeModal).getByLabelText(/Constraint value/i);
+    fireEvent.change(constraintValueInput, { target: { value: ' ^[A-Z]+$ ' } });
+    await user.click(within(attributeModal).getByRole('button', { name: /Add constraint/i }));
+    await user.click(within(attributeModal).getByLabelText(/Required/));
     await user.click(within(attributeModal).getByLabelText(/Read-only/));
     await user.click(within(attributeModal).getByRole('button', { name: /Save attribute/i }));
 
@@ -189,7 +196,9 @@ describe('DataModelDesigner', () => {
           name: 'Name',
           description: 'Full name',
           type: 'string',
-          constraints: 'required',
+          required: true,
+          unique: false,
+          constraints: [{ type: 'regex', value: '^[A-Z]+$' }],
           readOnly: true,
           encrypted: false,
           attributes: []

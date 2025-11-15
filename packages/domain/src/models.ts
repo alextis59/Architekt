@@ -17,12 +17,18 @@ export type Flow = {
   steps: Step[];
 };
 
+export type AttributeConstraint =
+  | { type: 'regex'; value: string }
+  | { type: 'minLength' | 'maxLength' | 'min' | 'max'; value: number };
+
 export type DataModelAttribute = {
   id: string;
   name: string;
   description: string;
   type: string;
-  constraints: string;
+  required: boolean;
+  unique: boolean;
+  constraints: AttributeConstraint[];
   readOnly: boolean;
   encrypted: boolean;
   attributes: DataModelAttribute[];
@@ -86,7 +92,12 @@ type SanitizedEntity<T> = T & { id: string; name: string };
 
 type StepInput = Partial<Step> & { id?: string };
 type FlowInput = Partial<Flow> & { id?: string; steps?: StepInput[] };
-type DataModelAttributeInput = Partial<DataModelAttribute> & { id?: string; attributes?: unknown };
+type DataModelAttributeInput =
+  Partial<DataModelAttribute> & {
+    id?: string;
+    attributes?: unknown;
+    constraints?: unknown;
+  };
 type DataModelInput = Partial<DataModel> & { id?: string; attributes?: unknown };
 type ComponentEntryPointInput =
   Partial<ComponentEntryPoint> & { id?: string; requestModelIds?: unknown; responseModelIds?: unknown };
@@ -126,6 +137,81 @@ const ensureStringArray = (value: unknown): string[] => {
 const ensureBoolean = (value: unknown, fallback = false): boolean =>
   typeof value === 'boolean' ? value : fallback;
 
+const ensureNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+};
+
+const sanitizeConstraint = (raw: unknown): AttributeConstraint | null => {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const candidate = raw as { type?: unknown; value?: unknown };
+  const type = ensureString(candidate.type);
+
+  switch (type) {
+    case 'regex': {
+      const value = ensureString(candidate.value);
+      if (!value) {
+        return null;
+      }
+      return { type: 'regex', value };
+    }
+    case 'minLength':
+    case 'maxLength': {
+      const numeric = ensureNumber(candidate.value);
+      if (numeric === null) {
+        return null;
+      }
+      const integer = Math.trunc(numeric);
+      if (!Number.isFinite(integer) || integer < 0) {
+        return null;
+      }
+      return { type, value: integer };
+    }
+    case 'min':
+    case 'max': {
+      const numeric = ensureNumber(candidate.value);
+      if (numeric === null) {
+        return null;
+      }
+      return { type, value: numeric };
+    }
+    default:
+      return null;
+  }
+};
+
+const sanitizeConstraintList = (raw: unknown): AttributeConstraint[] => {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const seen = new Set<AttributeConstraint['type']>();
+  const result: AttributeConstraint[] = [];
+
+  for (const value of raw) {
+    const constraint = sanitizeConstraint(value);
+    if (constraint && !seen.has(constraint.type)) {
+      seen.add(constraint.type);
+      result.push(constraint);
+    }
+  }
+
+  return result;
+};
+
 const sanitizeStep = (raw: StepInput): Step => ({
   id: ensureString(raw?.id),
   name: ensureString(raw?.name),
@@ -154,7 +240,9 @@ const sanitizeDataModelAttribute = (raw: DataModelAttributeInput): DataModelAttr
   name: ensureString(raw?.name),
   description: ensureString(raw?.description, ''),
   type: ensureString(raw?.type),
-  constraints: ensureString(raw?.constraints, ''),
+  required: ensureBoolean(raw?.required, false),
+  unique: ensureBoolean(raw?.unique, false),
+  constraints: sanitizeConstraintList(raw?.constraints),
   readOnly: ensureBoolean(raw?.readOnly, false),
   encrypted: ensureBoolean(raw?.encrypted, false),
   attributes: sanitizeDataModelAttributeList(raw?.attributes)
