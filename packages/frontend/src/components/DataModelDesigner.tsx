@@ -25,6 +25,16 @@ import {
 
 const TYPE_OPTIONS = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'date'];
 
+const cloneAttributeDraft = (attribute: AttributeDraft): AttributeDraft => ({
+  ...attribute,
+  attributes: attribute.attributes.map(cloneAttributeDraft)
+});
+
+const cloneDraft = (draft: DataModelDraft): DataModelDraft => ({
+  ...draft,
+  attributes: draft.attributes.map(cloneAttributeDraft)
+});
+
 type UpdateAttributeFn = (attribute: AttributeDraft) => AttributeDraft;
 
 const updateAttributeInList = (
@@ -105,6 +115,7 @@ const DataModelDesigner = () => {
   const [activeModal, setActiveModal] = useState<'create' | 'edit' | null>(null);
   const [expandedAttributeIds, setExpandedAttributeIds] = useState<Set<string>>(() => new Set());
   const [activeAttributeId, setActiveAttributeId] = useState<string | null>(null);
+  const previousDraftStateRef = useRef<{ draft: DataModelDraft | null; isDirty: boolean } | null>(null);
 
   const createNameFieldRef = useRef<HTMLInputElement | null>(null);
   const editNameFieldRef = useRef<HTMLInputElement | null>(null);
@@ -213,6 +224,7 @@ const DataModelDesigner = () => {
       setIsDirty(false);
       setExpandedAttributeIds(new Set());
       setActiveAttributeId(null);
+      previousDraftStateRef.current = null;
       setActiveModal(null);
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     }
@@ -306,7 +318,7 @@ const DataModelDesigner = () => {
     updateDataModelMutation.reset();
     createDataModelMutation.reset();
     deleteDataModelMutation.reset();
-    resetDraftToSelected();
+    previousDraftStateRef.current = { draft: draft ? cloneDraft(draft) : null, isDirty };
     setActiveModal('edit');
   };
 
@@ -356,9 +368,14 @@ const DataModelDesigner = () => {
     createDataModelMutation.reset();
     updateDataModelMutation.reset();
     deleteDataModelMutation.reset();
+    if (activeModal === 'edit' && previousDraftStateRef.current) {
+      const { draft: previousDraft, isDirty: previousIsDirty } = previousDraftStateRef.current;
+      setDraft(previousDraft ? cloneDraft(previousDraft) : previousDraft);
+      setIsDirty(previousIsDirty);
+    }
     setActiveModal(null);
-    resetDraftToSelected();
-  }, [createDataModelMutation, updateDataModelMutation, deleteDataModelMutation, resetDraftToSelected]);
+    previousDraftStateRef.current = null;
+  }, [activeModal, createDataModelMutation, updateDataModelMutation, deleteDataModelMutation]);
 
   const handleAttributeChange = (attributeId: string, updates: Partial<AttributeDraft>) => {
     setDraft((previous) => {
@@ -446,8 +463,7 @@ const DataModelDesigner = () => {
     resetDraftToSelected();
   };
 
-  const handleSaveDraft = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const saveDraft = () => {
     if (!selectedProjectId || !draft || !draft.id) {
       return;
     }
@@ -457,6 +473,11 @@ const DataModelDesigner = () => {
       dataModelId: draft.id,
       payload: toDataModelPayload(draft)
     });
+  };
+
+  const handleSaveDraft = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    saveDraft();
   };
 
   const handleDeleteDataModel = () => {
@@ -497,7 +518,7 @@ const DataModelDesigner = () => {
     : 'create-data-model-description';
   const modalHeading = isEditModalOpen ? 'Edit data model' : 'Create data model';
   const modalDescription = isEditModalOpen
-    ? 'Update model details, manage attributes, and export JSON schemas.'
+    ? 'Update model name and description. Attribute changes are managed from the workspace.'
     : 'Define the name and description for the new data model. Attributes can be added after creation.';
   const activeMutation = isEditModalOpen ? updateDataModelMutation : createDataModelMutation;
 
@@ -591,49 +612,99 @@ const DataModelDesigner = () => {
           </div>
           <div className="panel data-model-panel data-model-editor">
             {!selectedDataModel && <p className="status">Select a data model to review details.</p>}
-            {selectedDataModel && (
-              <div className="data-model-summary">
-                <header className="data-model-summary-header">
-                  <h3>{selectedDataModel.name}</h3>
-                  {selectedDataModel.description && (
-                    <p className="data-model-summary-description">{selectedDataModel.description}</p>
-                  )}
-                </header>
-                <dl className="data-model-summary-stats">
-                  <div>
-                    <dt>Attributes</dt>
-                    <dd>{selectedDataModel.attributes.length}</dd>
+            {selectedDataModel && draft && (
+              <div className="data-model-detail">
+                <div className="data-model-summary">
+                  <header className="data-model-summary-header">
+                    <h3>{draft.name}</h3>
+                    {draft.description.trim() && (
+                      <p className="data-model-summary-description">{draft.description}</p>
+                    )}
+                  </header>
+                  <dl className="data-model-summary-stats">
+                    <div>
+                      <dt>Attributes</dt>
+                      <dd>{draft.attributes.length}</dd>
+                    </div>
+                  </dl>
+                  <div className="data-model-summary-actions">
+                    <button type="button" className="secondary" onClick={handleExport}>
+                      Export JSON
+                    </button>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={handleDeleteDataModel}
+                      disabled={deleteDataModelMutation.isPending}
+                    >
+                      {deleteDataModelMutation.isPending ? 'Deleting…' : 'Delete model'}
+                    </button>
+                    <button type="button" className="primary" onClick={openEditModal}>
+                      Edit model details
+                    </button>
                   </div>
-                </dl>
-                <p className="status">
-                  Manage schema fields, descriptions, and constraints from the edit dialog.
-                </p>
-                <div className="data-model-summary-actions">
-                  <button type="button" className="secondary" onClick={handleExport}>
-                    Export JSON
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={handleDeleteDataModel}
-                    disabled={deleteDataModelMutation.isPending}
-                  >
-                    {deleteDataModelMutation.isPending ? 'Deleting…' : 'Delete model'}
-                  </button>
-                  <button type="button" className="primary" onClick={openEditModal}>
-                    Edit data model
-                  </button>
+                  {deleteDataModelMutation.isError && (
+                    <p className="status error" role="alert">
+                      Unable to delete data model.
+                    </p>
+                  )}
                 </div>
-                {updateDataModelMutation.isError && (
-                  <p className="status error" role="alert">
-                    Unable to save data model.
-                  </p>
-                )}
-                {deleteDataModelMutation.isError && (
-                  <p className="status error" role="alert">
-                    Unable to delete data model.
-                  </p>
-                )}
+                <section className="data-model-attributes">
+                  <header className="data-model-attributes-header">
+                    <h4>Attributes</h4>
+                    <p className="status">Expand attributes to review and edit their details.</p>
+                  </header>
+                  <div className="attribute-toolbar attribute-toolbar-top">
+                    <button type="button" className="secondary" onClick={() => handleAddAttribute(null)}>
+                      Add attribute
+                    </button>
+                  </div>
+                  <div className="attribute-list">
+                    {draft.attributes.length === 0 && (
+                      <p className="status">No attributes yet. Add your first attribute.</p>
+                    )}
+                    {draft.attributes.map((attribute) => (
+                      <AttributeItem
+                        key={attribute.localId}
+                        attribute={attribute}
+                        depth={0}
+                        expandedAttributeIds={expandedAttributeIds}
+                        onToggle={toggleAttributeExpansion}
+                        onEdit={openAttributeModal}
+                        onAddChild={handleAddAttribute}
+                        onRemove={handleRemoveAttribute}
+                      />
+                    ))}
+                  </div>
+                  <div className="attribute-toolbar attribute-toolbar-bottom">
+                    <button type="button" className="secondary" onClick={() => handleAddAttribute(null)}>
+                      Add attribute
+                    </button>
+                  </div>
+                  <div className="data-model-footer">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={handleResetDraft}
+                      disabled={!isDirty}
+                    >
+                      Reset changes
+                    </button>
+                    <button
+                      className="primary"
+                      type="button"
+                      onClick={saveDraft}
+                      disabled={!canSave || updateDataModelMutation.isPending}
+                    >
+                      {updateDataModelMutation.isPending ? 'Saving…' : 'Save changes'}
+                    </button>
+                    {updateDataModelMutation.isError && (
+                      <p className="status error" role="alert">
+                        Unable to save data model.
+                      </p>
+                    )}
+                  </div>
+                </section>
               </div>
             )}
           </div>
@@ -733,98 +804,49 @@ const DataModelDesigner = () => {
                 </form>
               )}
               {isEditModalOpen && draft && (
-                <form className="data-model-form" onSubmit={handleSaveDraft}>
-                  <div className="data-model-header">
-                    <div className="field">
-                      <label>
-                        <span>Name</span>
-                        <input
-                          type="text"
-                          ref={editNameFieldRef}
-                          value={draft.name}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setDraft((previous) => (previous ? { ...previous, name: value } : previous));
-                            setIsDirty(true);
-                          }}
-                          required
-                        />
-                      </label>
-                    </div>
-                    <div className="field">
-                      <label>
-                        <span>Description</span>
-                        <textarea
-                          value={draft.description}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setDraft((previous) =>
-                              previous ? { ...previous, description: value } : previous
-                            );
-                            setIsDirty(true);
-                          }}
-                          rows={3}
-                        />
-                      </label>
-                    </div>
-                    <div className="data-model-actions">
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={handleResetDraft}
-                        disabled={!isDirty}
-                      >
-                        Reset
-                      </button>
-                      <button type="button" className="secondary" onClick={handleExport}>
-                        Export JSON
-                      </button>
-                      <button
-                        type="button"
-                        className="danger"
-                        onClick={handleDeleteDataModel}
-                        disabled={deleteDataModelMutation.isPending}
-                      >
-                        {deleteDataModelMutation.isPending ? 'Deleting…' : 'Delete'}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="attribute-toolbar attribute-toolbar-top">
+                <form className="modal-form" onSubmit={handleSaveDraft}>
+                  <label className="field">
+                    <span>Name</span>
+                    <input
+                      type="text"
+                      ref={editNameFieldRef}
+                      value={draft.name}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setDraft((previous) => (previous ? { ...previous, name: value } : previous));
+                        setIsDirty(true);
+                      }}
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Description</span>
+                    <textarea
+                      value={draft.description}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setDraft((previous) =>
+                          previous ? { ...previous, description: value } : previous
+                        );
+                        setIsDirty(true);
+                      }}
+                      rows={3}
+                    />
+                  </label>
+                  {updateDataModelMutation.isError && (
+                    <p className="status error" role="alert">
+                      Unable to save data model.
+                    </p>
+                  )}
+                  <div className="modal-actions">
                     <button
                       type="button"
                       className="secondary"
-                      onClick={() => handleAddAttribute(null)}
+                      onClick={dismissModal}
+                      disabled={updateDataModelMutation.isPending || deleteDataModelMutation.isPending}
                     >
-                      Add attribute
+                      Cancel
                     </button>
-                  </div>
-                  <div className="attribute-list">
-                    {draft.attributes.length === 0 && (
-                      <p className="status">No attributes yet. Add your first attribute.</p>
-                    )}
-                    {draft.attributes.map((attribute) => (
-                      <AttributeItem
-                        key={attribute.localId}
-                        attribute={attribute}
-                        depth={0}
-                        expandedAttributeIds={expandedAttributeIds}
-                        onToggle={toggleAttributeExpansion}
-                        onEdit={openAttributeModal}
-                        onAddChild={handleAddAttribute}
-                        onRemove={handleRemoveAttribute}
-                      />
-                    ))}
-                  </div>
-                  <div className="attribute-toolbar attribute-toolbar-bottom">
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={() => handleAddAttribute(null)}
-                    >
-                      Add attribute
-                    </button>
-                  </div>
-                  <div className="data-model-footer">
                     <button
                       className="primary"
                       type="submit"
@@ -832,11 +854,6 @@ const DataModelDesigner = () => {
                     >
                       {updateDataModelMutation.isPending ? 'Saving…' : 'Save changes'}
                     </button>
-                    {updateDataModelMutation.isError && (
-                      <p className="status error" role="alert">
-                        Unable to save data model.
-                      </p>
-                    )}
                   </div>
                 </form>
               )}

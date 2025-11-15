@@ -136,7 +136,17 @@ describe('DataModelDesigner', () => {
     renderDesigner(client);
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: /Edit data model/i }));
+    const attributeToggle = await screen.findByRole('button', { name: 'Name' });
+    await user.click(attributeToggle);
+    await user.click(screen.getByRole('button', { name: /Edit attribute/i }));
+
+    const attributeModal = await screen.findByRole('dialog', { name: /Edit attribute/i });
+
+    await user.type(within(attributeModal).getByLabelText(/Constraints/), ' required ');
+    await user.click(within(attributeModal).getByLabelText(/Read-only/));
+    await user.click(within(attributeModal).getByRole('button', { name: /Save attribute/i }));
+
+    await user.click(screen.getByRole('button', { name: /Edit model details/i }));
 
     const modal = await screen.findByRole('dialog', { name: /Edit data model/i });
 
@@ -158,14 +168,6 @@ describe('DataModelDesigner', () => {
     await user.type(modelNameInput, '  Customer Updated  ');
     await user.clear(modelDescription);
     await user.type(modelDescription, ' Updated ');
-    await user.click(within(modal).getByRole('button', { name: 'Name' }));
-    await user.click(within(modal).getByRole('button', { name: /Edit attribute/i }));
-
-    const attributeModal = await screen.findByRole('dialog', { name: /Edit attribute/i });
-
-    await user.type(within(attributeModal).getByLabelText(/Constraints/), ' required ');
-    await user.click(within(attributeModal).getByLabelText(/Read-only/));
-    await user.click(within(attributeModal).getByRole('button', { name: /Save attribute/i }));
 
     await user.click(within(modal).getByRole('button', { name: /Save changes/i }));
 
@@ -222,9 +224,8 @@ describe('DataModelDesigner', () => {
     });
 
     const user = userEvent.setup();
-    await user.click(await screen.findByRole('button', { name: /Edit data model/i }));
-    const modal = await screen.findByRole('dialog', { name: /Edit data model/i });
-    await user.click(within(modal).getByRole('button', { name: /Delete/ }));
+    const deleteButton = await screen.findByRole('button', { name: /Delete model/i });
+    await user.click(deleteButton);
 
     await waitFor(() => {
       expect(apiMocks.deleteDataModel).toHaveBeenCalled();
