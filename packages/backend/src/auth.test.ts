@@ -21,7 +21,7 @@ test('local auth middleware assigns default user', async () => {
   });
 
   const request: Partial<Request> = {
-    header: () => undefined
+    header: (() => undefined) as Request['header']
   };
 
   let error: unknown;
@@ -52,7 +52,8 @@ test('google auth middleware verifies token and merges profile fields', async (t
   const middleware = createAuthMiddleware({ mode: 'google', clientId: 'client' });
 
   const request: Partial<Request> = {
-    header: (name: string) => (name === 'authorization' ? `Bearer ${token}` : undefined)
+    header: ((name: string) =>
+      name === 'authorization' ? `Bearer ${token}` : undefined) as Request['header']
   };
 
   let error: unknown;
@@ -72,7 +73,8 @@ test('google auth middleware rejects missing tokens', async () => {
   const middleware = createAuthMiddleware({ mode: 'google', clientId: 'client' });
 
   const request: Partial<Request> = {
-    header: (name: string) => (name === 'authorization' ? '' : undefined)
+    header: ((name: string) =>
+      name === 'authorization' ? '' : undefined) as Request['header']
   };
 
   let error: unknown;
@@ -92,7 +94,8 @@ test('google auth middleware normalizes verification failures', async (t) => {
   const middleware = createAuthMiddleware({ mode: 'google', clientId: 'client' });
 
   const request: Partial<Request> = {
-    header: (name: string) => (name === 'authorization' ? 'Bearer token' : undefined)
+    header: ((name: string) =>
+      name === 'authorization' ? 'Bearer token' : undefined) as Request['header']
   };
 
   let error: unknown;

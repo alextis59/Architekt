@@ -5,7 +5,13 @@ import { createMongoPersistence } from './mongoPersistence.js';
 
 test('mongo persistence lazily connects and returns empty aggregate when no document exists', async (t) => {
   const findOne = t.mock.fn(async () => null);
-  const updateOne = t.mock.fn(async () => undefined);
+  const updateOne = t.mock.fn(
+    async (
+      filter: Record<string, unknown>,
+      update: Record<string, unknown>,
+      options: { upsert?: boolean }
+    ) => undefined
+  );
 
   const collection = { findOne, updateOne } as const;
   const collectionFactory = t.mock.fn(() => collection);
@@ -58,7 +64,13 @@ test('mongo persistence migrates legacy aggregate document shape', async (t) => 
 
 test('mongo persistence saves aggregates with upsert semantics', async (t) => {
   const findOne = t.mock.fn(async () => ({ _id: 'architekt', aggregates: {} }));
-  const updateOne = t.mock.fn(async () => undefined);
+  const updateOne = t.mock.fn(
+    async (
+      filter: Record<string, unknown>,
+      update: Record<string, unknown>,
+      options: { upsert?: boolean }
+    ) => undefined
+  );
   const collection = { findOne, updateOne } as const;
   const connect = t.mock.fn(async () => ({
     db: () => ({
