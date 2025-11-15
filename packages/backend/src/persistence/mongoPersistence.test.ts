@@ -92,7 +92,7 @@ test('mongo persistence saves aggregates with upsert semantics', async (t) => {
   mongodb.MongoClient.connect = originalConnect;
 });
 
-test('mongo persistence surfaces helpful error when mongodb dependency is missing', async (t) => {
+test('mongo persistence surfaces helpful error when mongodb dependency is missing', async () => {
   const mongodb = await import('mongodb');
   const originalConnect = mongodb.MongoClient.connect;
   mongodb.MongoClient.connect = (async () => {
