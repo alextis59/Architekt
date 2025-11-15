@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
-import { createProject, fetchProjects, type ProjectSummary } from '../api/projects.js';
+import { createProject, fetchProjects, updateProject, type ProjectSummary } from '../api/projects.js';
 import { queryKeys } from '../queryKeys.js';
 import { selectSelectedProjectId, useProjectStore } from '../store/projectStore.js';
 
@@ -31,7 +31,8 @@ const ProjectManager = () => {
     description: '',
     tags: ''
   });
-  const [isCreateModalOpen, setCreateModalOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState<'create' | 'edit' | null>(null);
+  const [editingProject, setEditingProject] = useState<ProjectSummary | null>(null);
 
   const nameFieldRef = useRef<HTMLInputElement | null>(null);
 
@@ -39,46 +40,92 @@ const ProjectManager = () => {
     setFormState({ name: '', description: '', tags: '' });
   }, []);
 
+  const closeModalState = useCallback(() => {
+    setActiveModal(null);
+    setEditingProject(null);
+    resetForm();
+  }, [resetForm]);
+
   const createProjectMutation = useMutation({
     mutationFn: createProject,
     onSuccess: (project) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
       selectProject(project.id);
-      resetForm();
-      setCreateModalOpen(false);
+      closeModalState();
       navigate(`/projects/${project.id}`);
     }
   });
 
-  const closeCreateModal = useCallback(() => {
-    setCreateModalOpen(false);
-    resetForm();
+  const updateProjectMutation = useMutation({
+    mutationFn: ({
+      projectId,
+      payload
+    }: {
+      projectId: string;
+      payload: { name: string; description: string; tags: string[] };
+    }) => updateProject(projectId, payload),
+    onSuccess: (project) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.project(project.id) });
+      closeModalState();
+      if (project.id === selectedProjectId) {
+        navigate(`/projects/${project.id}`);
+      }
+    }
+  });
+
+  const dismissModal = useCallback(() => {
     createProjectMutation.reset();
-  }, [resetForm, createProjectMutation]);
+    updateProjectMutation.reset();
+    closeModalState();
+  }, [closeModalState, createProjectMutation, updateProjectMutation]);
+
+  const openCreateModal = useCallback(() => {
+    createProjectMutation.reset();
+    updateProjectMutation.reset();
+    setEditingProject(null);
+    setFormState({ name: '', description: '', tags: '' });
+    setActiveModal('create');
+  }, [createProjectMutation, updateProjectMutation]);
+
+  const openEditModal = useCallback(
+    (project: ProjectSummary) => {
+      createProjectMutation.reset();
+      updateProjectMutation.reset();
+      setEditingProject(project);
+      setFormState({
+        name: project.name,
+        description: project.description ?? '',
+        tags: project.tags.join(', ')
+      });
+      setActiveModal('edit');
+    },
+    [createProjectMutation, updateProjectMutation]
+  );
 
   useEffect(() => {
-    if (!isCreateModalOpen) {
+    if (!activeModal) {
       return;
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        closeCreateModal();
+        dismissModal();
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isCreateModalOpen, closeCreateModal]);
+  }, [activeModal, dismissModal]);
 
   useEffect(() => {
-    if (!isCreateModalOpen) {
+    if (!activeModal) {
       return;
     }
 
     nameFieldRef.current?.focus();
-  }, [isCreateModalOpen]);
+  }, [activeModal]);
 
   const projects = useMemo(() => (data ? sortProjects(data) : []), [data]);
 
@@ -88,12 +135,35 @@ const ProjectManager = () => {
       return;
     }
 
-    createProjectMutation.mutate({
+    const payload = {
       name: formState.name.trim(),
       description: formState.description.trim(),
       tags: parseTags(formState.tags)
-    });
+    };
+
+    if (activeModal === 'edit' && editingProject) {
+      updateProjectMutation.mutate({ projectId: editingProject.id, payload });
+    } else {
+      createProjectMutation.mutate(payload);
+    }
   };
+
+  const isEditModalOpen = activeModal === 'edit';
+  const isModalOpen = activeModal !== null;
+  const activeMutation = activeModal === 'edit' ? updateProjectMutation : createProjectMutation;
+  const modalTitleId = isEditModalOpen ? 'edit-project-title' : 'create-project-title';
+  const modalDescriptionId = isEditModalOpen ? 'edit-project-description' : 'create-project-description';
+  const modalHeading = isEditModalOpen ? 'Edit project' : 'Create project';
+  const modalDescription = isEditModalOpen
+    ? 'Update the name, description, or tags for this workspace.'
+    : 'A root system is created automatically and can’t be removed.';
+  const submitLabel = activeMutation.isPending
+    ? isEditModalOpen
+      ? 'Saving…'
+      : 'Creating…'
+    : isEditModalOpen
+      ? 'Save changes'
+      : 'Create project';
 
   return (
     <section className="project-manager">
@@ -116,30 +186,40 @@ const ProjectManager = () => {
             <ul className="project-list">
               {projects.map((project) => (
                 <li key={project.id}>
-                  <button
-                    type="button"
-                    className={clsx('project-button', {
-                      active: project.id === selectedProjectId
-                    })}
-                    onClick={() => {
-                      selectProject(project.id);
-                      if (project.id !== selectedProjectId) {
-                        navigate(`/projects/${project.id}`);
-                      }
-                    }}
-                  >
-                    <span className="project-name">{project.name}</span>
-                    {project.description && <span className="project-description">{project.description}</span>}
-                    {project.tags.length > 0 && (
-                      <span className="tag-list">
-                        {project.tags.map((tag) => (
-                          <span key={tag} className="tag">
-                            {tag}
-                          </span>
-                        ))}
-                      </span>
-                    )}
-                  </button>
+                  <div className="project-item">
+                    <button
+                      type="button"
+                      className={clsx('project-button', {
+                        active: project.id === selectedProjectId
+                      })}
+                      onClick={() => {
+                        selectProject(project.id);
+                        if (project.id !== selectedProjectId) {
+                          navigate(`/projects/${project.id}`);
+                        }
+                      }}
+                    >
+                      <span className="project-name">{project.name}</span>
+                      {project.description && <span className="project-description">{project.description}</span>}
+                      {project.tags.length > 0 && (
+                        <span className="tag-list">
+                          {project.tags.map((tag) => (
+                            <span key={tag} className="tag">
+                              {tag}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      className="link-button project-edit-button"
+                      onClick={() => openEditModal(project)}
+                      aria-label={`Edit project ${project.name}`}
+                    >
+                      Edit
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -153,20 +233,20 @@ const ProjectManager = () => {
         </header>
         <div className="panel-content project-form-launcher">
           <p className="status">Kick off a fresh architecture workspace for your team.</p>
-          <button className="primary" type="button" onClick={() => setCreateModalOpen(true)}>
+          <button className="primary" type="button" onClick={openCreateModal}>
             New project
           </button>
         </div>
       </div>
-      {isCreateModalOpen && (
+      {isModalOpen && (
         <div
           className="modal-backdrop"
           role="button"
           tabIndex={0}
-          aria-label="Dismiss create project dialog"
+          aria-label={`Dismiss ${isEditModalOpen ? 'edit' : 'create'} project dialog`}
           onClick={(event) => {
             if (event.target === event.currentTarget) {
-              closeCreateModal();
+              dismissModal();
             }
           }}
           onKeyDown={(event) => {
@@ -175,7 +255,7 @@ const ProjectManager = () => {
             }
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
-              closeCreateModal();
+              dismissModal();
             }
           }}
         >
@@ -183,23 +263,23 @@ const ProjectManager = () => {
             className="modal"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="create-project-title"
-            aria-describedby="create-project-description"
+            aria-labelledby={modalTitleId}
+            aria-describedby={modalDescriptionId}
           >
             <header className="modal-header">
-              <h3 id="create-project-title">Create project</h3>
+              <h3 id={modalTitleId}>{modalHeading}</h3>
               <button
                 type="button"
                 className="icon-button"
-                onClick={closeCreateModal}
-                aria-label="Close create project dialog"
-                disabled={createProjectMutation.isPending}
+                onClick={dismissModal}
+                aria-label={`Close ${isEditModalOpen ? 'edit' : 'create'} project dialog`}
+                disabled={activeMutation.isPending}
               >
                 ×
               </button>
             </header>
-            <p id="create-project-description" className="modal-description">
-              A root system is created automatically and can’t be removed.
+            <p id={modalDescriptionId} className="modal-description">
+              {modalDescription}
             </p>
             <form className="project-form modal-form" onSubmit={handleSubmit}>
               <label className="field">
@@ -231,24 +311,26 @@ const ProjectManager = () => {
                   placeholder="Comma separated"
                 />
               </label>
-              {createProjectMutation.isError && (
+              {activeMutation.isError && (
                 <p className="status error" role="alert">
-                  {createProjectMutation.error instanceof Error
-                    ? createProjectMutation.error.message
-                    : 'Unable to create project'}
+                  {activeMutation.error instanceof Error
+                    ? activeMutation.error.message
+                    : isEditModalOpen
+                      ? 'Unable to update project'
+                      : 'Unable to create project'}
                 </p>
               )}
               <div className="modal-actions">
                 <button
                   className="secondary"
                   type="button"
-                  onClick={closeCreateModal}
-                  disabled={createProjectMutation.isPending}
+                  onClick={dismissModal}
+                  disabled={activeMutation.isPending}
                 >
                   Cancel
                 </button>
-                <button className="primary" type="submit" disabled={createProjectMutation.isPending}>
-                  {createProjectMutation.isPending ? 'Creating…' : 'Create project'}
+                <button className="primary" type="submit" disabled={activeMutation.isPending}>
+                  {submitLabel}
                 </button>
               </div>
             </form>
