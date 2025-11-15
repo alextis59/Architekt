@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Project } from '@architekt/domain';
 import {
   createDataModel,
@@ -75,6 +75,24 @@ const addAttributeToList = (
   });
 };
 
+const findAttributeInList = (
+  attributes: AttributeDraft[],
+  targetId: string
+): AttributeDraft | null => {
+  for (const attribute of attributes) {
+    if (attribute.localId === targetId) {
+      return attribute;
+    }
+
+    const nestedMatch = findAttributeInList(attribute.attributes, targetId);
+    if (nestedMatch) {
+      return nestedMatch;
+    }
+  }
+
+  return null;
+};
+
 const DataModelDesigner = () => {
   const queryClient = useQueryClient();
   const selectedProjectId = useProjectStore(selectSelectedProjectId);
@@ -85,9 +103,12 @@ const DataModelDesigner = () => {
   const [isDirty, setIsDirty] = useState(false);
   const [creationForm, setCreationForm] = useState({ name: '', description: '' });
   const [activeModal, setActiveModal] = useState<'create' | 'edit' | null>(null);
+  const [expandedAttributeIds, setExpandedAttributeIds] = useState<Set<string>>(() => new Set());
+  const [activeAttributeId, setActiveAttributeId] = useState<string | null>(null);
 
   const createNameFieldRef = useRef<HTMLInputElement | null>(null);
   const editNameFieldRef = useRef<HTMLInputElement | null>(null);
+  const attributeNameFieldRef = useRef<HTMLInputElement | null>(null);
 
   const projectQuery = useQuery({
     queryKey: selectedProjectId ? queryKeys.project(selectedProjectId) : ['project', 'none'],
@@ -124,11 +145,15 @@ const DataModelDesigner = () => {
     if (!project || !selectedDataModelId || !project.dataModels[selectedDataModelId]) {
       setDraft(null);
       setIsDirty(false);
+      setExpandedAttributeIds(new Set());
+      setActiveAttributeId(null);
       return;
     }
 
     setDraft(createDataModelDraft(project.dataModels[selectedDataModelId]));
     setIsDirty(false);
+    setExpandedAttributeIds(new Set());
+    setActiveAttributeId(null);
   }, [project, selectedDataModelId]);
 
   const createDataModelMutation = useMutation({
@@ -186,6 +211,8 @@ const DataModelDesigner = () => {
       });
       setDraft(createDataModelDraft(dataModel));
       setIsDirty(false);
+      setExpandedAttributeIds(new Set());
+      setActiveAttributeId(null);
       setActiveModal(null);
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     }
@@ -219,6 +246,8 @@ const DataModelDesigner = () => {
       selectDataModel(nextSelectedId);
       setDraft(null);
       setIsDirty(false);
+      setExpandedAttributeIds(new Set());
+      setActiveAttributeId(null);
       setActiveModal(null);
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     }
@@ -228,11 +257,15 @@ const DataModelDesigner = () => {
     if (!selectedDataModel || !project) {
       setDraft(null);
       setIsDirty(false);
+      setExpandedAttributeIds(new Set());
+      setActiveAttributeId(null);
       return;
     }
 
     setDraft(createDataModelDraft(project.dataModels[selectedDataModel.id]));
     setIsDirty(false);
+    setExpandedAttributeIds(new Set());
+    setActiveAttributeId(null);
   }, [project, selectedDataModel]);
 
   const handleCreateDataModel = (event: FormEvent<HTMLFormElement>) => {
@@ -261,6 +294,8 @@ const DataModelDesigner = () => {
     updateDataModelMutation.reset();
     deleteDataModelMutation.reset();
     setCreationForm({ name: '', description: '' });
+    setExpandedAttributeIds(new Set());
+    setActiveAttributeId(null);
     setActiveModal('create');
   };
 
@@ -274,6 +309,48 @@ const DataModelDesigner = () => {
     resetDraftToSelected();
     setActiveModal('edit');
   };
+
+  const toggleAttributeExpansion = (attributeId: string) => {
+    setExpandedAttributeIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(attributeId)) {
+        next.delete(attributeId);
+      } else {
+        next.add(attributeId);
+      }
+      return next;
+    });
+  };
+
+  const openAttributeModal = (attributeId: string) => {
+    setExpandedAttributeIds((previous) => {
+      const next = new Set(previous);
+      next.add(attributeId);
+      return next;
+    });
+    setActiveAttributeId(attributeId);
+  };
+
+  const closeAttributeModal = () => {
+    setActiveAttributeId(null);
+  };
+
+  const activeAttribute = useMemo(() => {
+    if (!activeAttributeId || !draft) {
+      return null;
+    }
+
+    return findAttributeInList(draft.attributes, activeAttributeId);
+  }, [activeAttributeId, draft]);
+
+  useEffect(() => {
+    if (activeAttribute && attributeNameFieldRef.current) {
+      attributeNameFieldRef.current.focus();
+      attributeNameFieldRef.current.select();
+    }
+  }, [activeAttribute]);
+
+  const isAttributeModalOpen = Boolean(activeAttribute);
 
   const dismissModal = useCallback(() => {
     createDataModelMutation.reset();
@@ -312,10 +389,20 @@ const DataModelDesigner = () => {
         attributes: addAttributeToList(previous.attributes, parentId, newAttribute)
       };
     });
+    setExpandedAttributeIds((previous) => {
+      const next = new Set(previous);
+      if (parentId) {
+        next.add(parentId);
+      }
+      next.add(newAttribute.localId);
+      return next;
+    });
+    setActiveAttributeId(newAttribute.localId);
     setIsDirty(true);
   };
 
   const handleRemoveAttribute = (attributeId: string) => {
+    const attributeToRemove = draft ? findAttributeInList(draft.attributes, attributeId) : null;
     setDraft((previous) => {
       if (!previous) {
         return previous;
@@ -325,6 +412,32 @@ const DataModelDesigner = () => {
         ...previous,
         attributes: removeAttributeFromList(previous.attributes, attributeId)
       };
+    });
+    let idsToRemove: Set<string> | null = null;
+    if (attributeToRemove) {
+      const collectIds = (attribute: AttributeDraft, accumulator: Set<string>) => {
+        accumulator.add(attribute.localId);
+        attribute.attributes.forEach((child) => collectIds(child, accumulator));
+      };
+      idsToRemove = new Set<string>();
+      collectIds(attributeToRemove, idsToRemove);
+      setExpandedAttributeIds((previous) => {
+        if (idsToRemove.size === 0) {
+          return previous;
+        }
+        const next = new Set(previous);
+        idsToRemove.forEach((id) => next.delete(id));
+        return next;
+      });
+    }
+    setActiveAttributeId((previous) => {
+      if (!previous) {
+        return previous;
+      }
+      if (idsToRemove?.has(previous)) {
+        return null;
+      }
+      return previous === attributeId ? null : previous;
     });
     setIsDirty(true);
   };
@@ -676,22 +789,33 @@ const DataModelDesigner = () => {
                       </button>
                     </div>
                   </div>
+                  <div className="attribute-toolbar attribute-toolbar-top">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => handleAddAttribute(null)}
+                    >
+                      Add attribute
+                    </button>
+                  </div>
                   <div className="attribute-list">
                     {draft.attributes.length === 0 && (
                       <p className="status">No attributes yet. Add your first attribute.</p>
                     )}
                     {draft.attributes.map((attribute) => (
-                      <AttributeEditor
+                      <AttributeItem
                         key={attribute.localId}
                         attribute={attribute}
                         depth={0}
-                        onChange={handleAttributeChange}
+                        expandedAttributeIds={expandedAttributeIds}
+                        onToggle={toggleAttributeExpansion}
+                        onEdit={openAttributeModal}
                         onAddChild={handleAddAttribute}
                         onRemove={handleRemoveAttribute}
                       />
                     ))}
                   </div>
-                  <div className="attribute-toolbar">
+                  <div className="attribute-toolbar attribute-toolbar-bottom">
                     <button
                       type="button"
                       className="secondary"
@@ -720,115 +844,290 @@ const DataModelDesigner = () => {
           </div>
         </div>
       )}
+      {isAttributeModalOpen && activeAttribute && (
+        <AttributeModal
+          attribute={activeAttribute}
+          onClose={closeAttributeModal}
+          onSubmit={handleAttributeChange}
+          nameFieldRef={attributeNameFieldRef}
+        />
+      )}
     </section>
   );
 };
 
-type AttributeEditorProps = {
+type AttributeItemProps = {
   attribute: AttributeDraft;
   depth: number;
-  onChange: (attributeId: string, updates: Partial<AttributeDraft>) => void;
+  expandedAttributeIds: Set<string>;
+  onToggle: (attributeId: string) => void;
+  onEdit: (attributeId: string) => void;
   onAddChild: (parentId: string) => void;
   onRemove: (attributeId: string) => void;
 };
 
-const AttributeEditor = ({ attribute, depth, onChange, onAddChild, onRemove }: AttributeEditorProps) => {
+const AttributeItem = ({
+  attribute,
+  depth,
+  expandedAttributeIds,
+  onToggle,
+  onEdit,
+  onAddChild,
+  onRemove
+}: AttributeItemProps) => {
+  const isExpanded = expandedAttributeIds.has(attribute.localId);
   const canNest = attribute.type.trim().toLowerCase() === 'object';
+  const displayName = attribute.name.trim() || 'Unnamed attribute';
+  const displayType = attribute.type.trim() || '—';
+  const displayConstraints = attribute.constraints.trim() || '—';
+  const displayDescription = attribute.description.trim() || '—';
 
   return (
     <div className="attribute-card" style={{ marginLeft: depth * 16 }}>
-      <div className="attribute-grid">
-        <label className="field">
-          <span>Name</span>
-          <input
-            type="text"
-            value={attribute.name}
-            onChange={(event) => onChange(attribute.localId, { name: event.target.value })}
-            required
-          />
-        </label>
-        <label className="field">
-          <span>Type</span>
-          <select
-            value={attribute.type}
-            onChange={(event) => onChange(attribute.localId, { type: event.target.value })}
-            required
-          >
-            <option value="" disabled>
-              Select type
-            </option>
-            {TYPE_OPTIONS.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>Constraints</span>
-          <input
-            type="text"
-            value={attribute.constraints}
-            onChange={(event) =>
-              onChange(attribute.localId, { constraints: event.target.value })
-            }
-            placeholder="Optional, e.g. required"
-          />
-        </label>
-        <label className="field">
-          <span>Description</span>
-          <textarea
-            value={attribute.description}
-            onChange={(event) =>
-              onChange(attribute.localId, { description: event.target.value })
-            }
-            rows={2}
-          />
-        </label>
-        <label className="checkbox-field">
-          <input
-            type="checkbox"
-            checked={attribute.readOnly}
-            onChange={(event) => onChange(attribute.localId, { readOnly: event.target.checked })}
-          />
-          <span>Read-only</span>
-        </label>
-        <label className="checkbox-field">
-          <input
-            type="checkbox"
-            checked={attribute.encrypted}
-            onChange={(event) => onChange(attribute.localId, { encrypted: event.target.checked })}
-          />
-          <span>Encrypted</span>
-        </label>
-      </div>
-      <div className="attribute-actions">
+      <div className="attribute-item-header">
         <button
           type="button"
-          className="secondary"
-          onClick={() => onAddChild(attribute.localId)}
-          disabled={!canNest}
+          className="attribute-toggle"
+          onClick={() => onToggle(attribute.localId)}
+          aria-expanded={isExpanded}
         >
-          Add sub-attribute
-        </button>
-        <button type="button" className="danger" onClick={() => onRemove(attribute.localId)}>
-          Remove
+          <span className="attribute-toggle-icon" aria-hidden="true">
+            {isExpanded ? '▾' : '▸'}
+          </span>
+          <span className="attribute-title">{displayName}</span>
         </button>
       </div>
-      {attribute.attributes.length > 0 && (
-        <div className="attribute-children">
-          {attribute.attributes.map((child) => (
-            <AttributeEditor
-              key={child.localId}
-              attribute={child}
-              depth={depth + 1}
-              onChange={onChange}
-              onAddChild={onAddChild}
-              onRemove={onRemove}
-            />
-          ))}
+      {isExpanded && (
+        <div className="attribute-details">
+          <dl className="attribute-details-grid">
+            <div className="attribute-detail">
+              <dt>Type</dt>
+              <dd>{displayType}</dd>
+            </div>
+            <div className="attribute-detail">
+              <dt>Constraints</dt>
+              <dd>{displayConstraints}</dd>
+            </div>
+            <div className="attribute-detail attribute-detail-description">
+              <dt>Description</dt>
+              <dd>{displayDescription}</dd>
+            </div>
+            <div className="attribute-detail">
+              <dt>Flags</dt>
+              <dd>
+                <div className="attribute-flags">
+                  <span className={clsx('attribute-flag', { active: attribute.readOnly })}>
+                    Read-only
+                  </span>
+                  <span className={clsx('attribute-flag', { active: attribute.encrypted })}>
+                    Encrypted
+                  </span>
+                </div>
+              </dd>
+            </div>
+          </dl>
+          <div className="attribute-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => onAddChild(attribute.localId)}
+              disabled={!canNest}
+            >
+              Add sub-attribute
+            </button>
+            <button type="button" className="secondary" onClick={() => onEdit(attribute.localId)}>
+              Edit attribute
+            </button>
+            <button type="button" className="danger" onClick={() => onRemove(attribute.localId)}>
+              Remove
+            </button>
+          </div>
+          {attribute.attributes.length > 0 && (
+            <div className="attribute-children">
+              {attribute.attributes.map((child) => (
+                <AttributeItem
+                  key={child.localId}
+                  attribute={child}
+                  depth={depth + 1}
+                  expandedAttributeIds={expandedAttributeIds}
+                  onToggle={onToggle}
+                  onEdit={onEdit}
+                  onAddChild={onAddChild}
+                  onRemove={onRemove}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+};
+
+type AttributeModalProps = {
+  attribute: AttributeDraft;
+  onClose: () => void;
+  onSubmit: (attributeId: string, updates: Partial<AttributeDraft>) => void;
+  nameFieldRef: RefObject<HTMLInputElement>;
+};
+
+const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: AttributeModalProps) => {
+  const [formState, setFormState] = useState({
+    name: attribute.name,
+    type: attribute.type,
+    constraints: attribute.constraints,
+    description: attribute.description,
+    readOnly: attribute.readOnly,
+    encrypted: attribute.encrypted
+  });
+
+  useEffect(() => {
+    setFormState({
+      name: attribute.name,
+      type: attribute.type,
+      constraints: attribute.constraints,
+      description: attribute.description,
+      readOnly: attribute.readOnly,
+      encrypted: attribute.encrypted
+    });
+  }, [attribute]);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    onSubmit(attribute.localId, {
+      name: formState.name,
+      type: formState.type,
+      constraints: formState.constraints,
+      description: formState.description,
+      readOnly: formState.readOnly,
+      encrypted: formState.encrypted
+    });
+    onClose();
+  };
+
+  const modalTitleId = `edit-attribute-title-${attribute.localId}`;
+  const modalDescriptionId = `edit-attribute-description-${attribute.localId}`;
+
+  return (
+    <div
+      className="modal-backdrop attribute-modal-backdrop"
+      role="button"
+      tabIndex={0}
+      aria-label="Dismiss edit attribute dialog"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.currentTarget !== event.target) {
+          return;
+        }
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="modal attribute-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={modalTitleId}
+        aria-describedby={modalDescriptionId}
+      >
+        <header className="modal-header">
+          <h3 id={modalTitleId}>Edit attribute</h3>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close edit attribute dialog">
+            ×
+          </button>
+        </header>
+        <p id={modalDescriptionId} className="modal-description">
+          Update attribute metadata, validation constraints, and protection flags.
+        </p>
+        <form className="modal-form attribute-modal-form" onSubmit={handleSubmit}>
+          <label className="field">
+            <span>Name</span>
+            <input
+              type="text"
+              ref={nameFieldRef}
+              value={formState.name}
+              onChange={(event) =>
+                setFormState((previous) => ({ ...previous, name: event.target.value }))
+              }
+              required
+            />
+          </label>
+          <label className="field">
+            <span>Type</span>
+            <select
+              value={formState.type}
+              onChange={(event) =>
+                setFormState((previous) => ({ ...previous, type: event.target.value }))
+              }
+              required
+            >
+              <option value="" disabled>
+                Select type
+              </option>
+              {TYPE_OPTIONS.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Constraints</span>
+            <input
+              type="text"
+              value={formState.constraints}
+              onChange={(event) =>
+                setFormState((previous) => ({ ...previous, constraints: event.target.value }))
+              }
+              placeholder="Optional, e.g. required"
+            />
+          </label>
+          <label className="field">
+            <span>Description</span>
+            <textarea
+              value={formState.description}
+              onChange={(event) =>
+                setFormState((previous) => ({ ...previous, description: event.target.value }))
+              }
+              rows={3}
+            />
+          </label>
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={formState.readOnly}
+              onChange={(event) =>
+                setFormState((previous) => ({ ...previous, readOnly: event.target.checked }))
+              }
+            />
+            <span>Read-only</span>
+          </label>
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={formState.encrypted}
+              onChange={(event) =>
+                setFormState((previous) => ({ ...previous, encrypted: event.target.checked }))
+              }
+            />
+            <span>Encrypted</span>
+          </label>
+          <div className="modal-actions">
+            <button type="button" className="secondary" onClick={onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="primary">
+              Save attribute
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 };
