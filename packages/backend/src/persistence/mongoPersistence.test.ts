@@ -10,7 +10,11 @@ test('mongo persistence lazily connects and returns empty aggregate when no docu
       filter: Record<string, unknown>,
       update: Record<string, unknown>,
       options: { upsert?: boolean }
-    ) => undefined
+    ) => {
+      void filter;
+      void update;
+      void options;
+    }
   );
 
   const collection = { findOne, updateOne } as const;
@@ -69,7 +73,11 @@ test('mongo persistence saves aggregates with upsert semantics', async (t) => {
       filter: Record<string, unknown>,
       update: Record<string, unknown>,
       options: { upsert?: boolean }
-    ) => undefined
+    ) => {
+      void filter;
+      void update;
+      void options;
+    }
   );
   const collection = { findOne, updateOne } as const;
   const connect = t.mock.fn(async () => ({
