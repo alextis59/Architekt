@@ -55,6 +55,28 @@ export const createProject = async (input: {
   return response.project;
 };
 
+export const updateProject = async (
+  projectId: string,
+  input: {
+    name: string;
+    description?: string;
+    tags?: string[];
+  }
+): Promise<Project> => {
+  const payload = {
+    name: input.name,
+    description: input.description ?? '',
+    tags: sanitizeTags(input.tags ?? [])
+  };
+
+  const response = await apiRequest<{ project: Project }>(`/projects/${projectId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+
+  return response.project;
+};
+
 export const fetchProjectDetails = async (projectId: string): Promise<Project> => {
   const response = await apiRequest<{ project: Project }>(`/projects/${projectId}`);
   return response.project;

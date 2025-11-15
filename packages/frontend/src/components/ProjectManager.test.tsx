@@ -9,7 +9,8 @@ const projectManagerMocks = {
   navigate: vi.fn(),
   api: {
     fetchProjects: vi.fn(),
-    createProject: vi.fn()
+    createProject: vi.fn(),
+    updateProject: vi.fn()
   }
 };
 
@@ -47,6 +48,7 @@ describe('ProjectManager', () => {
     projectManagerMocks.navigate.mockReset();
     projectManagerMocks.api.fetchProjects.mockReset();
     projectManagerMocks.api.createProject.mockReset();
+    projectManagerMocks.api.updateProject.mockReset();
     useProjectStore.setState({
       selectedProjectId: null,
       selectedSystemId: null,
@@ -71,12 +73,14 @@ describe('ProjectManager', () => {
     renderComponent(queryClient);
 
     const list = await screen.findByRole('list');
-    const items = within(list).getAllByRole('button');
-    expect(items[0]).toHaveTextContent('Alpha');
-    expect(items[1]).toHaveTextContent('Beta');
+    const projectButtons = within(list).getAllByRole('button', {
+      name: (name) => !name.toLowerCase().startsWith('edit project')
+    });
+    expect(projectButtons[0]).toHaveTextContent('Alpha');
+    expect(projectButtons[1]).toHaveTextContent('Beta');
 
     const user = userEvent.setup();
-    await user.click(items[1]);
+    await user.click(projectButtons[1]);
 
     expect(useProjectStore.getState().selectedProjectId).toBe('b');
     expect(projectManagerMocks.navigate).toHaveBeenCalledWith('/projects/b');
@@ -171,6 +175,85 @@ describe('ProjectManager', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/Unable to create project/);
+    });
+  });
+
+  it('opens the edit modal with project details and submits updates', async () => {
+    projectManagerMocks.api.fetchProjects.mockResolvedValue([
+      { id: 'proj-1', name: 'Alpha', description: 'First', tags: ['core'], rootSystemId: 'root' }
+    ]);
+    projectManagerMocks.api.updateProject.mockResolvedValue({
+      id: 'proj-1',
+      name: 'Alpha Revised',
+      description: 'First revised',
+      tags: ['core', 'beta'],
+      rootSystemId: 'root',
+      systems: {},
+      flows: {},
+      dataModels: {},
+      components: {}
+    });
+
+    const queryClient = createClient();
+    renderComponent(queryClient);
+
+    const editButton = await screen.findByRole('button', { name: /Edit project Alpha/i });
+
+    const user = userEvent.setup();
+    await user.click(editButton);
+
+    const dialog = await screen.findByRole('dialog', { name: /Edit project/i });
+    const nameInput = within(dialog).getByLabelText(/Name/);
+    const descriptionInput = within(dialog).getByLabelText(/Description/);
+    const tagsInput = within(dialog).getByLabelText(/Tags/);
+
+    expect((nameInput as HTMLInputElement).value).toBe('Alpha');
+    expect((descriptionInput as HTMLTextAreaElement).value).toBe('First');
+    expect((tagsInput as HTMLInputElement).value).toBe('core');
+
+    await user.clear(nameInput);
+    await user.type(nameInput, ' Alpha Revised ');
+    await user.clear(descriptionInput);
+    await user.type(descriptionInput, ' First revised ');
+    await user.clear(tagsInput);
+    await user.type(tagsInput, 'core, beta, beta');
+
+    await user.click(within(dialog).getByRole('button', { name: /Save changes/i }));
+
+    await waitFor(() => {
+      expect(projectManagerMocks.api.updateProject).toHaveBeenCalled();
+    });
+
+    const [projectId, payload] = projectManagerMocks.api.updateProject.mock.calls[0] as [
+      string,
+      { name: string; description: string; tags: string[] }
+    ];
+    expect(projectId).toBe('proj-1');
+    expect(payload).toEqual({ name: 'Alpha Revised', description: 'First revised', tags: ['core', 'beta'] });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /Edit project/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows an error when project update fails', async () => {
+    projectManagerMocks.api.fetchProjects.mockResolvedValue([
+      { id: 'proj-1', name: 'Alpha', description: 'First', tags: ['core'], rootSystemId: 'root' }
+    ]);
+    projectManagerMocks.api.updateProject.mockRejectedValue(new Error('Unable to update project'));
+
+    const queryClient = createClient();
+    renderComponent(queryClient);
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: /Edit project Alpha/i }));
+
+    const dialog = await screen.findByRole('dialog', { name: /Edit project/i });
+    await user.type(within(dialog).getByLabelText(/Name/), ' Alpha ');
+    await user.click(within(dialog).getByRole('button', { name: /Save changes/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/Unable to update project/);
     });
   });
 });

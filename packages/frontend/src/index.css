@@ -255,6 +255,13 @@ main.app {
   padding-right: 0.5rem;
 }
 
+.project-item {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .project-button {
   width: 100%;
   text-align: left;
@@ -268,6 +275,10 @@ main.app {
   gap: 0.35rem;
   transition: all 0.2s ease;
   cursor: pointer;
+}
+
+.project-item .project-button {
+  flex: 1 1 220px;
 }
 
 .project-button:hover {
@@ -294,6 +305,12 @@ main.app {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+}
+
+.project-edit-button {
+  align-self: center;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .tag {

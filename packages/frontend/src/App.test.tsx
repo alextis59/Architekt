@@ -197,7 +197,12 @@ describe('App', () => {
       expect(screen.getByRole('heading', { level: 2, name: /^Projects$/i })).toBeInTheDocument();
     });
 
-    expect(await screen.findByRole('button', { name: /Demo Project/i })).toBeInTheDocument();
+    const projectList = await screen.findByRole('list');
+    const projectButton = within(projectList).getByRole('button', {
+      name: (name) => !name.toLowerCase().startsWith('edit project') && /demo project/i.test(name)
+    });
+
+    expect(projectButton).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 2, name: /Architecture explorer/i })).not.toBeInTheDocument();
   });
 
@@ -236,7 +241,10 @@ describe('App', () => {
   it('navigates to a project specific route when a project is selected', async () => {
     const { history } = renderWithRouter(['/projects']);
 
-    const projectButton = await screen.findByRole('button', { name: /Demo Project/i });
+    const projectList = await screen.findByRole('list');
+    const projectButton = within(projectList).getByRole('button', {
+      name: (name) => !name.toLowerCase().startsWith('edit project') && /demo project/i.test(name)
+    });
     await userEvent.click(projectButton);
 
     await waitFor(() => {
