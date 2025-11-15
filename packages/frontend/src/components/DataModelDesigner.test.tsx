@@ -96,21 +96,12 @@ describe('DataModelDesigner', () => {
   });
 
   it('saves edited data models using trimmed payloads', async () => {
-    apiMocks.fetchProjectDetails.mockResolvedValue({
-      id: 'proj-1',
-      name: 'Project',
-      description: '',
-      tags: [],
-      rootSystemId: 'sys',
-      systems: {},
-      flows: {},
-      dataModels: {
-        'model-a': {
-          id: 'model-a',
-          name: 'Customer',
-          description: 'Original',
-          attributes: [
-            {
+    const originalDataModel = {
+      id: 'model-a',
+      name: 'Customer',
+      description: 'Original',
+      attributes: [
+        {
           id: 'attr-1',
           name: 'Name',
           description: 'Full name',
@@ -123,16 +114,64 @@ describe('DataModelDesigner', () => {
           attributes: []
         }
       ]
+    };
+    const attributeUpdatedDataModel = {
+      ...originalDataModel,
+      attributes: [
+        {
+          id: 'attr-1',
+          name: 'Name',
+          description: 'Full name',
+          type: 'string',
+          required: true,
+          unique: false,
+          constraints: [{ type: 'regex', value: '^[A-Z]+$' }],
+          readOnly: true,
+          encrypted: false,
+          attributes: []
         }
-      },
-      components: {}
-    });
-    apiMocks.updateDataModel.mockResolvedValue({
-      id: 'model-a',
+      ]
+    };
+    const finalDataModel = {
+      ...attributeUpdatedDataModel,
       name: 'Customer Updated',
-      description: 'Updated',
-      attributes: []
-    });
+      description: 'Updated'
+    };
+
+    const projectBase = {
+      id: 'proj-1',
+      name: 'Project',
+      description: '',
+      tags: [],
+      rootSystemId: 'sys',
+      systems: {},
+      flows: {},
+      components: {}
+    };
+
+    apiMocks.fetchProjectDetails
+      .mockResolvedValueOnce({
+        ...projectBase,
+        dataModels: {
+          'model-a': originalDataModel
+        }
+      })
+      .mockResolvedValueOnce({
+        ...projectBase,
+        dataModels: {
+          'model-a': attributeUpdatedDataModel
+        }
+      })
+      .mockResolvedValue({
+        ...projectBase,
+        dataModels: {
+          'model-a': finalDataModel
+        }
+      });
+    apiMocks.updateDataModel
+      .mockResolvedValueOnce(attributeUpdatedDataModel)
+      .mockResolvedValueOnce(finalDataModel)
+      .mockResolvedValue(finalDataModel);
 
     const client = createClient();
     renderDesigner(client);
@@ -152,6 +191,28 @@ describe('DataModelDesigner', () => {
     await user.click(within(attributeModal).getByLabelText(/Required/));
     await user.click(within(attributeModal).getByLabelText(/Read-only/));
     await user.click(within(attributeModal).getByRole('button', { name: /Save attribute/i }));
+
+    await waitFor(() => {
+      expect(apiMocks.updateDataModel).toHaveBeenCalledWith('proj-1', 'model-a', {
+        name: 'Customer',
+        description: 'Original',
+        attributes: [
+          {
+            id: 'attr-1',
+            name: 'Name',
+            description: 'Full name',
+            type: 'string',
+            required: true,
+            unique: false,
+            constraints: [{ type: 'regex', value: '^[A-Z]+$' }],
+            readOnly: true,
+            encrypted: false,
+            attributes: []
+          }
+        ]
+      });
+    });
+    await screen.findByText('All changes saved.');
 
     await user.click(screen.getByRole('button', { name: /Edit model details/i }));
 
@@ -179,10 +240,10 @@ describe('DataModelDesigner', () => {
     await user.click(within(modal).getByRole('button', { name: /Save changes/i }));
 
     await waitFor(() => {
-      expect(apiMocks.updateDataModel).toHaveBeenCalled();
+      expect(apiMocks.updateDataModel).toHaveBeenCalledTimes(2);
     });
 
-    const updateArgs = apiMocks.updateDataModel.mock.calls[0];
+    const updateArgs = apiMocks.updateDataModel.mock.calls[1];
     expect(updateArgs).toBeDefined();
     const [projectId, dataModelId, payload] = updateArgs as [string, string, unknown];
     expect(projectId).toBe('proj-1');
@@ -205,6 +266,7 @@ describe('DataModelDesigner', () => {
         }
       ]
     });
+    await screen.findByText('All changes saved.');
   });
 
   it('deletes the current data model and selects the next available entry', async () => {

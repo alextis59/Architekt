@@ -149,6 +149,7 @@ const DataModelDesigner = () => {
   const [activeModal, setActiveModal] = useState<'create' | 'edit' | null>(null);
   const [expandedAttributeIds, setExpandedAttributeIds] = useState<Set<string>>(() => new Set());
   const [activeAttributeId, setActiveAttributeId] = useState<string | null>(null);
+  const [pendingAutoSave, setPendingAutoSave] = useState(false);
   const previousDraftStateRef = useRef<{ draft: DataModelDraft | null; isDirty: boolean } | null>(null);
 
   const createNameFieldRef = useRef<HTMLInputElement | null>(null);
@@ -226,6 +227,7 @@ const DataModelDesigner = () => {
       selectDataModel(dataModel.id);
       setCreationForm({ name: '', description: '' });
       setActiveModal(null);
+      setPendingAutoSave(false);
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     }
   });
@@ -260,6 +262,7 @@ const DataModelDesigner = () => {
       setActiveAttributeId(null);
       previousDraftStateRef.current = null;
       setActiveModal(null);
+      setPendingAutoSave(false);
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     }
   });
@@ -295,6 +298,7 @@ const DataModelDesigner = () => {
       setExpandedAttributeIds(new Set());
       setActiveAttributeId(null);
       setActiveModal(null);
+      setPendingAutoSave(false);
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     }
   });
@@ -426,6 +430,7 @@ const DataModelDesigner = () => {
       };
     });
     setIsDirty(true);
+    setPendingAutoSave(true);
   };
 
   const handleAddAttribute = (parentId: string | null) => {
@@ -450,6 +455,7 @@ const DataModelDesigner = () => {
     });
     setActiveAttributeId(newAttribute.localId);
     setIsDirty(true);
+    setPendingAutoSave(true);
   };
 
   const handleRemoveAttribute = (attributeId: string) => {
@@ -491,10 +497,12 @@ const DataModelDesigner = () => {
       return previous === attributeId ? null : previous;
     });
     setIsDirty(true);
+    setPendingAutoSave(true);
   };
 
   const handleResetDraft = () => {
     resetDraftToSelected();
+    setPendingAutoSave(false);
   };
 
   const saveDraft = () => {
@@ -543,6 +551,25 @@ const DataModelDesigner = () => {
 
   const canSave = Boolean(draft && isDirty && draft.name.trim().length > 0);
 
+  const { mutate: autoSaveDataModel } = updateDataModelMutation;
+
+  useEffect(() => {
+    if (!pendingAutoSave || !draft || !selectedProjectId || !draft.id) {
+      return;
+    }
+
+    if (updateDataModelMutation.isPending) {
+      return;
+    }
+
+    autoSaveDataModel({
+      projectId: selectedProjectId,
+      dataModelId: draft.id,
+      payload: toDataModelPayload(draft)
+    });
+    setPendingAutoSave(false);
+  }, [autoSaveDataModel, draft, pendingAutoSave, selectedProjectId, updateDataModelMutation.isPending]);
+
   const isCreateModalOpen = activeModal === 'create';
   const isEditModalOpen = activeModal === 'edit';
   const isModalOpen = activeModal !== null;
@@ -552,7 +579,7 @@ const DataModelDesigner = () => {
     : 'create-data-model-description';
   const modalHeading = isEditModalOpen ? 'Edit data model' : 'Create data model';
   const modalDescription = isEditModalOpen
-    ? 'Update model name and description. Attribute changes are managed from the workspace.'
+    ? 'Update model name and description. Attribute changes are saved automatically.'
     : 'Define the name and description for the new data model. Attributes can be added after creation.';
   const activeMutation = isEditModalOpen ? updateDataModelMutation : createDataModelMutation;
 
@@ -720,18 +747,17 @@ const DataModelDesigner = () => {
                       type="button"
                       className="secondary"
                       onClick={handleResetDraft}
-                      disabled={!isDirty}
+                      disabled={!isDirty || updateDataModelMutation.isPending}
                     >
                       Reset changes
                     </button>
-                    <button
-                      className="primary"
-                      type="button"
-                      onClick={saveDraft}
-                      disabled={!canSave || updateDataModelMutation.isPending}
-                    >
-                      {updateDataModelMutation.isPending ? 'Saving…' : 'Save changes'}
-                    </button>
+                    <p className="status" role="status">
+                      {updateDataModelMutation.isPending
+                        ? 'Saving changes…'
+                        : isDirty
+                          ? 'Pending changes will be saved automatically.'
+                          : 'All changes saved.'}
+                    </p>
                     {updateDataModelMutation.isError && (
                       <p className="status error" role="alert">
                         Unable to save data model.
