@@ -275,7 +275,10 @@ describe('App', () => {
       throw new Error('System details panel not found');
     }
 
-    const nameInputs = within(detailsPanel).getAllByRole('textbox', { name: /Name/i });
-    expect(nameInputs[0]).toHaveValue('Demo Platform');
+    const editButton = within(detailsPanel).getByRole('button', { name: 'Edit system' });
+    await userEvent.click(editButton);
+
+    const nameInput = await screen.findByLabelText('Name');
+    expect(nameInput).toHaveValue('Demo Platform');
   });
 });

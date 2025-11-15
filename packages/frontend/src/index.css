@@ -325,9 +325,7 @@ main.app {
   letter-spacing: 0.04em;
 }
 
-.project-form .field,
-.system-details .field,
-.system-child-form .field {
+.project-form .field {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
@@ -595,9 +593,57 @@ button.danger:hover:not(:disabled),
   align-items: center;
 }
 
-.system-child-form h4 {
-  margin: 0 0 0.5rem;
+.system-details-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.system-details-meta {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.system-details-meta div {
+  background: rgba(30, 64, 175, 0.06);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.system-details-meta dt {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #1d4ed8;
+}
+
+.system-details-meta dd {
+  margin: 0;
+  font-weight: 600;
   color: #0f172a;
+}
+
+.system-details-actions {
+  flex-wrap: wrap;
+}
+
+.system-modal-edit .modal-body,
+.system-modal-create .modal-body {
+  max-width: 520px;
+}
+
+.system-modal-edit .modal-form .field,
+.system-modal-create .modal-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #1f2937;
 }
 
 .tag-filter {
