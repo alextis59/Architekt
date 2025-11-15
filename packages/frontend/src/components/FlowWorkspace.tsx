@@ -503,7 +503,7 @@ const FlowWorkspace = () => {
   const [stepTagFilters, setStepTagFilters] = useState<string[]>([]);
   const [activeView, setActiveView] = useState<FlowView>('linear');
   const [isCreatingNewFlow, setIsCreatingNewFlow] = useState(false);
-  const [activeModal, setActiveModal] = useState<'create' | 'edit' | null>(null);
+  const [isEditingFlow, setIsEditingFlow] = useState(false);
   const [draft, setDraft] = useState<FlowDraft | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [alternateLinkError, setAlternateLinkError] = useState<string | null>(null);
@@ -522,7 +522,7 @@ const FlowWorkspace = () => {
     setStepTagFilters([]);
     setActiveView('linear');
     setIsCreatingNewFlow(false);
-    setActiveModal(null);
+    setIsEditingFlow(false);
     setDraft(null);
     setFormError(null);
     setAlternateLinkError(null);
@@ -550,13 +550,16 @@ const FlowWorkspace = () => {
 
         return previous;
       });
+      setIsEditingFlow(true);
       return;
     }
 
     if (selectedFlowId && project.flows[selectedFlowId]) {
       setDraft(createDraftFromFlow(project.flows[selectedFlowId]));
+      setIsEditingFlow(false);
     } else if (!selectedFlowId) {
       setDraft(null);
+      setIsEditingFlow(false);
     }
   }, [project, selectedFlowId, isCreatingNewFlow, selectedSystemId]);
 
@@ -632,7 +635,7 @@ const FlowWorkspace = () => {
         };
       });
       setIsCreatingNewFlow(false);
-      setActiveModal(null);
+      setIsEditingFlow(false);
       selectFlow(flow.id);
       setDraft(createDraftFromFlow(flow));
       setStepTagFilters([]);
@@ -685,7 +688,7 @@ const FlowWorkspace = () => {
         };
       });
       setDraft(createDraftFromFlow(flow));
-      setActiveModal(null);
+      setIsEditingFlow(false);
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     },
     onError: (error) => {
@@ -722,7 +725,7 @@ const FlowWorkspace = () => {
       setDraft(null);
       setIsCreatingNewFlow(false);
       setPendingAlternateLink(null);
-      setActiveModal(null);
+      setIsEditingFlow(false);
       void queryClient.invalidateQueries({ queryKey: queryKeys.project(variables.projectId) });
     },
     onError: (error) => {
@@ -843,7 +846,7 @@ const FlowWorkspace = () => {
     setStepTagFilters([]);
     setFormError(null);
     setAlternateLinkError(null);
-    setActiveModal('create');
+    setIsEditingFlow(true);
   };
 
   const handleToggleFlowTag = (tag: string) => {
@@ -861,7 +864,7 @@ const FlowWorkspace = () => {
   const handleSelectFlow = (flowId: string) => {
     setIsCreatingNewFlow(false);
     setPendingAlternateLink(null);
-    setActiveModal(null);
+    setIsEditingFlow(false);
     selectFlow(flowId);
   };
 
@@ -996,7 +999,7 @@ const FlowWorkspace = () => {
     startCreateFlow({ template, linkFrom: { flowId: draft.id, stepId: step.id } });
   };
 
-  const openEditModal = () => {
+  const handleStartEditing = () => {
     if (!project || !draft?.id) {
       return;
     }
@@ -1009,15 +1012,13 @@ const FlowWorkspace = () => {
     setIsCreatingNewFlow(false);
     setFormError(null);
     setAlternateLinkError(null);
-    setActiveModal('edit');
+    setIsEditingFlow(true);
   };
 
-  const dismissModal = () => {
+  const handleCancelEditing = () => {
     if (createFlowMutation.isPending || updateFlowMutation.isPending || deleteFlowMutation.isPending) {
       return;
     }
-
-    setActiveModal(null);
 
     if (isCreatingNewFlow) {
       setIsCreatingNewFlow(false);
@@ -1029,6 +1030,7 @@ const FlowWorkspace = () => {
     setPendingAlternateLink(null);
     setFormError(null);
     setAlternateLinkError(null);
+    setIsEditingFlow(false);
   };
 
   const scopeOptions = useMemo(
@@ -1063,19 +1065,16 @@ const FlowWorkspace = () => {
     }
   };
 
-  const isCreateModalOpen = activeModal === 'create';
-  const isEditModalOpen = activeModal === 'edit';
-  const isModalOpen = activeModal !== null;
-  const modalTitleId = isEditModalOpen ? 'edit-flow-title' : 'create-flow-title';
-  const modalDescriptionId = isEditModalOpen ? 'edit-flow-description' : 'create-flow-description';
-  const modalHeading = isEditModalOpen ? 'Edit flow' : 'Create flow';
-  const modalDescription = isEditModalOpen
-    ? 'Update flow details, scope, tags, and steps.'
-    : 'Define flow details, scope, tags, and steps.';
-
   const isMutating =
     createFlowMutation.isPending ||
     updateFlowMutation.isPending;
+  const builderTitle = isCreatingNewFlow ? 'Create new flow' : 'Edit flow';
+  const builderDescription = isCreatingNewFlow
+    ? 'Define the flow details, scope, tags, and steps.'
+    : 'Update flow details, scope, tags, and steps.';
+  const pendingAlternateFlowName = pendingAlternateLink?.flowId
+    ? flowsById[pendingAlternateLink.flowId]?.name ?? pendingAlternateLink.flowId
+    : null;
 
   return (
     <section className="workspace flow-workspace panel">
@@ -1104,7 +1103,8 @@ const FlowWorkspace = () => {
       )}
       {selectedProjectId && project && (
         <div className="flow-layout">
-          <aside className="flow-sidebar">
+          <aside className="panel flow-panel flow-sidebar">
+            <h3 className="flow-sidebar-heading">Flows</h3>
             <TagFilterBar
               availableTags={availableFlowTags}
               selectedTags={flowTagFilters}
@@ -1114,35 +1114,46 @@ const FlowWorkspace = () => {
               ariaLabel="Flow tag filters"
               emptyLabel="No flows have tags yet."
             />
-            <ul className="flow-list">
-              {filteredFlows.map((flow) => (
-                <li key={flow.id}>
-                  <button
-                    type="button"
-                    className={clsx('flow-button', {
-                      active: !isCreatingNewFlow && selectedFlowId === flow.id
-                    })}
-                    onClick={() => handleSelectFlow(flow.id)}
-                  >
-                    <span className="flow-name">{flow.name}</span>
-                    {flow.tags.length > 0 && (
-                      <span className="tag-list">
-                        {flow.tags.map((tag) => (
-                          <span key={tag} className="tag">
-                            {tag}
-                          </span>
-                        ))}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <button type="button" className="primary" onClick={() => startCreateFlow()}>
-              New flow
-            </button>
+            {filteredFlows.length === 0 ? (
+              <p className="status">
+                {flows.length === 0
+                  ? 'No flows yet. Use the button below to create the first flow.'
+                  : 'No flows match the selected filters.'}
+              </p>
+            ) : (
+              <ul className="flow-list">
+                {filteredFlows.map((flow) => (
+                  <li key={flow.id}>
+                    <button
+                      type="button"
+                      className={clsx('flow-button', {
+                        active: !isCreatingNewFlow && selectedFlowId === flow.id
+                      })}
+                      onClick={() => handleSelectFlow(flow.id)}
+                    >
+                      <span className="flow-name">{flow.name}</span>
+                      {flow.tags.length > 0 && (
+                        <span className="tag-list">
+                          {flow.tags.map((tag) => (
+                            <span key={tag} className="tag">
+                              {tag}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flow-sidebar-actions">
+              <p className="status">Kickstart alternate journeys tailored to your systems.</p>
+              <button type="button" className="primary" onClick={() => startCreateFlow()}>
+                New flow
+              </button>
+            </div>
           </aside>
-          <div className="flow-editor">
+          <div className="panel flow-panel flow-editor">
             <TagFilterBar
               availableTags={availableStepTags}
               selectedTags={stepTagFilters}
@@ -1169,126 +1180,102 @@ const FlowWorkspace = () => {
             <div className="flow-visualization" role="region" aria-live="polite">
               {renderView()}
             </div>
-            <div className="flow-summary">
+            <div className="flow-detail">
               {draft ? (
                 <>
-                  <header className="flow-summary-header">
-                    <div className="flow-summary-heading">
-                      <h3>{draft.name || 'Untitled flow'}</h3>
-                      {draft.description && (
-                        <p className="flow-summary-description">{draft.description}</p>
-                      )}
-                    </div>
-                    {draft.id && (
-                      <div className="flow-summary-actions">
-                        <button
-                          type="button"
-                          className="primary"
-                          onClick={openEditModal}
-                          disabled={
-                            createFlowMutation.isPending ||
-                            updateFlowMutation.isPending ||
-                            deleteFlowMutation.isPending
-                          }
-                        >
-                          Edit flow
-                        </button>
+                  <div className="flow-summary">
+                    <header className="flow-summary-header">
+                      <div className="flow-summary-heading">
+                        <h3>{draft.name || 'Untitled flow'}</h3>
+                        {draft.description && (
+                          <p className="flow-summary-description">{draft.description}</p>
+                        )}
                       </div>
-                    )}
-                  </header>
-                  <dl className="flow-summary-stats">
-                    <div>
-                      <dt>Steps</dt>
-                      <dd>{draft.steps.length}</dd>
-                    </div>
-                    <div>
-                      <dt>Tags</dt>
-                      <dd>{draft.tags.length}</dd>
-                    </div>
-                  </dl>
-                  <div className="flow-summary-sections">
-                    <section className="flow-summary-section">
-                      <h4>Flow tags</h4>
-                      {draft.tags.length > 0 ? (
-                        <div className="tag-list">
-                          {draft.tags.map((tag) => (
-                            <span key={tag} className="tag">
-                              {tag}
-                            </span>
-                          ))}
+                      {draft.id && (
+                        <div className="flow-summary-actions">
+                          <button
+                            type="button"
+                            className="danger"
+                            onClick={handleDeleteFlow}
+                            disabled={deleteFlowMutation.isPending}
+                          >
+                            {deleteFlowMutation.isPending ? 'Deleting…' : 'Delete flow'}
+                          </button>
+                          {!isEditingFlow && (
+                            <button
+                              type="button"
+                              className="primary"
+                              onClick={handleStartEditing}
+                              disabled={
+                                createFlowMutation.isPending ||
+                                updateFlowMutation.isPending ||
+                                deleteFlowMutation.isPending
+                              }
+                            >
+                              Edit flow
+                            </button>
+                          )}
                         </div>
-                      ) : (
-                        <p className="status">No tags assigned yet.</p>
                       )}
-                    </section>
-                    <section className="flow-summary-section">
-                      <h4>Systems in scope</h4>
-                      {scopedSystems.length > 0 ? (
-                        <ul className="flow-summary-scope">
-                          {scopedSystems.map((system) => (
-                            <li key={system.id}>{system.name}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="status">No systems selected.</p>
-                      )}
-                    </section>
+                    </header>
+                    <dl className="flow-summary-stats">
+                      <div>
+                        <dt>Steps</dt>
+                        <dd>{draft.steps.length}</dd>
+                      </div>
+                      <div>
+                        <dt>Tags</dt>
+                        <dd>{draft.tags.length}</dd>
+                      </div>
+                    </dl>
+                    <div className="flow-summary-sections">
+                      <section className="flow-summary-section">
+                        <h4>Flow tags</h4>
+                        {draft.tags.length > 0 ? (
+                          <div className="tag-list">
+                            {draft.tags.map((tag) => (
+                              <span key={tag} className="tag">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="status">No tags assigned yet.</p>
+                        )}
+                      </section>
+                      <section className="flow-summary-section">
+                        <h4>Systems in scope</h4>
+                        {scopedSystems.length > 0 ? (
+                          <ul className="flow-summary-scope">
+                            {scopedSystems.map((system) => (
+                              <li key={system.id}>{system.name}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="status">No systems selected.</p>
+                        )}
+                      </section>
+                    </div>
+                    {formError && !isEditingFlow && (
+                      <p className="status error" role="alert">
+                        {formError}
+                      </p>
+                    )}
                   </div>
-                </>
-              ) : (
-                <p className="status">Select a flow to review details or create a new one.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      {isModalOpen && (
-        <div
-          className="modal-backdrop"
-          role="button"
-          tabIndex={0}
-          aria-label={`Dismiss ${isEditModalOpen ? 'edit' : 'create'} flow dialog`}
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              dismissModal();
-            }
-          }}
-          onKeyDown={(event) => {
-            if (event.currentTarget !== event.target) {
-              return;
-            }
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              dismissModal();
-            }
-          }}
-        >
-          <div
-            className={`modal flow-modal${isEditModalOpen ? ' flow-modal-edit' : ''}${
-              isCreateModalOpen ? ' flow-modal-create' : ''
-            }`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={modalTitleId}
-            aria-describedby={modalDescriptionId}
-          >
-            <header className="modal-header">
-              <h3 id={modalTitleId}>{modalHeading}</h3>
-              <button
-                type="button"
-                className="icon-button"
-                onClick={dismissModal}
-                aria-label={`Close ${isEditModalOpen ? 'edit' : 'create'} flow dialog`}
-                disabled={createFlowMutation.isPending || updateFlowMutation.isPending || deleteFlowMutation.isPending}
-              >
-                ×
-              </button>
-            </header>
-            <p id={modalDescriptionId} className="modal-description">
-              {modalDescription}
-            </p>
-            <div className="modal-body">
-              <form className="flow-form" onSubmit={handleSubmit}>
+                  {isEditingFlow && (
+                    <div className="flow-builder">
+                      <header className="flow-builder-header">
+                        <div>
+                          <h4>{builderTitle}</h4>
+                          <p className="flow-builder-description">{builderDescription}</p>
+                        </div>
+                        {pendingAlternateFlowName && (
+                          <p className="status flow-builder-hint">
+                            Once saved, this flow will link as an alternate from {pendingAlternateFlowName}.
+                          </p>
+                        )}
+                      </header>
+                      <form className="flow-form" onSubmit={handleSubmit}>
                 <div className="flow-form-grid">
                   <label className="field">
                     <span>Name</span>
@@ -1469,7 +1456,7 @@ const FlowWorkspace = () => {
                   <button
                     type="button"
                     className="secondary"
-                    onClick={dismissModal}
+                    onClick={handleCancelEditing}
                     disabled={isMutating || deleteFlowMutation.isPending}
                   >
                     Cancel
@@ -1483,16 +1470,6 @@ const FlowWorkspace = () => {
                         ? 'Saving…'
                         : 'Save flow'}
                   </button>
-                  {draft?.id && (
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={handleDeleteFlow}
-                      disabled={deleteFlowMutation.isPending}
-                    >
-                      {deleteFlowMutation.isPending ? 'Deleting…' : 'Delete flow'}
-                    </button>
-                  )}
                 </div>
                 {formError && (
                   <p className="status error" role="alert">
@@ -1505,6 +1482,12 @@ const FlowWorkspace = () => {
                   </p>
                 )}
               </form>
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="status">Select a flow to review details or create a new one.</p>
+      )}
             </div>
           </div>
         </div>
