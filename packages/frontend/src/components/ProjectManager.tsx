@@ -184,44 +184,59 @@ const ProjectManager = () => {
           )}
           {projects.length > 0 && (
             <ul className="project-list">
-              {projects.map((project) => (
-                <li key={project.id}>
-                  <div className="project-item">
-                    <button
-                      type="button"
-                      className={clsx('project-button', {
-                        active: project.id === selectedProjectId
-                      })}
-                      onClick={() => {
-                        selectProject(project.id);
-                        if (project.id !== selectedProjectId) {
-                          navigate(`/projects/${project.id}`);
-                        }
-                      }}
-                    >
-                      <span className="project-name">{project.name}</span>
-                      {project.description && <span className="project-description">{project.description}</span>}
-                      {project.tags.length > 0 && (
-                        <span className="tag-list">
-                          {project.tags.map((tag) => (
-                            <span key={tag} className="tag">
-                              {tag}
-                            </span>
-                          ))}
+              {projects.map((project) => {
+                const nameId = `project-${project.id}-name`;
+                const descriptionId = project.description ? `project-${project.id}-description` : undefined;
+                const tagsId = project.tags.length > 0 ? `project-${project.id}-tags` : undefined;
+                const describedBy = [descriptionId, tagsId].filter(Boolean).join(' ');
+
+                return (
+                  <li key={project.id}>
+                    <div className="project-item">
+                      <button
+                        type="button"
+                        className={clsx('project-button', {
+                          active: project.id === selectedProjectId
+                        })}
+                        aria-labelledby={nameId}
+                        aria-describedby={describedBy || undefined}
+                        onClick={() => {
+                          selectProject(project.id);
+                          if (project.id !== selectedProjectId) {
+                            navigate(`/projects/${project.id}`);
+                          }
+                        }}
+                      >
+                        <span id={nameId} className="project-name">
+                          {project.name}
                         </span>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      className="link-button project-edit-button"
-                      onClick={() => openEditModal(project)}
-                      aria-label={`Edit project ${project.name}`}
-                    >
-                      Edit
-                    </button>
-                  </div>
-                </li>
-              ))}
+                        {project.description && (
+                          <span id={descriptionId} className="project-description">
+                            {project.description}
+                          </span>
+                        )}
+                        {project.tags.length > 0 && (
+                          <span id={tagsId} className="tag-list">
+                            {project.tags.map((tag) => (
+                              <span key={tag} className="tag">
+                                {tag}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className="link-button project-edit-button"
+                        onClick={() => openEditModal(project)}
+                        aria-label={`Edit project ${project.name}`}
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
