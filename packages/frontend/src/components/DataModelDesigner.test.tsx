@@ -158,8 +158,14 @@ describe('DataModelDesigner', () => {
     await user.type(modelNameInput, '  Customer Updated  ');
     await user.clear(modelDescription);
     await user.type(modelDescription, ' Updated ');
-    await user.type(within(modal).getByLabelText(/Constraints/), ' required ');
-    await user.click(within(modal).getByLabelText(/Read-only/));
+    await user.click(within(modal).getByRole('button', { name: 'Name' }));
+    await user.click(within(modal).getByRole('button', { name: /Edit attribute/i }));
+
+    const attributeModal = await screen.findByRole('dialog', { name: /Edit attribute/i });
+
+    await user.type(within(attributeModal).getByLabelText(/Constraints/), ' required ');
+    await user.click(within(attributeModal).getByLabelText(/Read-only/));
+    await user.click(within(attributeModal).getByRole('button', { name: /Save attribute/i }));
 
     await user.click(within(modal).getByRole('button', { name: /Save changes/i }));
 
