@@ -1545,11 +1545,11 @@ button.danger:hover:not(:disabled),
 
 @media (max-width: 768px) {
   body {
-    padding: 1rem;
+    padding: 0.75rem;
   }
 
   main.app {
-    padding: 1.5rem;
+    padding: 1.1rem;
   }
 
   .hero {
@@ -1566,7 +1566,7 @@ button.danger:hover:not(:disabled),
   }
 
   .panel {
-    padding: 1.25rem;
+    padding: 1rem;
   }
 
   .system-tree {
@@ -2234,11 +2234,11 @@ button.danger:hover:not(:disabled),
 
 @media (max-width: 768px) {
   body {
-    padding: 1rem;
+    padding: 0.75rem;
   }
 
   main.app {
-    padding: 1.5rem;
+    padding: 1.1rem;
     border-radius: 22px;
   }
 
@@ -2247,6 +2247,6 @@ button.danger:hover:not(:disabled),
   }
 
   .panel {
-    padding: 1.25rem;
+    padding: 1rem;
   }
 }
