@@ -121,6 +121,7 @@ type DataModelAttributeInput = {
   unique?: unknown;
   readOnly?: unknown;
   encrypted?: unknown;
+  private?: unknown;
   attributes?: unknown;
   element?: unknown;
 };
@@ -491,6 +492,7 @@ const sanitizeArrayElement = ({
     constraints,
     readOnly: ensureBoolean(input.readOnly, previous?.readOnly ?? false),
     encrypted: ensureBoolean(input.encrypted, previous?.encrypted ?? false),
+    private: ensureBoolean(input.private, previous?.private ?? false),
     attributes,
     element: sanitizeArrayElement({
       rawElement: input.element,
@@ -561,6 +563,7 @@ const sanitizeDataModelAttributes = ({
 
     const readOnly = ensureBoolean(input.readOnly, previous?.readOnly ?? false);
     const encrypted = ensureBoolean(input.encrypted, previous?.encrypted ?? false);
+    const isPrivate = ensureBoolean(input.private, previous?.private ?? false);
 
     const childExisting = previous
       ? new Map(previous.attributes.map((attribute) => [attribute.id, attribute] as [string, DataModelAttribute]))
@@ -587,6 +590,7 @@ const sanitizeDataModelAttributes = ({
       constraints,
       readOnly,
       encrypted,
+      private: isPrivate,
       attributes,
       element
     });

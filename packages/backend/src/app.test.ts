@@ -212,6 +212,7 @@ test('Data model endpoints manage nested attributes', async () => {
           constraints: [{ type: 'regex', value: '^[A-Z0-9-]+$' }],
           readOnly: true,
           encrypted: false,
+          private: false,
           attributes: []
         }
       ]
@@ -240,6 +241,7 @@ test('Data model endpoints manage nested attributes', async () => {
           constraints: [{ type: 'regex', value: '^[A-Z0-9-]+$' }],
           readOnly: true,
           encrypted: true,
+          private: true,
           attributes: [
             {
               name: 'format',
@@ -250,6 +252,7 @@ test('Data model endpoints manage nested attributes', async () => {
               constraints: [{ type: 'minLength', value: 36 }],
               readOnly: true,
               encrypted: false,
+              private: false,
               attributes: []
             }
           ]
@@ -265,6 +268,7 @@ test('Data model endpoints manage nested attributes', async () => {
     { type: 'regex', value: '^[A-Z0-9-]+$' }
   ]);
   assert.equal(updateResponse.body.dataModel.attributes[0].encrypted, true);
+  assert.equal(updateResponse.body.dataModel.attributes[0].private, true);
   assert.equal(updateResponse.body.dataModel.attributes[0].attributes.length, 1);
   const childId = updateResponse.body.dataModel.attributes[0].attributes[0].id;
   assert.deepEqual(updateResponse.body.dataModel.attributes[0].attributes[0].constraints, [

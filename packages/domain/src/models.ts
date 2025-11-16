@@ -32,6 +32,7 @@ export type DataModelAttribute = {
   constraints: AttributeConstraint[];
   readOnly: boolean;
   encrypted: boolean;
+  private: boolean;
   attributes: DataModelAttribute[];
   element: DataModelAttribute | null;
 };
@@ -264,6 +265,7 @@ const sanitizeDataModelAttribute = (raw: DataModelAttributeInput): DataModelAttr
   constraints: sanitizeConstraintList(raw?.constraints),
   readOnly: ensureBoolean(raw?.readOnly, false),
   encrypted: ensureBoolean(raw?.encrypted, false),
+  private: ensureBoolean(raw?.private, false),
   attributes: sanitizeDataModelAttributeList(raw?.attributes),
   element: sanitizeDataModelElement(raw?.element, raw?.type)
 });

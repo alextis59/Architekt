@@ -1008,6 +1008,13 @@ const AttributeItem = ({
         ? `${attribute.element.name.trim() || 'Element'} (${attribute.element.type.trim() || '—'})`
         : '—'
       : null;
+  const activeFlags = [
+    { label: 'Required', active: attribute.required },
+    { label: 'Unique', active: attribute.unique },
+    { label: 'Read-only', active: attribute.readOnly },
+    { label: 'Encrypted', active: attribute.encrypted },
+    { label: 'Private', active: attribute.private }
+  ].filter((flag) => flag.active);
 
   return (
     <div className="attribute-card" style={{ marginLeft: depth * 16 }}>
@@ -1048,16 +1055,17 @@ const AttributeItem = ({
             <div className="attribute-detail">
               <dt>Flags</dt>
               <dd>
-                <div className="attribute-flags">
-                  <span className={clsx('attribute-flag', { active: attribute.required })}>Required</span>
-                  <span className={clsx('attribute-flag', { active: attribute.unique })}>Unique</span>
-                  <span className={clsx('attribute-flag', { active: attribute.readOnly })}>
-                    Read-only
-                  </span>
-                  <span className={clsx('attribute-flag', { active: attribute.encrypted })}>
-                    Encrypted
-                  </span>
-                </div>
+                {activeFlags.length > 0 ? (
+                  <div className="attribute-flags">
+                    {activeFlags.map((flag) => (
+                      <span key={flag.label} className="attribute-flag active">
+                        {flag.label}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="attribute-flags-empty">No flags enabled</span>
+                )}
               </dd>
             </div>
           </dl>
@@ -1613,7 +1621,8 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
     unique: attribute.unique,
     constraints: cloneConstraints(attribute.constraints),
     readOnly: attribute.readOnly,
-    encrypted: attribute.encrypted
+    encrypted: attribute.encrypted,
+    private: attribute.private
   }));
 
   const [elementState, setElementState] = useState<AttributeDraft | null>(() =>
@@ -1630,7 +1639,8 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
       unique: attribute.unique,
       constraints: cloneConstraints(attribute.constraints),
       readOnly: attribute.readOnly,
-      encrypted: attribute.encrypted
+      encrypted: attribute.encrypted,
+      private: attribute.private
     });
     setElementState(attribute.element ? cloneAttributeDraft(attribute.element) : null);
     setElementError(null);
@@ -1664,6 +1674,7 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
       constraints: cloneConstraints(formState.constraints),
       readOnly: formState.readOnly,
       encrypted: formState.encrypted,
+      private: formState.private,
       element: isArrayType ? element : null
     });
     onClose();
@@ -1897,6 +1908,18 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
                       />
                       <span>Encrypted</span>
                     </label>
+                    <label className="checkbox-field">
+                      <input
+                        type="checkbox"
+                        checked={elementState.private}
+                        onChange={(event) =>
+                          setElementState((previous) =>
+                            previous ? { ...previous, private: event.target.checked } : previous
+                          )
+                        }
+                      />
+                      <span>Private</span>
+                    </label>
                   </div>
                 ) : (
                   <p className="status">No element definition provided.</p>
@@ -1957,6 +1980,16 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
                 }
               />
               <span>Encrypted</span>
+            </label>
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={formState.private}
+                onChange={(event) =>
+                  setFormState((previous) => ({ ...previous, private: event.target.checked }))
+                }
+              />
+              <span>Private</span>
             </label>
             <div className="modal-actions">
               <button type="button" className="secondary" onClick={onClose}>
