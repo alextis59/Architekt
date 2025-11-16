@@ -267,6 +267,75 @@ describe('DataModelDesigner', () => {
     await screen.findByText('All changes saved.');
   });
 
+  it('builds regex constraints with the regex builder', async () => {
+    apiMocks.fetchProjectDetails.mockResolvedValue({
+      id: 'proj-1',
+      name: 'Project',
+      description: '',
+      tags: [],
+      rootSystemId: 'sys',
+      systems: {},
+      flows: {},
+      dataModels: {
+        'model-a': {
+          id: 'model-a',
+          name: 'Customer',
+          description: '',
+          attributes: [
+            {
+              id: 'attr-1',
+              name: 'Name',
+              description: '',
+              type: 'string',
+              required: false,
+              unique: false,
+              constraints: [],
+              readOnly: false,
+              encrypted: false,
+              attributes: []
+            }
+          ]
+        }
+      },
+      components: {}
+    });
+
+    const client = createClient();
+    renderDesigner(client);
+
+    const user = userEvent.setup();
+    const attributeToggle = await screen.findByRole('button', { name: 'Name' });
+    await user.click(attributeToggle);
+    await user.click(screen.getByRole('button', { name: /Edit attribute/i }));
+
+    const attributeModal = await screen.findByRole('dialog', { name: /Edit attribute/i });
+    await user.selectOptions(
+      within(attributeModal).getByLabelText(/Constraint type/i),
+      'regex'
+    );
+
+    await user.click(within(attributeModal).getByLabelText(/Open regex builder/i));
+    const builder = within(attributeModal).getByRole('group', { name: /Regex builder/i });
+
+    await user.click(within(builder).getByLabelText(/Alpha lowercase/i));
+    await user.click(within(builder).getByLabelText(/Alpha uppercase/i));
+    await user.click(within(builder).getByLabelText(/Numeric/i));
+    await user.click(within(builder).getByRole('radio', { name: /Exact/i }));
+
+    const exactLength = within(builder).getByLabelText(/Exact length/i);
+    await user.clear(exactLength);
+    await user.type(exactLength, '8');
+
+    await user.click(within(builder).getByRole('button', { name: /Apply pattern/i }));
+
+    const constraintValueInput = within(attributeModal).getByLabelText(/Constraint value/i);
+    expect((constraintValueInput as HTMLInputElement).value).toBe('^[A-Z0-9]{8}$');
+
+    await user.click(within(attributeModal).getByRole('button', { name: /Add constraint/i }));
+
+    expect(within(attributeModal).getByText('Regex: ^[A-Z0-9]{8}$')).toBeInTheDocument();
+  });
+
   it('deletes the current data model and selects the next available entry', async () => {
     apiMocks.fetchProjectDetails.mockResolvedValue({
       id: 'proj-1',

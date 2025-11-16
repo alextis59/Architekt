@@ -1134,6 +1134,20 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
 
   const [constraintError, setConstraintError] = useState<string | null>(null);
 
+  const [isRegexBuilderOpen, setIsRegexBuilderOpen] = useState(false);
+  const [regexBuilderOptions, setRegexBuilderOptions] = useState({
+    alphaLowercase: true,
+    alphaUppercase: false,
+    numeric: false,
+    ascii: false,
+    hexadecimal: false,
+    lengthMode: 'none' as 'none' | 'exact' | 'range',
+    lengthExact: '',
+    lengthMin: '',
+    lengthMax: ''
+  });
+  const [regexBuilderError, setRegexBuilderError] = useState<string | null>(null);
+
   useEffect(() => {
     setConstraintDraft((previous) => {
       const nextType = previous.type && availableConstraintTypes.includes(previous.type)
@@ -1142,7 +1156,91 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
       return { type: nextType, value: '' };
     });
     setConstraintError(null);
+    setIsRegexBuilderOpen(false);
+    setRegexBuilderError(null);
   }, [availableConstraintTypes, attributeType]);
+
+  useEffect(() => {
+    if (constraintDraft.type !== 'regex') {
+      setIsRegexBuilderOpen(false);
+      setRegexBuilderError(null);
+    }
+  }, [constraintDraft.type]);
+
+  const buildRegexPattern = () => {
+    const characterParts: string[] = [];
+    if (regexBuilderOptions.alphaLowercase) {
+      characterParts.push('a-z');
+    }
+    if (regexBuilderOptions.alphaUppercase) {
+      characterParts.push('A-Z');
+    }
+    if (regexBuilderOptions.numeric) {
+      characterParts.push('0-9');
+    }
+    if (regexBuilderOptions.hexadecimal) {
+      characterParts.push('A-Fa-f0-9');
+    }
+    if (regexBuilderOptions.ascii) {
+      characterParts.push('\\x20-\\x7E');
+    }
+
+    if (characterParts.length === 0) {
+      return { error: 'Select at least one character option.' } as const;
+    }
+
+    const quantifier = (() => {
+      if (regexBuilderOptions.lengthMode === 'none') {
+        return '+';
+      }
+
+      if (regexBuilderOptions.lengthMode === 'exact') {
+        const value = Number(regexBuilderOptions.lengthExact);
+        if (!Number.isInteger(value) || value <= 0) {
+          return { error: 'Enter a positive integer for exact length.' } as const;
+        }
+        return `{${value}}` as const;
+      }
+
+      const min = regexBuilderOptions.lengthMin.trim();
+      const max = regexBuilderOptions.lengthMax.trim();
+      const parsedMin = Number(min);
+      const parsedMax = Number(max);
+
+      if (!Number.isInteger(parsedMin) || parsedMin < 0) {
+        return { error: 'Enter a non-negative integer for minimum length.' } as const;
+      }
+
+      if (max) {
+        if (!Number.isInteger(parsedMax) || parsedMax < parsedMin) {
+          return { error: 'Maximum length must be an integer greater than or equal to minimum length.' } as const;
+        }
+        return `{${parsedMin},${parsedMax}}` as const;
+      }
+
+      return `{${parsedMin},}` as const;
+    })();
+
+    if (typeof quantifier === 'object' && 'error' in quantifier) {
+      return quantifier;
+    }
+
+    const merged = Array.from(new Set(characterParts)).join('');
+    return { pattern: `^[${merged}]${quantifier}$` } as const;
+  };
+
+  const applyRegexBuilder = () => {
+    const result = buildRegexPattern();
+    if ('error' in result) {
+      setRegexBuilderError(result.error);
+      return;
+    }
+
+    setConstraintDraft((previous) => ({ ...previous, value: result.pattern }));
+    setRegexBuilderError(null);
+    setConstraintError(null);
+    setIsRegexBuilderOpen(false);
+  };
 
   const removeConstraint = (typeToRemove: AttributeConstraintDraft['type']) => {
     onChange(constraints.filter((constraint) => constraint.type !== typeToRemove));
@@ -1253,42 +1351,244 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
         </p>
       )}
       {availableConstraintTypes.length > 0 ? (
-        <div className="constraint-form">
-          <select
-            value={constraintDraft.type}
-            onChange={(event) => {
-              const nextType = event.target.value as AttributeConstraintDraft['type'] | '';
-              setConstraintDraft({ type: nextType, value: '' });
-            }}
-            aria-label="Constraint type"
-          >
-            <option value="">Select constraint</option>
-            {availableConstraintTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-          <input
-            type={constraintValueInputType}
-            value={constraintDraft.value}
-            onChange={(event) =>
-              setConstraintDraft((previous) => ({ ...previous, value: event.target.value }))
-            }
-            aria-label="Constraint value"
-            placeholder={constraintPlaceholder}
-            disabled={!constraintDraft.type}
-            step={constraintValueStep}
-          />
-          <button
-            type="button"
-            className="secondary"
-            onClick={handleAddConstraint}
-            disabled={!constraintDraft.type}
-          >
-            Add constraint
-          </button>
-        </div>
+        <>
+          <div className="constraint-form">
+            <select
+              value={constraintDraft.type}
+              onChange={(event) => {
+                const nextType = event.target.value as AttributeConstraintDraft['type'] | '';
+                setConstraintDraft({ type: nextType, value: '' });
+              }}
+              aria-label="Constraint type"
+            >
+              <option value="">Select constraint</option>
+              {availableConstraintTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+            <div className="constraint-value-wrapper">
+              <input
+                type={constraintValueInputType}
+                value={constraintDraft.value}
+                onChange={(event) =>
+                  setConstraintDraft((previous) => ({ ...previous, value: event.target.value }))
+                }
+                aria-label="Constraint value"
+                placeholder={constraintPlaceholder}
+                disabled={!constraintDraft.type}
+                step={constraintValueStep}
+              />
+              {constraintDraft.type === 'regex' && (
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={`${isRegexBuilderOpen ? 'Hide' : 'Open'} regex builder`}
+                  onClick={() => {
+                    setIsRegexBuilderOpen((previous) => !previous);
+                    setRegexBuilderError(null);
+                  }}
+                >
+                  🔧
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              className="secondary"
+              onClick={handleAddConstraint}
+              disabled={!constraintDraft.type}
+            >
+              Add constraint
+            </button>
+          </div>
+          {constraintDraft.type === 'regex' && isRegexBuilderOpen && (
+            <div className="regex-builder" aria-label="Regex builder" role="group">
+              <div className="regex-builder-grid">
+                <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={regexBuilderOptions.alphaLowercase}
+                  onChange={(event) => {
+                    setRegexBuilderOptions((previous) => ({
+                      ...previous,
+                      alphaLowercase: event.target.checked
+                    }));
+                    setRegexBuilderError(null);
+                  }}
+                />
+                <span>Alpha lowercase</span>
+              </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={regexBuilderOptions.alphaUppercase}
+                  onChange={(event) => {
+                    setRegexBuilderOptions((previous) => ({
+                      ...previous,
+                      alphaUppercase: event.target.checked
+                    }));
+                    setRegexBuilderError(null);
+                  }}
+                />
+                <span>Alpha uppercase</span>
+              </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={regexBuilderOptions.numeric}
+                  onChange={(event) => {
+                    setRegexBuilderOptions((previous) => ({
+                      ...previous,
+                      numeric: event.target.checked
+                    }));
+                    setRegexBuilderError(null);
+                  }}
+                />
+                <span>Numeric</span>
+              </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={regexBuilderOptions.hexadecimal}
+                  onChange={(event) => {
+                    setRegexBuilderOptions((previous) => ({
+                      ...previous,
+                      hexadecimal: event.target.checked
+                    }));
+                    setRegexBuilderError(null);
+                  }}
+                />
+                <span>Hexadecimal</span>
+              </label>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={regexBuilderOptions.ascii}
+                  onChange={(event) => {
+                    setRegexBuilderOptions((previous) => ({
+                      ...previous,
+                      ascii: event.target.checked
+                    }));
+                    setRegexBuilderError(null);
+                  }}
+                />
+                <span>ASCII (printable)</span>
+              </label>
+            </div>
+            <div className="regex-builder-length">
+              <span className="length-label">Length</span>
+              <label className="radio-field">
+                <input
+                  type="radio"
+                  name="regex-length"
+                  value="none"
+                  checked={regexBuilderOptions.lengthMode === 'none'}
+                  onChange={(event) => {
+                    setRegexBuilderOptions((previous) => ({
+                      ...previous,
+                      lengthMode: event.target.value as 'none' | 'exact' | 'range'
+                    }));
+                    setRegexBuilderError(null);
+                  }}
+                />
+                <span>Any length</span>
+              </label>
+              <label className="radio-field">
+                <input
+                  type="radio"
+                  name="regex-length"
+                  value="exact"
+                  checked={regexBuilderOptions.lengthMode === 'exact'}
+                  onChange={(event) => {
+                    setRegexBuilderOptions((previous) => ({
+                      ...previous,
+                      lengthMode: event.target.value as 'none' | 'exact' | 'range'
+                    }));
+                    setRegexBuilderError(null);
+                  }}
+                />
+                <span>Exact</span>
+              </label>
+              <input
+                type="number"
+                aria-label="Exact length"
+                min={1}
+                disabled={regexBuilderOptions.lengthMode !== 'exact'}
+                value={regexBuilderOptions.lengthExact}
+                onChange={(event) =>
+                  setRegexBuilderOptions((previous) => ({
+                    ...previous,
+                    lengthExact: event.target.value
+                  }))
+                }
+              />
+              <label className="radio-field">
+                <input
+                  type="radio"
+                  name="regex-length"
+                  value="range"
+                  checked={regexBuilderOptions.lengthMode === 'range'}
+                  onChange={(event) => {
+                    setRegexBuilderOptions((previous) => ({
+                      ...previous,
+                      lengthMode: event.target.value as 'none' | 'exact' | 'range'
+                    }));
+                    setRegexBuilderError(null);
+                  }}
+                />
+                <span>Min/Max</span>
+              </label>
+              <input
+                type="number"
+                aria-label="Minimum length"
+                min={0}
+                disabled={regexBuilderOptions.lengthMode !== 'range'}
+                value={regexBuilderOptions.lengthMin}
+                onChange={(event) =>
+                  setRegexBuilderOptions((previous) => ({
+                    ...previous,
+                    lengthMin: event.target.value
+                  }))
+                }
+                placeholder="Min"
+              />
+              <input
+                type="number"
+                aria-label="Maximum length"
+                min={0}
+                disabled={regexBuilderOptions.lengthMode !== 'range'}
+                value={regexBuilderOptions.lengthMax}
+                onChange={(event) =>
+                  setRegexBuilderOptions((previous) => ({
+                    ...previous,
+                    lengthMax: event.target.value
+                  }))
+                }
+                placeholder="Max"
+              />
+            </div>
+            {regexBuilderError && (
+              <p className="status error" role="alert">
+                {regexBuilderError}
+              </p>
+            )}
+            <div className="regex-builder-actions">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setIsRegexBuilderOpen(false)}
+              >
+                Close builder
+              </button>
+              <button type="button" className="primary" onClick={applyRegexBuilder}>
+                Apply pattern
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       ) : (
         <p className="status">No additional constraints available for this type.</p>
       )}
