@@ -108,21 +108,28 @@ export const createDraftFromFlow = (flow: Flow): FlowDraft => ({
   steps: flow.steps.map((step) => cloneDraftStep(step))
 });
 
-export const toFlowPayload = (draft: FlowDraft): FlowPayload => ({
-  name: draft.name.trim(),
-  description: draft.description.trim(),
-  tags: sanitizeTagList(draft.tags),
-  systemScopeIds: Array.from(new Set(draft.systemScopeIds)),
-  steps: draft.steps.map((step) => ({
-    id: step.id,
-    name: step.name.trim(),
-    description: step.description.trim(),
-    sourceSystemId: step.sourceSystemId,
-    targetSystemId: step.targetSystemId,
-    tags: sanitizeTagList(step.tags),
-    alternateFlowIds: Array.from(new Set(step.alternateFlowIds))
-  }))
-});
+export const toFlowPayload = (draft: FlowDraft, options: { includeIds?: boolean } = {}): FlowPayload => {
+  const { includeIds = true } = options;
+
+  return {
+    name: draft.name.trim(),
+    description: draft.description.trim(),
+    tags: sanitizeTagList(draft.tags),
+    systemScopeIds: Array.from(new Set(draft.systemScopeIds)),
+    steps: draft.steps.map((step) => ({
+      id: includeIds ? step.id : undefined,
+      name: step.name.trim(),
+      description: step.description.trim(),
+      sourceSystemId: step.sourceSystemId,
+      targetSystemId: step.targetSystemId,
+      tags: sanitizeTagList(step.tags),
+      alternateFlowIds: Array.from(new Set(step.alternateFlowIds))
+    }))
+  };
+};
+
+export const toExportableFlowPayload = (draft: FlowDraft): FlowPayload =>
+  toFlowPayload(draft, { includeIds: false });
 
 export const collectFlowTags = (project: Project): string[] => {
   const tags = new Set<string>();
@@ -967,6 +974,56 @@ const FlowWorkspace = () => {
     deleteFlowMutation.mutate({ projectId: project.id, flowId: draft.id });
   };
 
+  const handleExport = () => {
+    if (!draft && (!selectedFlowId || !project)) {
+      return;
+    }
+
+    const currentDraft = draft ?? (selectedFlowId ? createDraftFromFlow(project.flows[selectedFlowId]) : null);
+    if (!currentDraft) {
+      return;
+    }
+
+    const payload = toExportableFlowPayload(currentDraft);
+    const fileName = `${currentDraft.name.trim() || 'flow'}.json`;
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopy = async () => {
+    if (!draft && (!selectedFlowId || !project)) {
+      return;
+    }
+
+    const currentDraft = draft ?? (selectedFlowId ? createDraftFromFlow(project.flows[selectedFlowId]) : null);
+    if (!currentDraft) {
+      return;
+    }
+
+    const payload = JSON.stringify(toExportableFlowPayload(currentDraft), null, 2);
+
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload);
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = payload;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  };
+
   const handleCreateAlternateFlow = (index: number) => {
     if (!draft || !project || !draft.id) {
       return;
@@ -1193,6 +1250,12 @@ const FlowWorkspace = () => {
                       </div>
                       {draft.id && (
                         <div className="flow-summary-actions">
+                          <button type="button" className="secondary" onClick={handleExport}>
+                            Export JSON
+                          </button>
+                          <button type="button" className="secondary" onClick={() => void handleCopy()}>
+                            Copy JSON
+                          </button>
                           <button
                             type="button"
                             className="danger"
