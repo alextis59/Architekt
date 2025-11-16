@@ -470,7 +470,6 @@ const DataModelDesigner = () => {
     });
     setActiveAttributeId(newAttribute.localId);
     setIsDirty(true);
-    setPendingAutoSave(true);
   };
 
   const handleRemoveAttribute = (attributeId: string) => {
