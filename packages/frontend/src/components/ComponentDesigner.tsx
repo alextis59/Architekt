@@ -27,7 +27,8 @@ import {
   ENTRY_POINT_METHOD_OPTIONS,
   ENTRY_POINT_PROTOCOL_OPTIONS,
   ENTRY_POINT_TYPE_OPTIONS,
-  type EntryPointSelectOption
+  ENTRY_POINT_TYPE_CONFIG,
+  type EntryPointFormConfig
 } from './ComponentDesigner.constants.js';
 
 const cloneEntryPointDraft = (entryPoint: EntryPointDraft): EntryPointDraft => ({
@@ -47,15 +48,49 @@ const cloneDraft = (draft: ComponentDraft | null): ComponentDraft | null => {
   };
 };
 
-const withExistingEntryPointValue = (
-  value: string,
-  options: EntryPointSelectOption[]
-): EntryPointSelectOption[] => {
-  if (!value || options.some((option) => option.value === value)) {
-    return options;
-  }
+const ENTRY_POINT_FORM_DEFAULTS: EntryPointFormConfig = {
+  allowedProtocols: ENTRY_POINT_PROTOCOL_OPTIONS.map((option) => option.value),
+  allowedMethods: ENTRY_POINT_METHOD_OPTIONS.map((option) => option.value),
+  showProtocol: true,
+  showMethod: true,
+  showPath: true,
+  showTarget: true
+};
 
-  return [{ value, label: value }, ...options];
+const filterEntryPointOptions = (
+  options: typeof ENTRY_POINT_PROTOCOL_OPTIONS,
+  allowedValues: string[]
+) => {
+  const allowed = new Set(allowedValues);
+  return options.filter((option) => allowed.has(option.value));
+};
+
+const getEntryPointFormConfig = (type: string): EntryPointFormConfig => {
+  const overrides = ENTRY_POINT_TYPE_CONFIG[type] ?? {};
+  return {
+    ...ENTRY_POINT_FORM_DEFAULTS,
+    ...overrides,
+    allowedProtocols: overrides.allowedProtocols ?? ENTRY_POINT_FORM_DEFAULTS.allowedProtocols,
+    allowedMethods: overrides.allowedMethods ?? ENTRY_POINT_FORM_DEFAULTS.allowedMethods
+  };
+};
+
+const applyEntryPointTypeRules = (entryPoint: EntryPointDraft): EntryPointDraft => {
+  const config = getEntryPointFormConfig(entryPoint.type);
+
+  return {
+    ...entryPoint,
+    protocol:
+      config.showProtocol && config.allowedProtocols.includes(entryPoint.protocol)
+        ? entryPoint.protocol
+        : '',
+    method:
+      config.showMethod && config.allowedMethods.includes(entryPoint.method)
+        ? entryPoint.method
+        : '',
+    path: config.showPath ? entryPoint.path : '',
+    target: config.showTarget ? entryPoint.target : ''
+  };
 };
 
 const ComponentDesigner = () => {
@@ -287,7 +322,7 @@ const ComponentDesigner = () => {
   };
 
   const openCreateEntryPointModal = () => {
-    setEntryPointModalDraft(createEmptyEntryPointDraft());
+    setEntryPointModalDraft(applyEntryPointTypeRules(createEmptyEntryPointDraft()));
     setEntryPointModalMode('create');
     setEntryPointFormError(null);
   };
@@ -303,7 +338,7 @@ const ComponentDesigner = () => {
     }
 
     setExpandedEntryPointIds((previous) => new Set(previous).add(entryPointId));
-    setEntryPointModalDraft(cloneEntryPointDraft(entryPoint));
+    setEntryPointModalDraft(applyEntryPointTypeRules(cloneEntryPointDraft(entryPoint)));
     setEntryPointModalMode('edit');
     setEntryPointFormError(null);
   };
@@ -315,7 +350,9 @@ const ComponentDesigner = () => {
   };
 
   const handleEntryPointModalChange = (updates: Partial<EntryPointDraft>) => {
-    setEntryPointModalDraft((previous) => (previous ? { ...previous, ...updates } : previous));
+    setEntryPointModalDraft((previous) =>
+      previous ? applyEntryPointTypeRules({ ...previous, ...updates }) : previous
+    );
     setEntryPointFormError(null);
   };
 
@@ -353,7 +390,10 @@ const ComponentDesigner = () => {
       return;
     }
 
-    const normalizedEntryPoint = { ...entryPointModalDraft, name: trimmedName };
+    const normalizedEntryPoint = applyEntryPointTypeRules({
+      ...entryPointModalDraft,
+      name: trimmedName
+    });
 
     setDraft((previous) => {
       if (!previous) {
@@ -1090,6 +1130,13 @@ const EntryPointModal = ({
     mode === 'edit'
       ? 'Update entry point details and associated request/response models.'
       : 'Define a new entry point with its interface details and data model associations.';
+  const formConfig = getEntryPointFormConfig(entryPoint.type);
+  const protocolOptions = formConfig.showProtocol
+    ? filterEntryPointOptions(ENTRY_POINT_PROTOCOL_OPTIONS, formConfig.allowedProtocols)
+    : [];
+  const methodOptions = formConfig.showMethod
+    ? filterEntryPointOptions(ENTRY_POINT_METHOD_OPTIONS, formConfig.allowedMethods)
+    : [];
 
   return (
     <div
@@ -1144,18 +1191,19 @@ const EntryPointModal = ({
             <div className="entry-point-grid">
               <label className="field">
                 <span>Type</span>
-                <select
-                  value={entryPoint.type}
-                  onChange={(event) => onChange({ type: event.target.value })}
-                >
-                  <option value="">Select type</option>
-                  {withExistingEntryPointValue(entryPoint.type, ENTRY_POINT_TYPE_OPTIONS).map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <select
+                value={entryPoint.type}
+                onChange={(event) => onChange({ type: event.target.value })}
+              >
+                <option value="">Select type</option>
+                {ENTRY_POINT_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {formConfig.showProtocol && protocolOptions.length > 0 && (
               <label className="field">
                 <span>Protocol</span>
                 <select
@@ -1163,13 +1211,15 @@ const EntryPointModal = ({
                   onChange={(event) => onChange({ protocol: event.target.value })}
                 >
                   <option value="">Select protocol</option>
-                  {withExistingEntryPointValue(entryPoint.protocol, ENTRY_POINT_PROTOCOL_OPTIONS).map((option) => (
+                  {protocolOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
                   ))}
                 </select>
               </label>
+            )}
+            {formConfig.showMethod && methodOptions.length > 0 && (
               <label className="field">
                 <span>Method / Verb</span>
                 <select
@@ -1177,13 +1227,15 @@ const EntryPointModal = ({
                   onChange={(event) => onChange({ method: event.target.value })}
                 >
                   <option value="">Select method (optional)</option>
-                  {withExistingEntryPointValue(entryPoint.method, ENTRY_POINT_METHOD_OPTIONS).map((option) => (
+                  {methodOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
                   ))}
                 </select>
               </label>
+            )}
+            {formConfig.showPath && (
               <label className="field">
                 <span>Path or channel</span>
                 <input
@@ -1193,6 +1245,8 @@ const EntryPointModal = ({
                   placeholder="/customers, orders.queue…"
                 />
               </label>
+            )}
+            {formConfig.showTarget && (
               <label className="field">
                 <span>Target / endpoint</span>
                 <input
@@ -1202,6 +1256,7 @@ const EntryPointModal = ({
                   placeholder="Host, broker, topic…"
                 />
               </label>
+            )}
             </div>
             <label className="field">
               <span>Description</span>

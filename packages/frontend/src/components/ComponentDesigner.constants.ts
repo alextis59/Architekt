@@ -3,6 +3,15 @@ export type EntryPointSelectOption = {
   label: string;
 };
 
+export type EntryPointFormConfig = {
+  allowedProtocols: string[];
+  allowedMethods: string[];
+  showProtocol: boolean;
+  showMethod: boolean;
+  showPath: boolean;
+  showTarget: boolean;
+};
+
 export const ENTRY_POINT_TYPE_OPTIONS: EntryPointSelectOption[] = [
   { value: 'http', label: 'HTTP request' },
   { value: 'queue', label: 'Queue listener' },
@@ -40,3 +49,54 @@ export const ENTRY_POINT_METHOD_OPTIONS: EntryPointSelectOption[] = [
   { value: 'schedule', label: 'SCHEDULE' },
   { value: 'trigger', label: 'TRIGGER' }
 ];
+
+export const ENTRY_POINT_TYPE_CONFIG: Record<string, Partial<EntryPointFormConfig>> = {
+  http: {
+    allowedProtocols: ['HTTP', 'http/2', 'HTTPS', 'gRPC', 'GraphQL', 'WebSocket'],
+    allowedMethods: ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'connect', 'trace'],
+    showProtocol: true,
+    showMethod: true,
+    showPath: true,
+    showTarget: true
+  },
+  webhook: {
+    allowedProtocols: ['HTTP', 'HTTPS'],
+    allowedMethods: ['post', 'put', 'patch'],
+    showProtocol: true,
+    showMethod: true,
+    showPath: true,
+    showTarget: true
+  },
+  queue: {
+    allowedProtocols: ['AMQP', 'Kafka', 'MQTT'],
+    allowedMethods: ['publish', 'subscribe', 'listen'],
+    showProtocol: true,
+    showMethod: true,
+    showPath: true,
+    showTarget: true
+  },
+  event: {
+    allowedProtocols: ['HTTP', 'HTTPS', 'WebSocket', 'GraphQL'],
+    allowedMethods: ['subscribe', 'trigger'],
+    showProtocol: true,
+    showMethod: true,
+    showPath: true,
+    showTarget: true
+  },
+  stream: {
+    allowedProtocols: ['Kafka', 'MQTT', 'WebSocket'],
+    allowedMethods: ['listen', 'subscribe'],
+    showProtocol: true,
+    showMethod: true,
+    showPath: true,
+    showTarget: true
+  },
+  cron: {
+    allowedProtocols: [],
+    allowedMethods: ['schedule', 'trigger'],
+    showProtocol: false,
+    showMethod: true,
+    showPath: false,
+    showTarget: false
+  }
+};
