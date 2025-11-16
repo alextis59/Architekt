@@ -320,7 +320,6 @@ test('Component endpoints manage entry points with data model references', async
           protocol: 'HTTP',
           method: 'GET',
           path: '/customers/:id',
-          target: '',
           requestModelIds: [dataModelId],
           responseModelIds: [dataModelId]
         }
@@ -348,7 +347,6 @@ test('Component endpoints manage entry points with data model references', async
           protocol: 'HTTP',
           method: 'GET',
           path: '/customers/:id',
-          target: '',
           requestModelIds: [dataModelId],
           responseModelIds: [dataModelId]
         },
@@ -359,7 +357,6 @@ test('Component endpoints manage entry points with data model references', async
           protocol: 'AMQP',
           method: '',
           path: 'customers.events',
-          target: 'broker',
           requestModelIds: [dataModelId],
           responseModelIds: []
         }

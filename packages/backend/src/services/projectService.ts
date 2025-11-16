@@ -149,7 +149,6 @@ type ComponentEntryPointInput = {
   protocol?: unknown;
   method?: unknown;
   path?: unknown;
-  target?: unknown;
   requestModelIds?: unknown;
   responseModelIds?: unknown;
 };
@@ -645,7 +644,6 @@ const sanitizeComponentEntryPoints = ({
       typeof input.protocol === 'string' ? input.protocol.trim() : previous?.protocol ?? '';
     const method = typeof input.method === 'string' ? input.method.trim() : previous?.method ?? '';
     const path = typeof input.path === 'string' ? input.path.trim() : previous?.path ?? '';
-    const target = typeof input.target === 'string' ? input.target.trim() : previous?.target ?? '';
 
     const requestModelIds =
       input.requestModelIds !== undefined
@@ -665,7 +663,6 @@ const sanitizeComponentEntryPoints = ({
       protocol,
       method,
       path,
-      target,
       requestModelIds,
       responseModelIds
     });

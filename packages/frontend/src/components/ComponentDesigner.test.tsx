@@ -95,7 +95,6 @@ const projectFixture: Project = {
       protocol: 'HTTP',
       method: 'GET',
       path: '/customers/:id',
-      target: 'customers-service',
       requestModelIds: ['model-1'],
       responseModelIds: ['model-1']
     }
@@ -164,30 +163,15 @@ describe('ComponentDesigner', () => {
 
     queryClient.setQueryData(queryKeys.project('proj-1'), project);
 
-    const updatedEntryPoint = {
-      id: 'entry-1',
-      name: 'Get customer details',
-      description: 'Retrieves customer info',
-      type: 'http',
-      protocol: 'http/2',
-      method: 'get',
-      path: '/customers/{id}',
-      target: 'api.internal',
-      requestModelIds: ['model-2'],
-      responseModelIds: ['model-1', 'model-2']
-    };
-
-    const updatedComponent = {
-      id: 'comp-1',
-      name: 'Customer API updated',
-      description: 'Updated description',
-      entryPointIds: ['entry-1']
-    };
-
-    apiMocks.updateComponent.mockImplementation(async () => {
-      project.components['comp-1'] = { ...updatedComponent };
-      project.entryPoints['entry-1'] = { ...updatedEntryPoint };
-      return updatedComponent;
+    apiMocks.updateComponent.mockImplementation(async (_projectId, _componentId, payload) => {
+      const entryPointPayload = payload.entryPoints[0];
+      project.entryPoints['entry-1'] = { ...project.entryPoints['entry-1'], ...entryPointPayload };
+      project.components['comp-1'] = {
+        ...project.components['comp-1'],
+        name: payload.name,
+        description: payload.description
+      };
+      return project.components['comp-1'];
     });
 
     await act(async () => {
@@ -227,10 +211,6 @@ describe('ComponentDesigner', () => {
     await user.clear(pathInput);
     await user.type(pathInput, '  /customers/  ');
 
-    const targetInput = within(entryPointModal).getByLabelText('Target / endpoint');
-    await user.clear(targetInput);
-    await user.type(targetInput, '  api.internal  ');
-
     const entryPointDescription = within(entryPointModal).getByPlaceholderText(
       'What does this entry point do?'
     );
@@ -256,10 +236,25 @@ describe('ComponentDesigner', () => {
       expect(screen.queryByRole('dialog', { name: 'Edit entry point' })).not.toBeInTheDocument();
     });
 
-    const entryPointForm = entryPointArticle!.closest('form');
-    expect(entryPointForm).not.toBeNull();
-    const formSaveButton = within(entryPointForm!).getByRole('button', { name: 'Save changes' });
-    expect(formSaveButton).not.toBeDisabled();
+    await waitFor(() => {
+      expect(apiMocks.updateComponent).toHaveBeenCalledWith('proj-1', 'comp-1', {
+        name: 'Customer API',
+        description: 'Handles customer operations',
+        entryPoints: [
+          {
+            id: 'entry-1',
+            name: 'Get customer details',
+            description: 'Retrieves customer info',
+            type: 'http',
+            protocol: 'http/2',
+            method: 'get',
+            path: '/customers/',
+            requestModelIds: ['model-2'],
+            responseModelIds: ['model-1', 'model-2']
+          }
+        ]
+      });
+    });
 
     const editDetailsButton = screen.getByRole('button', { name: 'Edit component details' });
     await user.click(editDetailsButton);
@@ -279,7 +274,7 @@ describe('ComponentDesigner', () => {
     await user.click(modalSaveButton);
 
     await waitFor(() => {
-      expect(apiMocks.updateComponent).toHaveBeenCalledWith('proj-1', 'comp-1', {
+      expect(apiMocks.updateComponent).toHaveBeenLastCalledWith('proj-1', 'comp-1', {
         name: 'Customer API updated',
         description: 'Updated description',
         entryPoints: [
@@ -291,7 +286,6 @@ describe('ComponentDesigner', () => {
             protocol: 'http/2',
             method: 'get',
             path: '/customers/',
-            target: 'api.internal',
             requestModelIds: ['model-2'],
             responseModelIds: ['model-1', 'model-2']
           }

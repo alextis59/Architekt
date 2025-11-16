@@ -57,7 +57,6 @@ export type ComponentEntryPoint = {
   protocol: string;
   method: string;
   path: string;
-  target: string;
   requestModelIds: string[];
   responseModelIds: string[];
 };
@@ -335,7 +334,6 @@ const sanitizeComponentEntryPoint = (raw: ComponentEntryPointInput): ComponentEn
   protocol: ensureString(raw?.protocol),
   method: ensureString(raw?.method, ''),
   path: ensureString(raw?.path, ''),
-  target: ensureString(raw?.target, ''),
   requestModelIds: ensureStringArray(raw?.requestModelIds),
   responseModelIds: ensureStringArray(raw?.responseModelIds)
 });

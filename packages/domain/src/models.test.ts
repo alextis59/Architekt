@@ -91,7 +91,6 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
             protocol: 'HTTP',
             method: 'GET',
             path: '/customers/:id',
-            target: '',
             requestModelIds: ['model-1', ''],
             responseModelIds: ['model-1']
           },
@@ -225,7 +224,6 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
             protocol: 'HTTP',
             method: 'GET',
             path: '/orders',
-            target: '',
             requestModelIds: ['valid-model'],
             responseModelIds: ['valid-model']
           },
