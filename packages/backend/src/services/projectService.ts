@@ -823,7 +823,8 @@ export const createProject = async (
     },
     flows: {},
     dataModels: {},
-    components: {}
+    components: {},
+    entryPoints: {}
   };
 
   await saveAggregate(persistence, userId, aggregate);
@@ -1273,11 +1274,17 @@ export const createComponent = async (
 
   validateComponentEntryPointModels(project, entryPoints);
 
+  const entryPointIds: string[] = [];
+  for (const entryPoint of entryPoints) {
+    project.entryPoints[entryPoint.id] = entryPoint;
+    entryPointIds.push(entryPoint.id);
+  }
+
   project.components[componentId] = {
     id: componentId,
     name,
     description,
-    entryPoints
+    entryPointIds
   };
 
   await saveAggregate(persistence, userId, aggregate);
@@ -1302,21 +1309,39 @@ export const updateComponent = async (
 
   let entryPoints: ComponentEntryPoint[] | null = null;
   if (input.entryPoints !== undefined) {
-    const existing = new Map(
-      component.entryPoints.map((entryPoint) => [entryPoint.id, entryPoint] as [string, ComponentEntryPoint])
-    );
+    const existing = new Map<string, ComponentEntryPoint>();
+    for (const entryPointId of component.entryPointIds) {
+      const existingEntryPoint = project.entryPoints[entryPointId];
+      if (existingEntryPoint) {
+        existing.set(entryPointId, existingEntryPoint);
+      }
+    }
     entryPoints = sanitizeComponentEntryPoints({ rawEntryPoints: input.entryPoints, existing });
   }
 
   if (entryPoints !== null) {
     validateComponentEntryPointModels(project, entryPoints);
-  } else {
-    entryPoints = component.entryPoints;
+
+    const nextEntryPointIds: string[] = [];
+    const retainedIds = new Set<string>();
+
+    for (const entryPoint of entryPoints) {
+      project.entryPoints[entryPoint.id] = entryPoint;
+      nextEntryPointIds.push(entryPoint.id);
+      retainedIds.add(entryPoint.id);
+    }
+
+    for (const previousId of component.entryPointIds) {
+      if (!retainedIds.has(previousId)) {
+        delete project.entryPoints[previousId];
+      }
+    }
+
+    component.entryPointIds = nextEntryPointIds;
   }
 
   component.name = name;
   component.description = description;
-  component.entryPoints = entryPoints;
 
   await saveAggregate(persistence, userId, aggregate);
 
@@ -1332,6 +1357,10 @@ export const deleteComponent = async (
   const aggregate = cloneAggregate(await loadAggregate(persistence, userId));
   const project = getProjectOrThrow(aggregate, projectId);
   const component = getComponentOrThrow(project, componentId);
+
+  for (const entryPointId of component.entryPointIds) {
+    delete project.entryPoints[entryPointId];
+  }
 
   delete project.components[component.id];
 

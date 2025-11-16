@@ -61,7 +61,7 @@ export type Component = {
   id: string;
   name: string;
   description: string;
-  entryPoints: ComponentEntryPoint[];
+  entryPointIds: string[];
 };
 
 export type System = {
@@ -83,6 +83,7 @@ export type Project = {
   flows: Record<string, Flow>;
   dataModels: Record<string, DataModel>;
   components: Record<string, Component>;
+  entryPoints: Record<string, ComponentEntryPoint>;
 };
 
 export type DomainAggregate = {
@@ -105,7 +106,7 @@ type DataModelAttributeInput =
 type DataModelInput = Partial<DataModel> & { id?: string; attributes?: unknown };
 type ComponentEntryPointInput =
   Partial<ComponentEntryPoint> & { id?: string; requestModelIds?: unknown; responseModelIds?: unknown };
-type ComponentInput = Partial<Component> & { id?: string; entryPoints?: unknown };
+type ComponentInput = Partial<Component> & { id?: string; entryPointIds?: unknown };
 type SystemInput = Partial<System> & { id?: string };
 type ProjectInput =
   Partial<Project> & {
@@ -114,6 +115,7 @@ type ProjectInput =
     flows?: UnknownRecord;
     dataModels?: UnknownRecord;
     components?: UnknownRecord;
+    entryPoints?: UnknownRecord;
   };
 
 type DomainAggregateInput = {
@@ -321,21 +323,11 @@ const sanitizeComponentEntryPoint = (raw: ComponentEntryPointInput): ComponentEn
   responseModelIds: ensureStringArray(raw?.responseModelIds)
 });
 
-const sanitizeComponentEntryPointList = (raw: unknown): ComponentEntryPoint[] => {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-
-  return raw
-    .map((value) => sanitizeComponentEntryPoint((value ?? {}) as ComponentEntryPointInput))
-    .filter((entryPoint) => Boolean(entryPoint.id) && Boolean(entryPoint.name) && Boolean(entryPoint.type));
-};
-
 const sanitizeComponent = (raw: ComponentInput): Component => ({
   id: ensureString(raw?.id),
   name: ensureString(raw?.name),
   description: ensureString(raw?.description, ''),
-  entryPoints: sanitizeComponentEntryPointList(raw?.entryPoints)
+  entryPointIds: ensureStringArray(raw?.entryPointIds)
 });
 
 const sanitizeSystem = (raw: SystemInput): System => ({
@@ -352,6 +344,7 @@ const sanitizeProject = (raw: ProjectInput): Project => {
   const flowsInput = raw?.flows && typeof raw.flows === 'object' ? raw.flows : {};
   const dataModelsInput = raw?.dataModels && typeof raw.dataModels === 'object' ? raw.dataModels : {};
   const componentsInput = raw?.components && typeof raw.components === 'object' ? raw.components : {};
+  const entryPointsInput = raw?.entryPoints && typeof raw.entryPoints === 'object' ? raw.entryPoints : {};
 
   const systemEntries = Object.entries(systemsInput as Record<string, SystemInput>)
     .map(([id, value]): [string, System] => [id, sanitizeSystem({ id, ...value })])
@@ -381,6 +374,13 @@ const sanitizeProject = (raw: ProjectInput): Project => {
       return Boolean(component.id) && Boolean(component.name);
     });
 
+  const entryPointEntries = Object.entries(entryPointsInput as Record<string, ComponentEntryPointInput>)
+    .map(([id, value]): [string, ComponentEntryPoint] => [id, sanitizeComponentEntryPoint({ id, ...value })])
+    .filter((entry): entry is [string, ComponentEntryPoint] => {
+      const [, entryPoint] = entry;
+      return Boolean(entryPoint.id) && Boolean(entryPoint.name) && Boolean(entryPoint.type);
+    });
+
   const rootSystemId = ensureString(raw?.rootSystemId);
 
   return {
@@ -392,7 +392,8 @@ const sanitizeProject = (raw: ProjectInput): Project => {
     systems: Object.fromEntries(systemEntries),
     flows: Object.fromEntries(flowEntries),
     dataModels: Object.fromEntries(dataModelEntries),
-    components: Object.fromEntries(componentEntries)
+    components: Object.fromEntries(componentEntries),
+    entryPoints: Object.fromEntries(entryPointEntries)
   };
 };
 

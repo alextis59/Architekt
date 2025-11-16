@@ -38,7 +38,8 @@ describe('projects API helpers', () => {
       systems: {},
       flows: {},
       dataModels: {},
-      components: {}
+      components: {},
+      entryPoints: {}
     };
     apiClientMocks.apiRequest.mockResolvedValueOnce({ projects: [project] });
 
@@ -57,7 +58,18 @@ describe('projects API helpers', () => {
   });
 
   it('createProject trims optional fields and deduplicates tags', async () => {
-    const project = { id: 'proj', name: 'Name', description: '', tags: [], rootSystemId: 'root', systems: {}, flows: {}, dataModels: {}, components: {} };
+    const project = {
+      id: 'proj',
+      name: 'Name',
+      description: '',
+      tags: [],
+      rootSystemId: 'root',
+      systems: {},
+      flows: {},
+      dataModels: {},
+      components: {},
+      entryPoints: {}
+    };
     apiClientMocks.apiRequest.mockResolvedValueOnce({ project });
 
     const result = await createProject({ name: '  Project  ', description: undefined, tags: ['one', '  one ', ''] });
@@ -236,7 +248,7 @@ describe('projects API helpers', () => {
   });
 
   it('component helpers sanitize entry points and identifiers', async () => {
-    const component = { id: 'component', name: 'Component', description: '', entryPoints: [] };
+    const component = { id: 'component', name: 'Component', description: '', entryPointIds: [] };
     apiClientMocks.apiRequest.mockResolvedValue({ component });
 
     const input = {

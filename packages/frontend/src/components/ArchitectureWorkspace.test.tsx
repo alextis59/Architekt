@@ -99,7 +99,8 @@ const projectFixture: Project = {
   },
   flows: {},
   dataModels: {},
-  components: {}
+  components: {},
+  entryPoints: {}
 };
 
 const getLatestSystemTreeProps = () =>
@@ -315,4 +316,3 @@ describe('ArchitectureWorkspace', () => {
     await waitFor(() => expect(useProjectStore.getState().selectedSystemId).toBe('sys-new'));
   });
 });
-

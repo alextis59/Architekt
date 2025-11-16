@@ -36,7 +36,8 @@ describe('FlowWorkspace helpers', () => {
     },
     flows: {},
     dataModels: {},
-    components: {}
+    components: {},
+    entryPoints: {}
   };
 
   it('creates drafts from flows and converts them back to sanitized payloads', () => {

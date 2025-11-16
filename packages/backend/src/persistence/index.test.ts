@@ -33,7 +33,8 @@ test('createPersistence provides a functional filesystem adapter', async () => {
     systems: {},
     flows: {},
     dataModels: {},
-    components: {}
+    components: {},
+    entryPoints: {}
   };
 
   await adapter.save('user', aggregate);
@@ -53,7 +54,8 @@ test('createPersistence returns memory adapter seeded with data', async () => {
         systems: {},
         flows: {},
         dataModels: {},
-        components: {}
+        components: {},
+        entryPoints: {}
       }
     }
   };

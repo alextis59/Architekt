@@ -68,27 +68,28 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
           }
         },
         components: {
-          ignored: { id: '', name: '', entryPoints: [] },
+          ignored: { id: '', name: '', entryPointIds: [] },
           'component-1': {
             id: 'component-1',
             name: 'Customer API',
             description: null,
-            entryPoints: [
-              {
-                id: 'ep-1',
-                name: 'Get customer',
-                description: null,
-                type: 'http',
-                protocol: 'HTTP',
-                method: 'GET',
-                path: '/customers/:id',
-                target: '',
-                requestModelIds: ['model-1', ''],
-                responseModelIds: ['model-1']
-              },
-              { id: 'ep-2', name: '', type: 'queue', protocol: 'AMQP', path: 'queue' }
-            ]
+            entryPointIds: ['ep-1', 'ep-2', 'missing']
           }
+        },
+        entryPoints: {
+          'ep-1': {
+            id: 'ep-1',
+            name: 'Get customer',
+            description: null,
+            type: 'http',
+            protocol: 'HTTP',
+            method: 'GET',
+            path: '/customers/:id',
+            target: '',
+            requestModelIds: ['model-1', ''],
+            responseModelIds: ['model-1']
+          },
+          'ep-2': { id: 'ep-2', name: '', type: 'queue', protocol: 'AMQP', path: 'queue' }
         }
       }
     }
@@ -120,8 +121,9 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
   const component = project.components['component-1'];
   assert.ok(component);
   assert.equal(component.description, '');
-  assert.equal(component.entryPoints.length, 1);
-  const entryPoint = component.entryPoints[0];
+  assert.deepEqual(component.entryPointIds, ['ep-1', 'ep-2', 'missing']);
+  assert.equal(Object.keys(project.entryPoints).length, 1);
+  const entryPoint = project.entryPoints['ep-1'];
   assert.equal(entryPoint.protocol, 'HTTP');
   assert.deepEqual(entryPoint.requestModelIds, ['model-1']);
 });
@@ -187,23 +189,24 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
             id: 'valid-component',
             name: 'Orders API',
             description: null,
-            entryPoints: [
-              {
-                id: 'ep-keep',
-                name: 'List orders',
-                description: null,
-                type: 'http',
-                protocol: 'HTTP',
-                method: 'GET',
-                path: '/orders',
-                target: '',
-                requestModelIds: ['valid-model'],
-                responseModelIds: ['valid-model']
-              },
-              { id: 'ep-drop', name: '', type: 'http', protocol: 'HTTP' }
-            ]
+            entryPointIds: ['ep-keep', 'ep-drop']
           },
-          'invalid-component': { id: '', name: 'Unnamed', entryPoints: [] }
+          'invalid-component': { id: '', name: 'Unnamed', entryPointIds: [] }
+        },
+        entryPoints: {
+          'ep-keep': {
+            id: 'ep-keep',
+            name: 'List orders',
+            description: null,
+            type: 'http',
+            protocol: 'HTTP',
+            method: 'GET',
+            path: '/orders',
+            target: '',
+            requestModelIds: ['valid-model'],
+            responseModelIds: ['valid-model']
+          },
+          'ep-drop': { id: 'ep-drop', name: '', type: 'http', protocol: 'HTTP' }
         }
       }
     }
@@ -224,8 +227,9 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
   assert.equal(project.dataModels['valid-model'].attributes[0].encrypted, true);
   assert.equal(project.dataModels['valid-model'].attributes[0].private, true);
   assert.deepEqual(Object.keys(project.components), ['valid-component']);
-  assert.equal(project.components['valid-component'].entryPoints.length, 1);
-  assert.deepEqual(project.components['valid-component'].entryPoints[0].requestModelIds, ['valid-model']);
+  assert.deepEqual(project.components['valid-component'].entryPointIds, ['ep-keep', 'ep-drop']);
+  assert.deepEqual(Object.keys(project.entryPoints), ['ep-keep']);
+  assert.deepEqual(project.entryPoints['ep-keep'].requestModelIds, ['valid-model']);
 });
 
 test('createProjectIndex returns projects list', () => {
@@ -239,7 +243,8 @@ test('createProjectIndex returns projects list', () => {
     systems: {},
     flows: {},
     dataModels: {},
-    components: {}
+    components: {},
+    entryPoints: {}
   };
 
   assert.deepEqual(createProjectIndex(aggregate), [aggregate.projects['proj-1']]);
@@ -265,7 +270,8 @@ test('findProjectById returns project or null when missing', () => {
     },
     flows: {},
     dataModels: {},
-    components: {}
+    components: {},
+    entryPoints: {}
   };
 
   assert.equal(findProjectById(aggregate, 'existing')?.id, 'existing');
@@ -292,7 +298,8 @@ test('getRootSystem returns the primary system for the project', () => {
     },
     flows: {},
     dataModels: {},
-    components: {}
+    components: {},
+    entryPoints: {}
   };
 
   const project = aggregate.projects['proj'];
@@ -323,7 +330,8 @@ test('isValidDomainAggregate validates aggregates without throwing', () => {
         },
         flows: {},
         dataModels: {},
-        components: {}
+        components: {},
+        entryPoints: {}
       }
     }
   };
@@ -339,7 +347,8 @@ test('isValidDomainAggregate validates aggregates without throwing', () => {
           systems: {},
           flows: {},
           dataModels: {},
-          components: {}
+          components: {},
+          entryPoints: {}
         }
       }
     }),

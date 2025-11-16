@@ -48,7 +48,8 @@ test('persists and loads aggregate data', async () => {
         },
         flows: {},
         dataModels: {},
-        components: {}
+        components: {},
+        entryPoints: {}
       }
     }
   };
@@ -107,7 +108,8 @@ test('keeps data isolated per user', async () => {
         },
         flows: {},
         dataModels: {},
-        components: {}
+        components: {},
+        entryPoints: {}
       }
     }
   });
@@ -124,7 +126,8 @@ test('keeps data isolated per user', async () => {
         },
         flows: {},
         dataModels: {},
-        components: {}
+        components: {},
+        entryPoints: {}
       }
     }
   });

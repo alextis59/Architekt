@@ -76,20 +76,21 @@ const project = {
       id: 'component-1',
       name: 'Customer API',
       description: 'Serves customer data',
-      entryPoints: [
-        {
-          id: 'entry-1',
-          name: 'Get customer',
-          description: 'Fetch a customer record',
-          type: 'http',
-          protocol: 'HTTP',
-          method: 'GET',
-          path: '/customers/:id',
-          target: '',
-          requestModelIds: ['model-1'],
-          responseModelIds: ['model-1']
-        }
-      ]
+      entryPointIds: ['entry-1']
+    }
+  },
+  entryPoints: {
+    'entry-1': {
+      id: 'entry-1',
+      name: 'Get customer',
+      description: 'Fetch a customer record',
+      type: 'http',
+      protocol: 'HTTP',
+      method: 'GET',
+      path: '/customers/:id',
+      target: '',
+      requestModelIds: ['model-1'],
+      responseModelIds: ['model-1']
     }
   }
 };

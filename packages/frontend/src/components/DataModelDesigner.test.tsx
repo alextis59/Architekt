@@ -78,7 +78,8 @@ describe('DataModelDesigner', () => {
           attributes: []
         }
       },
-      components: {}
+      components: {},
+      entryPoints: {}
     });
 
     const client = createClient();
@@ -146,7 +147,8 @@ describe('DataModelDesigner', () => {
       rootSystemId: 'sys',
       systems: {},
       flows: {},
-      components: {}
+      components: {},
+      entryPoints: {}
     };
 
     apiMocks.fetchProjectDetails
@@ -297,7 +299,8 @@ describe('DataModelDesigner', () => {
           ]
         }
       },
-      components: {}
+      components: {},
+      entryPoints: {}
     });
 
     const client = createClient();
@@ -349,7 +352,8 @@ describe('DataModelDesigner', () => {
         'model-a': { id: 'model-a', name: 'Alpha', description: '', attributes: [] },
         'model-b': { id: 'model-b', name: 'Beta', description: '', attributes: [] }
       },
-      components: {}
+      components: {},
+      entryPoints: {}
     });
     apiMocks.deleteDataModel.mockResolvedValue(undefined);
 
@@ -383,7 +387,8 @@ describe('DataModelDesigner', () => {
       rootSystemId: 'sys',
       systems: {},
       flows: {},
-      components: {}
+      components: {},
+      entryPoints: {}
     };
 
     const arrayAttribute = {

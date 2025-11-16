@@ -65,20 +65,21 @@ test('GET /projects returns sanitized projects', async () => {
         name: 'Demo',
         description: '',
         tags: [],
-        rootSystemId: 'sys-1',
-        systems: {
-          'sys-1': {
-            id: 'sys-1',
-            name: 'Root',
-            description: '',
-            tags: [],
-            childIds: [],
-            isRoot: true
-          }
-        },
-        flows: {},
-        dataModels: {},
-        components: {}
+      rootSystemId: 'sys-1',
+      systems: {
+        'sys-1': {
+          id: 'sys-1',
+          name: 'Root',
+          description: '',
+          tags: [],
+          childIds: [],
+          isRoot: true
+        }
+      },
+      flows: {},
+      dataModels: {},
+      components: {},
+      entryPoints: {}
       }
     }
   };
@@ -328,7 +329,7 @@ test('Component endpoints manage entry points with data model references', async
 
   assert.equal(componentCreation.status, 201);
   const componentId = componentCreation.body.component.id;
-  const entryPointId = componentCreation.body.component.entryPoints[0].id;
+  const entryPointId = componentCreation.body.component.entryPointIds[0];
 
   const listResponse = await request(app).get(`/api/projects/${projectId}/components`);
   assert.equal(listResponse.status, 200);
@@ -367,7 +368,7 @@ test('Component endpoints manage entry points with data model references', async
 
   assert.equal(updateResponse.status, 200);
   assert.equal(updateResponse.body.component.description, 'Updated interactions');
-  assert.equal(updateResponse.body.component.entryPoints.length, 2);
+  assert.equal(updateResponse.body.component.entryPointIds.length, 2);
 
   const deletion = await request(app).delete(`/api/projects/${projectId}/components/${componentId}`);
   assert.equal(deletion.status, 204);

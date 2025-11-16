@@ -161,20 +161,20 @@ const ComponentDesigner = () => {
   }, [components, project, selectComponent, selectedComponentId]);
 
   const resetDraftToSelected = useCallback(() => {
-    if (!selectedComponent) {
+    if (!project || !selectedComponent) {
       setDraft(null);
       setIsDirty(false);
       setExpandedEntryPointIds(new Set());
       return;
     }
 
-    setDraft(createComponentDraft(selectedComponent));
+    setDraft(createComponentDraft(selectedComponent, project.entryPoints));
     setIsDirty(false);
     setExpandedEntryPointIds(new Set());
     setEntryPointModalMode(null);
     setEntryPointModalDraft(null);
     setEntryPointFormError(null);
-  }, [selectedComponent]);
+  }, [project, selectedComponent]);
 
   useEffect(() => {
     resetDraftToSelected();
@@ -242,7 +242,6 @@ const ComponentDesigner = () => {
           }
         };
       });
-      setDraft(createComponentDraft(component));
       setIsDirty(false);
       setActiveModal(null);
       focusModalActivator();
@@ -462,11 +461,12 @@ const ComponentDesigner = () => {
   };
 
   const handleExport = () => {
-    if (!draft && !selectedComponent) {
+    if (!draft && (!selectedComponent || !project)) {
       return;
     }
 
-    const currentDraft = draft ?? createComponentDraft(selectedComponent!);
+    const currentDraft =
+      draft ?? createComponentDraft(selectedComponent!, project.entryPoints);
     const payload = toExportableComponentPayload(currentDraft);
     const fileName = `${currentDraft.name.trim() || 'component'}.json`;
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -481,11 +481,12 @@ const ComponentDesigner = () => {
   };
 
   const handleCopy = async () => {
-    if (!draft && !selectedComponent) {
+    if (!draft && (!selectedComponent || !project)) {
       return;
     }
 
-    const currentDraft = draft ?? createComponentDraft(selectedComponent!);
+    const currentDraft =
+      draft ?? createComponentDraft(selectedComponent!, project.entryPoints);
     const payload = JSON.stringify(toExportableComponentPayload(currentDraft), null, 2);
 
     if (navigator.clipboard?.writeText) {

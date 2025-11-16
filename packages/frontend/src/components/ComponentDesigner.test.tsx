@@ -77,26 +77,27 @@ const projectFixture: Project = {
       id: 'comp-1',
       name: 'Customer API',
       description: 'Handles customer operations',
-      entryPoints: [
-        {
-          id: 'entry-1',
-          name: 'Get customer',
-          description: 'Fetch a customer by id',
-          type: 'http',
-          protocol: 'HTTP',
-          method: 'GET',
-          path: '/customers/:id',
-          target: 'customers-service',
-          requestModelIds: ['model-1'],
-          responseModelIds: ['model-1']
-        }
-      ]
+      entryPointIds: ['entry-1']
     },
     'comp-2': {
       id: 'comp-2',
       name: 'Billing API',
       description: 'Handles billing operations',
-      entryPoints: []
+      entryPointIds: []
+    }
+  },
+  entryPoints: {
+    'entry-1': {
+      id: 'entry-1',
+      name: 'Get customer',
+      description: 'Fetch a customer by id',
+      type: 'http',
+      protocol: 'HTTP',
+      method: 'GET',
+      path: '/customers/:id',
+      target: 'customers-service',
+      requestModelIds: ['model-1'],
+      responseModelIds: ['model-1']
     }
   }
 };
@@ -105,7 +106,8 @@ const emptyProjectFixture: Project = {
   ...projectFixture,
   id: 'proj-empty',
   components: {},
-  dataModels: projectFixture.dataModels
+  dataModels: projectFixture.dataModels,
+  entryPoints: {}
 };
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn> | null = null;
@@ -162,28 +164,29 @@ describe('ComponentDesigner', () => {
 
     queryClient.setQueryData(queryKeys.project('proj-1'), project);
 
+    const updatedEntryPoint = {
+      id: 'entry-1',
+      name: 'Get customer details',
+      description: 'Retrieves customer info',
+      type: 'http',
+      protocol: 'http/2',
+      method: 'get',
+      path: '/customers/{id}',
+      target: 'api.internal',
+      requestModelIds: ['model-2'],
+      responseModelIds: ['model-1', 'model-2']
+    };
+
     const updatedComponent = {
       id: 'comp-1',
       name: 'Customer API updated',
       description: 'Updated description',
-      entryPoints: [
-        {
-          id: 'entry-1',
-          name: 'Get customer details',
-          description: 'Retrieves customer info',
-          type: 'http',
-          protocol: 'http/2',
-          method: 'get',
-          path: '/customers/{id}',
-          target: 'api.internal',
-          requestModelIds: ['model-2'],
-          responseModelIds: ['model-1', 'model-2']
-        }
-      ]
+      entryPointIds: ['entry-1']
     };
 
     apiMocks.updateComponent.mockImplementation(async () => {
       project.components['comp-1'] = { ...updatedComponent };
+      project.entryPoints['entry-1'] = { ...updatedEntryPoint };
       return updatedComponent;
     });
 
@@ -324,7 +327,7 @@ describe('ComponentDesigner', () => {
       id: 'comp-new',
       name: 'Notifications Service',
       description: 'Handles notifications',
-      entryPoints: []
+      entryPointIds: []
     };
 
     apiMocks.createComponent.mockImplementation(async () => {

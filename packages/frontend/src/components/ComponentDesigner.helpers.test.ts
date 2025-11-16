@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Component } from '@architekt/domain';
+import type { Component, ComponentEntryPoint } from '@architekt/domain';
 import {
   ComponentDraft,
   createComponentDraft,
@@ -8,31 +8,38 @@ import {
   toComponentPayload
 } from './ComponentDesigner.helpers.js';
 
-const createComponent = (): Component => ({
-  id: 'component-1',
-  name: 'Customer API',
-  description: 'Handles customers',
-  entryPoints: [
-    {
-      id: 'entry-1',
-      name: 'Get customer',
-      description: 'Fetch by id',
-      type: 'http',
-      protocol: 'HTTP',
-      method: 'GET',
-      path: '/customers/:id',
-      target: '',
-      requestModelIds: ['model-1'],
-      responseModelIds: ['model-1']
-    }
-  ]
-});
+const createComponent = (): { component: Component; entryPoints: Record<string, ComponentEntryPoint> } => {
+  const entryPoint: ComponentEntryPoint = {
+    id: 'entry-1',
+    name: 'Get customer',
+    description: 'Fetch by id',
+    type: 'http',
+    protocol: 'HTTP',
+    method: 'GET',
+    path: '/customers/:id',
+    target: '',
+    requestModelIds: ['model-1'],
+    responseModelIds: ['model-1']
+  };
+
+  const component: Component = {
+    id: 'component-1',
+    name: 'Customer API',
+    description: 'Handles customers',
+    entryPointIds: [entryPoint.id]
+  };
+
+  return {
+    component,
+    entryPoints: { [entryPoint.id]: entryPoint }
+  };
+};
 
 describe('ComponentDesigner helpers', () => {
   it('creates a draft from an existing component', () => {
-    const component = createComponent();
+    const { component, entryPoints } = createComponent();
 
-    const draft = createComponentDraft(component);
+    const draft = createComponentDraft(component, entryPoints);
 
     expect(draft).toEqual({
       id: 'component-1',

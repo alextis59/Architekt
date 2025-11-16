@@ -116,7 +116,8 @@ const projectFixture: Project = {
     }
   },
   dataModels: {},
-  components: {}
+  components: {},
+  entryPoints: {}
 };
 
 describe('FlowWorkspace', () => {

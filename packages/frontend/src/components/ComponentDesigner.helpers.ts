@@ -1,4 +1,4 @@
-import type { Component } from '@architekt/domain';
+import type { Component, ComponentEntryPoint } from '@architekt/domain';
 import type {
   ComponentEntryPointPayload,
   ComponentPayload
@@ -27,7 +27,7 @@ export type ComponentDraft = {
 };
 
 const createEntryPointDraftFromModel = (
-  entryPoint: Component['entryPoints'][number]
+  entryPoint: ComponentEntryPoint
 ): EntryPointDraft => ({
   id: entryPoint.id,
   localId: entryPoint.id ?? generateLocalId(),
@@ -42,11 +42,17 @@ const createEntryPointDraftFromModel = (
   responseModelIds: [...entryPoint.responseModelIds]
 });
 
-export const createComponentDraft = (component: Component): ComponentDraft => ({
+export const createComponentDraft = (
+  component: Component,
+  entryPoints: Record<string, ComponentEntryPoint>
+): ComponentDraft => ({
   id: component.id,
   name: component.name,
   description: component.description,
-  entryPoints: component.entryPoints.map(createEntryPointDraftFromModel)
+  entryPoints: component.entryPointIds
+    .map((entryPointId) => entryPoints[entryPointId])
+    .filter((entryPoint): entryPoint is ComponentEntryPoint => Boolean(entryPoint))
+    .map(createEntryPointDraftFromModel)
 });
 
 export const createEmptyComponentDraft = (): ComponentDraft => ({
