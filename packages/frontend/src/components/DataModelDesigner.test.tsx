@@ -206,8 +206,7 @@ describe('DataModelDesigner', () => {
             unique: false,
             constraints: [{ type: 'regex', value: '^[A-Z]+$' }],
             readOnly: true,
-            encrypted: false,
-            attributes: []
+            encrypted: false
           }
         ]
       });
@@ -261,8 +260,7 @@ describe('DataModelDesigner', () => {
           unique: false,
           constraints: [{ type: 'regex', value: '^[A-Z]+$' }],
           readOnly: true,
-          encrypted: false,
-          attributes: []
+          encrypted: false
         }
       ]
     });

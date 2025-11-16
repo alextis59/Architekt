@@ -220,8 +220,7 @@ describe('projects API helpers', () => {
             { type: 'minLength', value: 5 }
           ],
           readOnly: true,
-          encrypted: false,
-          attributes: []
+          encrypted: false
         }
       ]
     });

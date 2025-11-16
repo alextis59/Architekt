@@ -5,7 +5,8 @@ import {
   createDataModelDraft,
   createEmptyAttributeDraft,
   createEmptyDataModelDraft,
-  toDataModelPayload
+  toDataModelPayload,
+  toExportableDataModelPayload
 } from './DataModelDesigner.helpers.js';
 
 describe('DataModelDesigner helpers', () => {
@@ -75,8 +76,7 @@ describe('DataModelDesigner helpers', () => {
             { type: 'minLength', value: ' 5 ' }
           ],
           readOnly: false,
-          encrypted: true,
-          attributes: []
+          encrypted: true
         }
       ]
     } satisfies DataModelDraft;
@@ -99,8 +99,100 @@ describe('DataModelDesigner helpers', () => {
             { type: 'minLength', value: 5 }
           ],
           readOnly: false,
-          encrypted: true,
-          attributes: []
+          encrypted: true
+        }
+      ]
+    });
+  });
+
+  it('omits attribute ids and non-object children for export payloads', () => {
+    const draft = {
+      name: 'Inventory',
+      description: 'Inventory data',
+      attributes: [
+        {
+          id: 'attr-1',
+          localId: 'attr-1',
+          name: 'sku',
+          description: 'Stock keeping unit',
+          type: 'string',
+          required: true,
+          unique: true,
+          constraints: [],
+          readOnly: false,
+          encrypted: false,
+          attributes: [],
+          element: null
+        },
+        {
+          id: 'attr-2',
+          localId: 'attr-2',
+          name: 'dimensions',
+          description: 'Product dimensions',
+          type: 'object',
+          required: false,
+          unique: false,
+          constraints: [],
+          readOnly: false,
+          encrypted: false,
+          attributes: [
+            {
+              id: 'attr-3',
+              localId: 'attr-3',
+              name: 'height',
+              description: '',
+              type: 'number',
+              required: false,
+              unique: false,
+              constraints: [],
+              readOnly: false,
+              encrypted: false,
+              attributes: [],
+              element: null
+            }
+          ],
+          element: null
+        }
+      ]
+    } satisfies DataModelDraft;
+
+    const payload = toExportableDataModelPayload(draft);
+
+    expect(payload).toEqual({
+      name: 'Inventory',
+      description: 'Inventory data',
+      attributes: [
+        {
+          name: 'sku',
+          description: 'Stock keeping unit',
+          type: 'string',
+          required: true,
+          unique: true,
+          constraints: [],
+          readOnly: false,
+          encrypted: false
+        },
+        {
+          name: 'dimensions',
+          description: 'Product dimensions',
+          type: 'object',
+          required: false,
+          unique: false,
+          constraints: [],
+          readOnly: false,
+          encrypted: false,
+          attributes: [
+            {
+              name: 'height',
+              description: '',
+              type: 'number',
+              required: false,
+              unique: false,
+              constraints: [],
+              readOnly: false,
+              encrypted: false
+            }
+          ]
         }
       ]
     });

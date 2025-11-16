@@ -188,7 +188,7 @@ type DataModelAttributePayload = {
   constraints: AttributeConstraintPayload[];
   readOnly: boolean;
   encrypted: boolean;
-  attributes: DataModelAttributePayload[];
+  attributes?: DataModelAttributePayload[];
   element?: DataModelAttributePayload | null;
 };
 
@@ -260,6 +260,7 @@ const sanitizeAttributePayload = (
 ): DataModelAttributePayload | null => {
   const name = attribute.name.trim();
   const type = attribute.type.trim();
+  const isObjectType = type.toLowerCase() === 'object';
 
   if (!name || !type) {
     return null;
@@ -279,6 +280,11 @@ const sanitizeAttributePayload = (
     }
   }
 
+  const attributes =
+    isObjectType && Array.isArray(attribute.attributes)
+      ? attribute.attributes
+      : [];
+
   const cleaned: DataModelAttributePayload = {
     name,
     description: attribute.description.trim(),
@@ -288,9 +294,13 @@ const sanitizeAttributePayload = (
     constraints,
     readOnly: Boolean(attribute.readOnly),
     encrypted: Boolean(attribute.encrypted),
-    attributes: attribute.attributes
-      .map((child) => sanitizeAttributePayload(child))
-      .filter((child): child is DataModelAttributePayload => child !== null)
+    ...(isObjectType
+      ? {
+          attributes: attributes
+            .map((child) => sanitizeAttributePayload(child))
+            .filter((child): child is DataModelAttributePayload => child !== null)
+        }
+      : {})
   };
 
   if (type === 'array' && attribute.element) {

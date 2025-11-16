@@ -21,7 +21,8 @@ import {
   DataModelDraft,
   createDataModelDraft,
   createEmptyAttributeDraft,
-  toDataModelPayload
+  toDataModelPayload,
+  toExportableDataModelPayload
 } from './DataModelDesigner.helpers.js';
 
 const TYPE_OPTIONS = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'date'];
@@ -550,7 +551,7 @@ const DataModelDesigner = () => {
     }
 
     const currentDraft = draft ?? createDataModelDraft(selectedDataModel!);
-    const payload = toDataModelPayload(currentDraft);
+    const payload = toExportableDataModelPayload(currentDraft);
     const fileName = `${currentDraft.name.trim() || 'data-model'}.json`;
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -569,7 +570,7 @@ const DataModelDesigner = () => {
     }
 
     const currentDraft = draft ?? createDataModelDraft(selectedDataModel!);
-    const payload = JSON.stringify(toDataModelPayload(currentDraft), null, 2);
+    const payload = JSON.stringify(toExportableDataModelPayload(currentDraft), null, 2);
 
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(payload);
@@ -1061,14 +1062,15 @@ const AttributeItem = ({
             </div>
           </dl>
           <div className="attribute-actions">
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => onAddChild(attribute.localId)}
-              disabled={!canNest}
-            >
-              Add sub-attribute
-            </button>
+            {canNest && (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => onAddChild(attribute.localId)}
+              >
+                Add sub-attribute
+              </button>
+            )}
             <button type="button" className="secondary" onClick={() => onEdit(attribute.localId)}>
               Edit attribute
             </button>
@@ -1076,7 +1078,7 @@ const AttributeItem = ({
               Remove
             </button>
           </div>
-          {attribute.attributes.length > 0 && (
+          {canNest && attribute.attributes.length > 0 && (
             <div className="attribute-children">
               {attribute.attributes.map((child) => (
                 <AttributeItem
