@@ -163,25 +163,6 @@ describe('ComponentDesigner', () => {
 
     queryClient.setQueryData(queryKeys.project('proj-1'), project);
 
-    const updatedEntryPoint = {
-      id: 'entry-1',
-      name: 'Get customer details',
-      description: 'Retrieves customer info',
-    type: 'http',
-    protocol: 'http/2',
-    method: 'get',
-    path: '/customers/{id}',
-    requestModelIds: ['model-2'],
-    responseModelIds: ['model-1', 'model-2']
-  };
-
-    const updatedComponent = {
-      id: 'comp-1',
-      name: 'Customer API updated',
-      description: 'Updated description',
-      entryPointIds: ['entry-1']
-    };
-
     apiMocks.updateComponent.mockImplementation(async (_projectId, _componentId, payload) => {
       const entryPointPayload = payload.entryPoints[0];
       project.entryPoints['entry-1'] = { ...project.entryPoints['entry-1'], ...entryPointPayload };
