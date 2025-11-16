@@ -20,7 +20,8 @@ import {
   EntryPointDraft,
   createComponentDraft,
   createEmptyEntryPointDraft,
-  toComponentPayload
+  toComponentPayload,
+  toExportableComponentPayload
 } from './ComponentDesigner.helpers.js';
 import {
   ENTRY_POINT_METHOD_OPTIONS,
@@ -379,6 +380,48 @@ const ComponentDesigner = () => {
     deleteComponentMutation.mutate({ projectId: selectedProjectId, componentId: draft.id });
   };
 
+  const handleExport = () => {
+    if (!draft && !selectedComponent) {
+      return;
+    }
+
+    const currentDraft = draft ?? createComponentDraft(selectedComponent!);
+    const payload = toExportableComponentPayload(currentDraft);
+    const fileName = `${currentDraft.name.trim() || 'component'}.json`;
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopy = async () => {
+    if (!draft && !selectedComponent) {
+      return;
+    }
+
+    const currentDraft = draft ?? createComponentDraft(selectedComponent!);
+    const payload = JSON.stringify(toExportableComponentPayload(currentDraft), null, 2);
+
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload);
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = payload;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  };
+
   const canSave = Boolean(draft && isDirty && draft.name.trim().length > 0);
   const isMutating =
     createComponentMutation.isPending ||
@@ -566,6 +609,12 @@ const ComponentDesigner = () => {
                       )}
                     </div>
                     <div className="component-summary-actions">
+                      <button type="button" className="secondary" onClick={handleExport}>
+                        Export JSON
+                      </button>
+                      <button type="button" className="secondary" onClick={() => void handleCopy()}>
+                        Copy JSON
+                      </button>
                       <button
                         type="button"
                         className="danger"

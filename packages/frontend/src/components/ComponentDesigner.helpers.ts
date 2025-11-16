@@ -79,7 +79,11 @@ const normalizeIdentifiers = (identifiers: string[]): string[] => {
   return [...seen];
 };
 
-const toEntryPointPayload = (entryPoint: EntryPointDraft): ComponentEntryPointPayload => {
+const toEntryPointPayload = (
+  entryPoint: EntryPointDraft,
+  options: { includeIds?: boolean } = {}
+): ComponentEntryPointPayload => {
+  const { includeIds = true } = options;
   const payload: ComponentEntryPointPayload = {
     name: entryPoint.name.trim(),
     description: entryPoint.description.trim(),
@@ -92,7 +96,7 @@ const toEntryPointPayload = (entryPoint: EntryPointDraft): ComponentEntryPointPa
     responseModelIds: normalizeIdentifiers(entryPoint.responseModelIds)
   };
 
-  if (entryPoint.id) {
+  if (includeIds && entryPoint.id) {
     payload.id = entryPoint.id;
   }
 
@@ -103,4 +107,12 @@ export const toComponentPayload = (draft: ComponentDraft): ComponentPayload => (
   name: draft.name.trim(),
   description: draft.description.trim(),
   entryPoints: draft.entryPoints.map(toEntryPointPayload)
+});
+
+export const toExportableComponentPayload = (draft: ComponentDraft): ComponentPayload => ({
+  name: draft.name.trim(),
+  description: draft.description.trim(),
+  entryPoints: draft.entryPoints.map((entryPoint) =>
+    toEntryPointPayload(entryPoint, { includeIds: false })
+  )
 });
