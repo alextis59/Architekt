@@ -1624,20 +1624,80 @@ button.danger:hover:not(:disabled),
   gap: 1rem;
 }
 
-.entry-point {
-  background: rgba(255, 255, 255, 0.92);
+.entry-point-card {
+  background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 18px;
-  padding: 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  overflow: hidden;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
 }
 
 .entry-point-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.entry-point-toggle {
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.entry-point-toggle:hover,
+.entry-point-toggle:focus-visible {
+  background: rgba(129, 140, 248, 0.18);
+  color: #312e81;
+}
+
+.entry-point-toggle:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.6);
+  outline-offset: -2px;
+  border-radius: 14px;
+}
+
+.entry-point-toggle-icon {
+  font-size: 0.85rem;
+  color: #4338ca;
+}
+
+.entry-point-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.entry-point-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entry-point-meta {
+  font-weight: 500;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.entry-point-details {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .entry-point-grid {
@@ -1646,10 +1706,50 @@ button.danger:hover:not(:disabled),
   gap: 0.75rem;
 }
 
+.entry-point-details-grid {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.entry-point-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.entry-point-detail dt {
+  font-weight: 600;
+  color: #334155;
+}
+
+.entry-point-detail dd {
+  margin: 0;
+  color: #0f172a;
+}
+
+.entry-point-detail-description {
+  grid-column: 1 / -1;
+}
+
 .entry-point-associations {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
+}
+
+.entry-point-association-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.entry-point-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 .association-group {

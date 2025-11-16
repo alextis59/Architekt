@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Project } from '@architekt/domain';
 import {
   createComponent,
@@ -68,9 +68,14 @@ const ComponentDesigner = () => {
   const [isDirty, setIsDirty] = useState(false);
   const [creationForm, setCreationForm] = useState({ name: '', description: '' });
   const [activeModal, setActiveModal] = useState<'create' | 'edit' | null>(null);
+  const [entryPointModalMode, setEntryPointModalMode] = useState<'create' | 'edit' | null>(null);
+  const [entryPointModalDraft, setEntryPointModalDraft] = useState<EntryPointDraft | null>(null);
+  const [entryPointFormError, setEntryPointFormError] = useState<string | null>(null);
+  const [expandedEntryPointIds, setExpandedEntryPointIds] = useState<Set<string>>(() => new Set());
 
   const createNameFieldRef = useRef<HTMLInputElement | null>(null);
   const editNameFieldRef = useRef<HTMLInputElement | null>(null);
+  const entryPointNameFieldRef = useRef<HTMLInputElement | null>(null);
   const modalActivatorRef = useRef<HTMLElement | null>(null);
   const previousDraftStateRef = useRef<{ draft: ComponentDraft | null; isDirty: boolean } | null>(null);
 
@@ -101,6 +106,12 @@ const ComponentDesigner = () => {
     return Object.values(project.dataModels).sort((a, b) => a.name.localeCompare(b.name));
   }, [project]);
 
+  const dataModelLookup = useMemo(() => {
+    const lookup = new Map<string, string>();
+    dataModelOptions.forEach((model) => lookup.set(model.id, model.name));
+    return lookup;
+  }, [dataModelOptions]);
+
   useEffect(() => {
     if (!project || components.length === 0) {
       if (selectedComponentId !== null) {
@@ -118,11 +129,16 @@ const ComponentDesigner = () => {
     if (!selectedComponent) {
       setDraft(null);
       setIsDirty(false);
+      setExpandedEntryPointIds(new Set());
       return;
     }
 
     setDraft(createComponentDraft(selectedComponent));
     setIsDirty(false);
+    setExpandedEntryPointIds(new Set());
+    setEntryPointModalMode(null);
+    setEntryPointModalDraft(null);
+    setEntryPointFormError(null);
   }, [selectedComponent]);
 
   useEffect(() => {
@@ -270,75 +286,95 @@ const ComponentDesigner = () => {
     });
   };
 
-  const updateEntryPoint = (entryPointId: string, updates: Partial<EntryPointDraft>) => {
-    setDraft((previous) => {
-      if (!previous) {
-        return previous;
-      }
-
-      setIsDirty(true);
-      return {
-        ...previous,
-        entryPoints: previous.entryPoints.map((entryPoint) => {
-          if (entryPoint.localId !== entryPointId) {
-            return entryPoint;
-          }
-
-          return {
-            ...entryPoint,
-            ...updates
-          };
-        })
-      };
-    });
+  const openCreateEntryPointModal = () => {
+    setEntryPointModalDraft(createEmptyEntryPointDraft());
+    setEntryPointModalMode('create');
+    setEntryPointFormError(null);
   };
 
-  const toggleEntryPointModel = (
-    entryPointId: string,
+  const openEditEntryPointModal = (entryPointId: string) => {
+    if (!draft) {
+      return;
+    }
+
+    const entryPoint = draft.entryPoints.find((item) => item.localId === entryPointId);
+    if (!entryPoint) {
+      return;
+    }
+
+    setExpandedEntryPointIds((previous) => new Set(previous).add(entryPointId));
+    setEntryPointModalDraft(cloneEntryPointDraft(entryPoint));
+    setEntryPointModalMode('edit');
+    setEntryPointFormError(null);
+  };
+
+  const closeEntryPointModal = () => {
+    setEntryPointModalMode(null);
+    setEntryPointModalDraft(null);
+    setEntryPointFormError(null);
+  };
+
+  const handleEntryPointModalChange = (updates: Partial<EntryPointDraft>) => {
+    setEntryPointModalDraft((previous) => (previous ? { ...previous, ...updates } : previous));
+    setEntryPointFormError(null);
+  };
+
+  const toggleEntryPointModalModel = (
     key: 'requestModelIds' | 'responseModelIds',
     modelId: string
   ) => {
-    setDraft((previous) => {
+    setEntryPointModalDraft((previous) => {
       if (!previous) {
         return previous;
       }
 
-      setIsDirty(true);
-      return {
-        ...previous,
-        entryPoints: previous.entryPoints.map((entryPoint) => {
-          if (entryPoint.localId !== entryPointId) {
-            return entryPoint;
-          }
+      const selected = new Set(previous[key]);
+      if (selected.has(modelId)) {
+        selected.delete(modelId);
+      } else {
+        selected.add(modelId);
+      }
 
-          const selected = new Set(entryPoint[key]);
-          if (selected.has(modelId)) {
-            selected.delete(modelId);
-          } else {
-            selected.add(modelId);
-          }
-
-          return {
-            ...entryPoint,
-            [key]: [...selected]
-          };
-        })
-      };
+      return { ...previous, [key]: [...selected] };
     });
+    setEntryPointFormError(null);
   };
 
-  const handleAddEntryPoint = () => {
+  const handleSubmitEntryPoint = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!draft || !entryPointModalDraft || !entryPointModalMode) {
+      return;
+    }
+
+    const trimmedName = entryPointModalDraft.name.trim();
+    if (!trimmedName) {
+      setEntryPointFormError('Enter a name for the entry point.');
+      entryPointNameFieldRef.current?.focus();
+      return;
+    }
+
+    const normalizedEntryPoint = { ...entryPointModalDraft, name: trimmedName };
+
     setDraft((previous) => {
       if (!previous) {
         return previous;
       }
 
-      setIsDirty(true);
+      const entryPoints =
+        entryPointModalMode === 'create'
+          ? [...previous.entryPoints, normalizedEntryPoint]
+          : previous.entryPoints.map((entryPoint) =>
+              entryPoint.localId === normalizedEntryPoint.localId ? normalizedEntryPoint : entryPoint
+            );
+
       return {
         ...previous,
-        entryPoints: [...previous.entryPoints, createEmptyEntryPointDraft()]
+        entryPoints
       };
     });
+    setExpandedEntryPointIds((previous) => new Set(previous).add(normalizedEntryPoint.localId));
+    setIsDirty(true);
+    closeEntryPointModal();
   };
 
   const handleRemoveEntryPoint = (entryPointId: string) => {
@@ -352,6 +388,11 @@ const ComponentDesigner = () => {
         ...previous,
         entryPoints: previous.entryPoints.filter((entryPoint) => entryPoint.localId !== entryPointId)
       };
+    });
+    setExpandedEntryPointIds((previous) => {
+      const next = new Set(previous);
+      next.delete(entryPointId);
+      return next;
     });
   };
 
@@ -431,6 +472,7 @@ const ComponentDesigner = () => {
   const isCreateModalOpen = activeModal === 'create';
   const isEditModalOpen = activeModal === 'edit';
   const isModalOpen = activeModal !== null;
+  const isEntryPointModalOpen = entryPointModalMode !== null && entryPointModalDraft !== null;
   const modalTitleId = isEditModalOpen ? 'edit-component-title' : 'create-component-title';
   const modalDescriptionId = isEditModalOpen
     ? 'edit-component-description'
@@ -440,6 +482,18 @@ const ComponentDesigner = () => {
     ? 'Update service name and description.'
     : 'Define the name and description for the new component. Entry points can be configured after creation.';
   const activeMutation = isEditModalOpen ? updateComponentMutation : createComponentMutation;
+
+  const toggleEntryPointExpansion = (entryPointId: string) => {
+    setExpandedEntryPointIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(entryPointId)) {
+        next.delete(entryPointId);
+      } else {
+        next.add(entryPointId);
+      }
+      return next;
+    });
+  };
 
   const openCreateModal = () => {
     createComponentMutation.reset();
@@ -517,6 +571,13 @@ const ComponentDesigner = () => {
       editNameFieldRef.current?.focus();
     }
   }, [isEditModalOpen]);
+
+  useEffect(() => {
+    if (isEntryPointModalOpen) {
+      entryPointNameFieldRef.current?.focus();
+      entryPointNameFieldRef.current?.select();
+    }
+  }, [isEntryPointModalOpen]);
 
   const associatedModelCount = useMemo(() => {
     if (!draft) {
@@ -659,201 +720,28 @@ const ComponentDesigner = () => {
                       <button
                         type="button"
                         className="secondary"
-                        onClick={handleAddEntryPoint}
+                        onClick={openCreateEntryPointModal}
                         disabled={isMutating}
                       >
-                        Add entry point
+                        New entry point
                       </button>
                     </div>
-                    {draft.entryPoints.length === 0 && (
-                      <p className="status">No entry points yet. Add your first entry point.</p>
-                    )}
-                    {draft.entryPoints.map((entryPoint) => (
-                      <article key={entryPoint.localId} className="entry-point">
-                        <div className="entry-point-header">
-                          <label className="field">
-                            <span>Name</span>
-                            <input
-                              type="text"
-                              value={entryPoint.name}
-                              onChange={(event) =>
-                                updateEntryPoint(entryPoint.localId, { name: event.target.value })
-                              }
-                              required
-                              disabled={isMutating}
-                            />
-                          </label>
-                          <button
-                            type="button"
-                            className="danger"
-                            onClick={() => handleRemoveEntryPoint(entryPoint.localId)}
-                            disabled={isMutating}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                        <div className="entry-point-grid">
-                          <label className="field">
-                            <span>Type</span>
-                            <select
-                              value={entryPoint.type}
-                              onChange={(event) =>
-                                updateEntryPoint(entryPoint.localId, { type: event.target.value })
-                              }
-                              disabled={isMutating}
-                            >
-                              <option value="">Select type</option>
-                              {withExistingEntryPointValue(
-                                entryPoint.type,
-                                ENTRY_POINT_TYPE_OPTIONS
-                              ).map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="field">
-                            <span>Protocol</span>
-                            <select
-                              value={entryPoint.protocol}
-                              onChange={(event) =>
-                                updateEntryPoint(entryPoint.localId, {
-                                  protocol: event.target.value
-                                })
-                              }
-                              disabled={isMutating}
-                            >
-                              <option value="">Select protocol</option>
-                              {withExistingEntryPointValue(
-                                entryPoint.protocol,
-                                ENTRY_POINT_PROTOCOL_OPTIONS
-                              ).map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="field">
-                            <span>Method / Verb</span>
-                            <select
-                              value={entryPoint.method}
-                              onChange={(event) =>
-                                updateEntryPoint(entryPoint.localId, { method: event.target.value })
-                              }
-                              disabled={isMutating}
-                            >
-                              <option value="">Select method (optional)</option>
-                              {withExistingEntryPointValue(
-                                entryPoint.method,
-                                ENTRY_POINT_METHOD_OPTIONS
-                              ).map((option) => (
-                                <option key={option.value} value={option.value}>
-                                  {option.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="field">
-                            <span>Path or channel</span>
-                            <input
-                              type="text"
-                              value={entryPoint.path}
-                              onChange={(event) =>
-                                updateEntryPoint(entryPoint.localId, { path: event.target.value })
-                              }
-                              placeholder="/customers, orders.queue…"
-                              disabled={isMutating}
-                            />
-                          </label>
-                          <label className="field">
-                            <span>Target / endpoint</span>
-                            <input
-                              type="text"
-                              value={entryPoint.target}
-                              onChange={(event) =>
-                                updateEntryPoint(entryPoint.localId, { target: event.target.value })
-                              }
-                              placeholder="Host, broker, topic…"
-                              disabled={isMutating}
-                            />
-                          </label>
-                        </div>
-                        <label className="field">
-                          <span>Description</span>
-                          <textarea
-                            value={entryPoint.description}
-                            onChange={(event) =>
-                              updateEntryPoint(entryPoint.localId, {
-                                description: event.target.value
-                              })
-                            }
-                            rows={2}
-                            placeholder="What does this entry point do?"
-                            disabled={isMutating}
-                          />
-                        </label>
-                        <div className="entry-point-associations">
-                          <div className="association-group">
-                            <h5>Request models</h5>
-                            {dataModelOptions.length === 0 ? (
-                              <p className="status">No data models available.</p>
-                            ) : (
-                              <ul>
-                                {dataModelOptions.map((model) => (
-                                  <li key={model.id}>
-                                    <label className="checkbox">
-                                      <input
-                                        type="checkbox"
-                                        checked={entryPoint.requestModelIds.includes(model.id)}
-                                        onChange={() =>
-                                          toggleEntryPointModel(
-                                            entryPoint.localId,
-                                            'requestModelIds',
-                                            model.id
-                                          )
-                                        }
-                                        disabled={isMutating}
-                                      />
-                                      <span>{model.name}</span>
-                                    </label>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                          <div className="association-group">
-                            <h5>Response models</h5>
-                            {dataModelOptions.length === 0 ? (
-                              <p className="status">No data models available.</p>
-                            ) : (
-                              <ul>
-                                {dataModelOptions.map((model) => (
-                                  <li key={model.id}>
-                                    <label className="checkbox">
-                                      <input
-                                        type="checkbox"
-                                        checked={entryPoint.responseModelIds.includes(model.id)}
-                                        onChange={() =>
-                                          toggleEntryPointModel(
-                                            entryPoint.localId,
-                                            'responseModelIds',
-                                            model.id
-                                          )
-                                        }
-                                        disabled={isMutating}
-                                      />
-                                      <span>{model.name}</span>
-                                    </label>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        </div>
-                      </article>
-                    ))}
+                    <div className="entry-points">
+                      {draft.entryPoints.length === 0 && (
+                        <p className="status">No entry points yet. Add your first entry point.</p>
+                      )}
+                      {draft.entryPoints.map((entryPoint) => (
+                        <EntryPointItem
+                          key={entryPoint.localId}
+                          entryPoint={entryPoint}
+                          dataModelLookup={dataModelLookup}
+                          expandedEntryPointIds={expandedEntryPointIds}
+                          onToggle={toggleEntryPointExpansion}
+                          onEdit={openEditEntryPointModal}
+                          onRemove={handleRemoveEntryPoint}
+                        />
+                      ))}
+                    </div>
                     <footer className="component-actions">
                       <button type="submit" className="primary" disabled={!canSave || isMutating}>
                         Save changes
@@ -878,6 +766,19 @@ const ComponentDesigner = () => {
             )}
           </div>
         </div>
+      )}
+      {isEntryPointModalOpen && entryPointModalDraft && entryPointModalMode && (
+        <EntryPointModal
+          mode={entryPointModalMode}
+          entryPoint={entryPointModalDraft}
+          dataModelOptions={dataModelOptions}
+          onClose={closeEntryPointModal}
+          onChange={handleEntryPointModalChange}
+          onToggleModel={toggleEntryPointModalModel}
+          onSubmit={handleSubmitEntryPoint}
+          nameFieldRef={entryPointNameFieldRef}
+          error={entryPointFormError}
+        />
       )}
       {isModalOpen && (
         <div
@@ -1027,6 +928,351 @@ const ComponentDesigner = () => {
         </div>
       )}
     </section>
+  );
+};
+
+type EntryPointItemProps = {
+  entryPoint: EntryPointDraft;
+  dataModelLookup: Map<string, string>;
+  expandedEntryPointIds: Set<string>;
+  onToggle: (entryPointId: string) => void;
+  onEdit: (entryPointId: string) => void;
+  onRemove: (entryPointId: string) => void;
+};
+
+const EntryPointItem = ({
+  entryPoint,
+  dataModelLookup,
+  expandedEntryPointIds,
+  onToggle,
+  onEdit,
+  onRemove
+}: EntryPointItemProps) => {
+  const isExpanded = expandedEntryPointIds.has(entryPoint.localId);
+  const displayName = entryPoint.name.trim() || 'Untitled entry point';
+  const displayType = entryPoint.type.trim() || '—';
+  const displayProtocol = entryPoint.protocol.trim() || '—';
+  const displayMethod = entryPoint.method.trim() || '—';
+  const displayPath = entryPoint.path.trim() || '—';
+  const displayTarget = entryPoint.target.trim() || '—';
+  const displayDescription = entryPoint.description.trim() || '—';
+  const summaryParts = [
+    entryPoint.type.trim(),
+    entryPoint.protocol.trim(),
+    entryPoint.method.trim(),
+    entryPoint.path.trim()
+  ].filter(Boolean);
+
+  const requestModels =
+    entryPoint.requestModelIds.length === 0
+      ? []
+      : entryPoint.requestModelIds.map((id) => dataModelLookup.get(id) ?? 'Unknown model');
+  const responseModels =
+    entryPoint.responseModelIds.length === 0
+      ? []
+      : entryPoint.responseModelIds.map((id) => dataModelLookup.get(id) ?? 'Unknown model');
+
+  return (
+    <article className="entry-point-card">
+      <div className="entry-point-header">
+        <button
+          type="button"
+          className="entry-point-toggle"
+          onClick={() => onToggle(entryPoint.localId)}
+          aria-expanded={isExpanded}
+        >
+          <span className="entry-point-toggle-icon" aria-hidden="true">
+            {isExpanded ? '▾' : '▸'}
+          </span>
+          <div className="entry-point-title">
+            <span className="entry-point-name">{displayName}</span>
+            <span className="entry-point-meta">
+              {summaryParts.length > 0 ? summaryParts.join(' • ') : 'No interface details provided'}
+            </span>
+          </div>
+        </button>
+      </div>
+      {isExpanded && (
+        <div className="entry-point-details">
+          <dl className="entry-point-grid entry-point-details-grid">
+            <div className="entry-point-detail">
+              <dt>Type</dt>
+              <dd>{displayType}</dd>
+            </div>
+            <div className="entry-point-detail">
+              <dt>Protocol</dt>
+              <dd>{displayProtocol}</dd>
+            </div>
+            <div className="entry-point-detail">
+              <dt>Method / Verb</dt>
+              <dd>{displayMethod}</dd>
+            </div>
+            <div className="entry-point-detail">
+              <dt>Path or channel</dt>
+              <dd>{displayPath}</dd>
+            </div>
+            <div className="entry-point-detail">
+              <dt>Target / endpoint</dt>
+              <dd>{displayTarget}</dd>
+            </div>
+            <div className="entry-point-detail entry-point-detail-description">
+              <dt>Description</dt>
+              <dd>{displayDescription}</dd>
+            </div>
+          </dl>
+          <div className="entry-point-associations">
+            <div className="association-group">
+              <h5>Request models</h5>
+              {requestModels.length > 0 ? (
+                <ul className="entry-point-association-list">
+                  {requestModels.map((name, index) => (
+                    <li key={`${entryPoint.localId}-request-${index}`}>{name}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="status">No request models mapped.</p>
+              )}
+            </div>
+            <div className="association-group">
+              <h5>Response models</h5>
+              {responseModels.length > 0 ? (
+                <ul className="entry-point-association-list">
+                  {responseModels.map((name, index) => (
+                    <li key={`${entryPoint.localId}-response-${index}`}>{name}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="status">No response models mapped.</p>
+              )}
+            </div>
+          </div>
+          <div className="entry-point-actions">
+            <button type="button" className="secondary" onClick={() => onEdit(entryPoint.localId)}>
+              Edit entry point
+            </button>
+            <button type="button" className="danger" onClick={() => onRemove(entryPoint.localId)}>
+              Remove
+            </button>
+          </div>
+        </div>
+      )}
+    </article>
+  );
+};
+
+type EntryPointModalProps = {
+  mode: 'create' | 'edit';
+  entryPoint: EntryPointDraft;
+  dataModelOptions: { id: string; name: string }[];
+  onClose: () => void;
+  onChange: (updates: Partial<EntryPointDraft>) => void;
+  onToggleModel: (key: 'requestModelIds' | 'responseModelIds', modelId: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  nameFieldRef: RefObject<HTMLInputElement>;
+  error: string | null;
+};
+
+const EntryPointModal = ({
+  mode,
+  entryPoint,
+  dataModelOptions,
+  onClose,
+  onChange,
+  onToggleModel,
+  onSubmit,
+  nameFieldRef,
+  error
+}: EntryPointModalProps) => {
+  const modalTitleId = `${mode}-entry-point-title`;
+  const modalDescriptionId = `${mode}-entry-point-description`;
+  const heading = mode === 'edit' ? 'Edit entry point' : 'Create entry point';
+  const description =
+    mode === 'edit'
+      ? 'Update entry point details and associated request/response models.'
+      : 'Define a new entry point with its interface details and data model associations.';
+
+  return (
+    <div
+      className="modal-backdrop entry-point-modal-backdrop"
+      role="button"
+      tabIndex={0}
+      aria-label={`Dismiss ${mode} entry point dialog`}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.currentTarget !== event.target) {
+          return;
+        }
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="modal entry-point-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={modalTitleId}
+        aria-describedby={modalDescriptionId}
+      >
+        <header className="modal-header">
+          <h3 id={modalTitleId}>{heading}</h3>
+          <button type="button" className="icon-button" onClick={onClose} aria-label={`Close ${mode} entry point dialog`}>
+            ×
+          </button>
+        </header>
+        <p id={modalDescriptionId} className="modal-description">
+          {description}
+        </p>
+        <div className="modal-body">
+          <form className="modal-form" onSubmit={onSubmit}>
+            <label className="field">
+              <span>Name</span>
+              <input
+                type="text"
+                ref={nameFieldRef}
+                value={entryPoint.name}
+                onChange={(event) => onChange({ name: event.target.value })}
+                placeholder="Entry point name"
+                required
+              />
+            </label>
+            <div className="entry-point-grid">
+              <label className="field">
+                <span>Type</span>
+                <select
+                  value={entryPoint.type}
+                  onChange={(event) => onChange({ type: event.target.value })}
+                >
+                  <option value="">Select type</option>
+                  {withExistingEntryPointValue(entryPoint.type, ENTRY_POINT_TYPE_OPTIONS).map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Protocol</span>
+                <select
+                  value={entryPoint.protocol}
+                  onChange={(event) => onChange({ protocol: event.target.value })}
+                >
+                  <option value="">Select protocol</option>
+                  {withExistingEntryPointValue(entryPoint.protocol, ENTRY_POINT_PROTOCOL_OPTIONS).map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Method / Verb</span>
+                <select
+                  value={entryPoint.method}
+                  onChange={(event) => onChange({ method: event.target.value })}
+                >
+                  <option value="">Select method (optional)</option>
+                  {withExistingEntryPointValue(entryPoint.method, ENTRY_POINT_METHOD_OPTIONS).map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Path or channel</span>
+                <input
+                  type="text"
+                  value={entryPoint.path}
+                  onChange={(event) => onChange({ path: event.target.value })}
+                  placeholder="/customers, orders.queue…"
+                />
+              </label>
+              <label className="field">
+                <span>Target / endpoint</span>
+                <input
+                  type="text"
+                  value={entryPoint.target}
+                  onChange={(event) => onChange({ target: event.target.value })}
+                  placeholder="Host, broker, topic…"
+                />
+              </label>
+            </div>
+            <label className="field">
+              <span>Description</span>
+              <textarea
+                value={entryPoint.description}
+                onChange={(event) => onChange({ description: event.target.value })}
+                rows={3}
+                placeholder="What does this entry point do?"
+              />
+            </label>
+            <div className="entry-point-associations">
+              <div className="association-group">
+                <h5>Request models</h5>
+                {dataModelOptions.length === 0 ? (
+                  <p className="status">No data models available.</p>
+                ) : (
+                  <ul>
+                    {dataModelOptions.map((model) => (
+                      <li key={model.id}>
+                        <label className="checkbox">
+                          <input
+                            type="checkbox"
+                            checked={entryPoint.requestModelIds.includes(model.id)}
+                            onChange={() => onToggleModel('requestModelIds', model.id)}
+                          />
+                          <span>{model.name}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="association-group">
+                <h5>Response models</h5>
+                {dataModelOptions.length === 0 ? (
+                  <p className="status">No data models available.</p>
+                ) : (
+                  <ul>
+                    {dataModelOptions.map((model) => (
+                      <li key={model.id}>
+                        <label className="checkbox">
+                          <input
+                            type="checkbox"
+                            checked={entryPoint.responseModelIds.includes(model.id)}
+                            onChange={() => onToggleModel('responseModelIds', model.id)}
+                          />
+                          <span>{model.name}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            {error && (
+              <p className="status error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={onClose}>
+                Cancel
+              </button>
+              <button className="primary" type="submit" disabled={!entryPoint.name.trim()}>
+                {mode === 'edit' ? 'Save changes' : 'Create entry point'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   );
 };
 

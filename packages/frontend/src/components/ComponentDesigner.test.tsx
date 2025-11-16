@@ -195,40 +195,49 @@ describe('ComponentDesigner', () => {
       );
     });
 
-    const entryPointNameInput = await screen.findByDisplayValue('Get customer');
+    const entryPointCard = await screen.findByText('Get customer');
+    const entryPointArticle = entryPointCard.closest('article');
+    expect(entryPointArticle).not.toBeNull();
+
+    const entryPointToggle = within(entryPointArticle!).getByRole('button', { name: /get customer/i });
+    await user.click(entryPointToggle);
+
+    const editEntryPointButton = within(entryPointArticle!).getByRole('button', { name: 'Edit entry point' });
+    await user.click(editEntryPointButton);
+
+    const entryPointModal = await screen.findByRole('dialog', { name: 'Edit entry point' });
+
+    const entryPointNameInput = within(entryPointModal).getByLabelText('Name');
     await user.clear(entryPointNameInput);
     await user.type(entryPointNameInput, ' Get customer details  ');
 
-    const entryPointArticle = entryPointNameInput.closest('article');
-    expect(entryPointArticle).not.toBeNull();
-
-    const typeSelect = within(entryPointArticle!).getByLabelText('Type');
+    const typeSelect = within(entryPointModal).getByLabelText('Type');
     await user.selectOptions(typeSelect, 'http');
 
-    const protocolSelect = within(entryPointArticle!).getByLabelText('Protocol');
+    const protocolSelect = within(entryPointModal).getByLabelText('Protocol');
     await user.selectOptions(protocolSelect, 'http/2');
 
-    const methodSelect = within(entryPointArticle!).getByLabelText('Method / Verb');
+    const methodSelect = within(entryPointModal).getByLabelText('Method / Verb');
     await user.selectOptions(methodSelect, 'get');
 
-    const pathInput = within(entryPointArticle!).getByLabelText('Path or channel');
+    const pathInput = within(entryPointModal).getByLabelText('Path or channel');
     await user.clear(pathInput);
     await user.type(pathInput, '  /customers/  ');
 
-    const targetInput = within(entryPointArticle!).getByLabelText('Target / endpoint');
+    const targetInput = within(entryPointModal).getByLabelText('Target / endpoint');
     await user.clear(targetInput);
     await user.type(targetInput, '  api.internal  ');
 
-    const entryPointDescription = within(entryPointArticle!).getByPlaceholderText(
+    const entryPointDescription = within(entryPointModal).getByPlaceholderText(
       'What does this entry point do?'
     );
     await user.clear(entryPointDescription);
     await user.type(entryPointDescription, '  Retrieves customer info  ');
 
-    const requestModelsSection = within(entryPointArticle!)
+    const requestModelsSection = within(entryPointModal)
       .getByText('Request models')
       .closest('.association-group');
-    const responseModelsSection = within(entryPointArticle!)
+    const responseModelsSection = within(entryPointModal)
       .getByText('Response models')
       .closest('.association-group');
     expect(requestModelsSection).not.toBeNull();
@@ -237,6 +246,12 @@ describe('ComponentDesigner', () => {
     await user.click(within(requestModelsSection!).getByLabelText('Audit Event'));
     await user.click(within(requestModelsSection!).getByLabelText('Customer Profile'));
     await user.click(within(responseModelsSection!).getByLabelText('Audit Event'));
+
+    await user.click(within(entryPointModal).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Edit entry point' })).not.toBeInTheDocument();
+    });
 
     const entryPointForm = entryPointArticle!.closest('form');
     expect(entryPointForm).not.toBeNull();
