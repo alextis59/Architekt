@@ -175,7 +175,8 @@ const prepareFlowPayload = (input: FlowPayload): FlowPayload => ({
 
 type AttributeConstraintPayload =
   | { type: 'regex'; value: string }
-  | { type: 'minLength' | 'maxLength' | 'min' | 'max'; value: number };
+  | { type: 'minLength' | 'maxLength' | 'min' | 'max'; value: number }
+  | { type: 'enum'; values: string[] };
 
 type DataModelAttributePayload = {
   id?: string;
@@ -188,6 +189,7 @@ type DataModelAttributePayload = {
   readOnly: boolean;
   encrypted: boolean;
   attributes: DataModelAttributePayload[];
+  element?: DataModelAttributePayload | null;
 };
 
 type DataModelPayload = {
@@ -231,6 +233,23 @@ const sanitizeAttributeConstraintPayload = (
       }
       return { type, value: numeric };
     }
+    case 'enum': {
+      const candidates = Array.isArray((constraint as { values?: unknown }).values)
+        ? (constraint as { values: unknown[] }).values
+        : Array.isArray(constraint.value)
+          ? (constraint.value as unknown[])
+          : [];
+      const unique = new Set<string>();
+      for (const value of candidates) {
+        if (typeof value === 'string' && value.trim()) {
+          unique.add(value.trim());
+        }
+      }
+      if (unique.size === 0) {
+        return null;
+      }
+      return { type: 'enum', values: [...unique] };
+    }
     default:
       return null;
   }
@@ -273,6 +292,13 @@ const sanitizeAttributePayload = (
       .map((child) => sanitizeAttributePayload(child))
       .filter((child): child is DataModelAttributePayload => child !== null)
   };
+
+  if (type === 'array' && attribute.element) {
+    const element = sanitizeAttributePayload(attribute.element);
+    if (element) {
+      cleaned.element = element;
+    }
+  }
 
   if (attribute.id) {
     cleaned.id = attribute.id;

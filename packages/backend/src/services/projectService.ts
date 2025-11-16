@@ -122,6 +122,7 @@ type DataModelAttributeInput = {
   readOnly?: unknown;
   encrypted?: unknown;
   attributes?: unknown;
+  element?: unknown;
 };
 
 type CreateDataModelInput = {
@@ -298,11 +299,25 @@ const cloneAttributeConstraints = (
   constraints: DataModelAttribute['constraints']
 ): DataModelAttribute['constraints'] => constraints.map((constraint) => ({ ...constraint }));
 
+const cloneAttributeElement = (element: DataModelAttribute | null): DataModelAttribute | null => {
+  if (!element) {
+    return null;
+  }
+
+  return {
+    ...element,
+    constraints: cloneAttributeConstraints(element.constraints),
+    attributes: cloneDataModelAttributes(element.attributes),
+    element: cloneAttributeElement(element.element)
+  };
+};
+
 const cloneDataModelAttributes = (attributes: DataModelAttribute[]): DataModelAttribute[] =>
   attributes.map((attribute) => ({
     ...attribute,
     constraints: cloneAttributeConstraints(attribute.constraints),
-    attributes: cloneDataModelAttributes(attribute.attributes)
+    attributes: cloneDataModelAttributes(attribute.attributes),
+    element: cloneAttributeElement(attribute.element)
   }));
 
 const cloneComponentEntryPoints = (entryPoints: ComponentEntryPoint[]): ComponentEntryPoint[] =>
@@ -348,6 +363,22 @@ const parseAttributeConstraint = (raw: unknown): DataModelAttribute['constraints
       }
       return { type, value: numeric };
     }
+    case 'enum': {
+      if (!Array.isArray(candidate.value)) {
+        throw new BadRequestError('Enum constraint requires an array of values');
+      }
+      const unique = new Set<string>();
+      for (const value of candidate.value) {
+        const stringValue = ensureString(value);
+        if (stringValue) {
+          unique.add(stringValue);
+        }
+      }
+      if (unique.size === 0) {
+        throw new BadRequestError('Enum constraint requires at least one value');
+      }
+      return { type: 'enum', values: [...unique] };
+    }
     default:
       throw new BadRequestError(`Unsupported constraint type: ${type || 'unknown'}`);
   }
@@ -388,6 +419,85 @@ const sanitizeAttributeConstraints = ({
   }
 
   return result;
+};
+
+const sanitizeArrayElement = ({
+  rawElement,
+  type,
+  existing
+}: {
+  rawElement: unknown;
+  type: string;
+  existing?: DataModelAttribute | null;
+}): DataModelAttribute | null => {
+  if (type !== 'array') {
+    return null;
+  }
+
+  if (rawElement === undefined) {
+    return existing ? cloneDataModelAttributes([existing])[0] : null;
+  }
+
+  if (rawElement === null) {
+    return null;
+  }
+
+  if (!rawElement || typeof rawElement !== 'object') {
+    throw new BadRequestError('Array element definition must be an object');
+  }
+
+  const input = rawElement as DataModelAttributeInput;
+  const providedId = ensureString(input.id);
+  const previous = existing && providedId && existing.id === providedId ? existing : undefined;
+
+  const name = ensureString(input.name) || ensureString(previous?.name);
+  if (!name) {
+    throw new BadRequestError('Array element name is required');
+  }
+
+  const elementType = ensureString(input.type) || ensureString(previous?.type);
+  if (!elementType) {
+    throw new BadRequestError('Array element type is required');
+  }
+
+  const id = previous?.id ?? (providedId || randomUUID());
+
+  const description =
+    typeof input.description === 'string'
+      ? input.description.trim()
+      : previous?.description ?? '';
+
+  const constraints = sanitizeAttributeConstraints({
+    rawConstraints: input.constraints,
+    previous: previous?.constraints
+  });
+
+  const childExisting = previous
+    ? new Map(previous.attributes.map((attribute) => [attribute.id, attribute] as [string, DataModelAttribute]))
+    : undefined;
+
+  const attributes = sanitizeDataModelAttributes({
+    rawAttributes: input.attributes,
+    existing: childExisting
+  });
+
+  return {
+    id,
+    name,
+    description,
+    type: elementType,
+    required: ensureBoolean(input.required, previous?.required ?? false),
+    unique: ensureBoolean(input.unique, previous?.unique ?? false),
+    constraints,
+    readOnly: ensureBoolean(input.readOnly, previous?.readOnly ?? false),
+    encrypted: ensureBoolean(input.encrypted, previous?.encrypted ?? false),
+    attributes,
+    element: sanitizeArrayElement({
+      rawElement: input.element,
+      type: elementType,
+      existing: previous?.element
+    })
+  };
 };
 
 const sanitizeDataModelAttributes = ({
@@ -461,6 +571,12 @@ const sanitizeDataModelAttributes = ({
       existing: childExisting
     });
 
+    const element = sanitizeArrayElement({
+      rawElement: input.element,
+      type,
+      existing: previous?.element
+    });
+
     result.push({
       id,
       name,
@@ -471,7 +587,8 @@ const sanitizeDataModelAttributes = ({
       constraints,
       readOnly,
       encrypted,
-      attributes
+      attributes,
+      element
     });
   }
 

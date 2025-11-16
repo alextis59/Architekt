@@ -19,7 +19,8 @@ export type Flow = {
 
 export type AttributeConstraint =
   | { type: 'regex'; value: string }
-  | { type: 'minLength' | 'maxLength' | 'min' | 'max'; value: number };
+  | { type: 'minLength' | 'maxLength' | 'min' | 'max'; value: number }
+  | { type: 'enum'; values: string[] };
 
 export type DataModelAttribute = {
   id: string;
@@ -32,6 +33,7 @@ export type DataModelAttribute = {
   readOnly: boolean;
   encrypted: boolean;
   attributes: DataModelAttribute[];
+  element: DataModelAttribute | null;
 };
 
 export type DataModel = {
@@ -97,6 +99,7 @@ type DataModelAttributeInput =
     id?: string;
     attributes?: unknown;
     constraints?: unknown;
+    element?: unknown;
   };
 type DataModelInput = Partial<DataModel> & { id?: string; attributes?: unknown };
 type ComponentEntryPointInput =
@@ -188,6 +191,22 @@ const sanitizeConstraint = (raw: unknown): AttributeConstraint | null => {
       }
       return { type, value: numeric };
     }
+    case 'enum': {
+      if (!Array.isArray(candidate.value)) {
+        return null;
+      }
+      const unique = new Set<string>();
+      for (const item of candidate.value) {
+        const value = ensureString(item);
+        if (value) {
+          unique.add(value);
+        }
+      }
+      if (unique.size === 0) {
+        return null;
+      }
+      return { type: 'enum', values: [...unique] };
+    }
     default:
       return null;
   }
@@ -245,8 +264,30 @@ const sanitizeDataModelAttribute = (raw: DataModelAttributeInput): DataModelAttr
   constraints: sanitizeConstraintList(raw?.constraints),
   readOnly: ensureBoolean(raw?.readOnly, false),
   encrypted: ensureBoolean(raw?.encrypted, false),
-  attributes: sanitizeDataModelAttributeList(raw?.attributes)
+  attributes: sanitizeDataModelAttributeList(raw?.attributes),
+  element: sanitizeDataModelElement(raw?.element, raw?.type)
 });
+
+const sanitizeDataModelElement = (rawElement: unknown, rawType: unknown): DataModelAttribute | null => {
+  const type = ensureString(rawType);
+
+  if (type !== 'array') {
+    return null;
+  }
+
+  if (!rawElement || typeof rawElement !== 'object') {
+    return null;
+  }
+
+  const attributeInput = rawElement as DataModelAttributeInput;
+  const sanitized = sanitizeDataModelAttribute(attributeInput);
+
+  if (!sanitized.id || !sanitized.name || !sanitized.type) {
+    return null;
+  }
+
+  return sanitized;
+};
 
 function sanitizeDataModelAttributeList(raw: unknown): DataModelAttribute[] {
   if (!Array.isArray(raw)) {

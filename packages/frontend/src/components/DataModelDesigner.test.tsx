@@ -306,4 +306,111 @@ describe('DataModelDesigner', () => {
     const deleteArgs = apiMocks.deleteDataModel.mock.calls[0];
     expect(deleteArgs).toEqual(['proj-1', 'model-a']);
   });
+
+  it('supports defining array elements with enum constraints', async () => {
+    const projectBase = {
+      id: 'proj-1',
+      name: 'Project',
+      description: '',
+      tags: [],
+      rootSystemId: 'sys',
+      systems: {},
+      flows: {},
+      components: {}
+    };
+
+    const arrayAttribute = {
+      id: 'attr-array',
+      name: 'Tags',
+      description: '',
+      type: 'array',
+      required: false,
+      unique: false,
+      constraints: [],
+      readOnly: false,
+      encrypted: false,
+      attributes: [],
+      element: null
+    };
+
+    const updatedAttribute = {
+      ...arrayAttribute,
+      element: {
+        id: 'element-1',
+        name: 'Item',
+        description: '',
+        type: 'string',
+        required: false,
+        unique: false,
+        constraints: [{ type: 'enum', values: ['alpha', 'beta'] }],
+        readOnly: false,
+        encrypted: false,
+        attributes: [],
+        element: null
+      }
+    };
+
+    const dataModel = {
+      id: 'model-a',
+      name: 'Collections',
+      description: '',
+      attributes: [arrayAttribute]
+    };
+
+    const updatedModel = { ...dataModel, attributes: [updatedAttribute] };
+
+    apiMocks.fetchProjectDetails.mockResolvedValue({
+      ...projectBase,
+      dataModels: { 'model-a': dataModel }
+    });
+    apiMocks.updateDataModel.mockResolvedValue(updatedModel);
+
+    const client = createClient();
+    renderDesigner(client);
+
+    const user = userEvent.setup();
+    const attributeToggle = await screen.findByRole('button', { name: 'Tags' });
+    await user.click(attributeToggle);
+    await user.click(screen.getByRole('button', { name: /Edit attribute/i }));
+
+    const attributeModal = await screen.findByRole('dialog', { name: /Edit attribute/i });
+    const defineElementButton = within(attributeModal).getByRole('button', { name: /Define element/i });
+    await user.click(defineElementButton);
+
+    const elementName = within(attributeModal).getByLabelText(/Element name/i);
+    await user.clear(elementName);
+    await user.type(elementName, ' Item ');
+
+    await user.selectOptions(within(attributeModal).getByLabelText(/Element type/i), 'string');
+
+    const constraintTypeSelects = within(attributeModal).getAllByLabelText(/Constraint type/i);
+    const constraintValueInputs = within(attributeModal).getAllByLabelText(/Constraint value/i);
+    const addConstraintButtons = within(attributeModal).getAllByRole('button', { name: /Add constraint/i });
+
+    await user.selectOptions(constraintTypeSelects[0], 'enum');
+    await user.type(constraintValueInputs[0], 'alpha, beta');
+    await user.click(addConstraintButtons[0]);
+
+    await user.click(within(attributeModal).getByRole('button', { name: /Save attribute/i }));
+
+    await waitFor(() => {
+      expect(apiMocks.updateDataModel).toHaveBeenCalled();
+    });
+
+    const [, , payload] = apiMocks.updateDataModel.mock.calls.at(-1) as [
+      string,
+      string,
+      { attributes: unknown[] }
+    ];
+
+    expect(payload.attributes[0]).toMatchObject({
+      name: 'Tags',
+      type: 'array',
+      element: {
+        name: 'Item',
+        type: 'string',
+        constraints: [{ type: 'enum', values: ['alpha', 'beta'] }]
+      }
+    });
+  });
 });
