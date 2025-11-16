@@ -25,7 +25,8 @@ describe('DataModelDesigner helpers', () => {
           constraints: [{ type: 'minLength', value: 3 }],
           readOnly: true,
           encrypted: false,
-          attributes: []
+          attributes: [],
+          element: null
         }
       ]
     };
@@ -48,7 +49,8 @@ describe('DataModelDesigner helpers', () => {
           constraints: [{ type: 'minLength', value: '3' }],
           readOnly: true,
           encrypted: false,
-          attributes: []
+          attributes: [],
+          element: null
         }
       ]
     });
@@ -118,6 +120,7 @@ describe('DataModelDesigner helpers', () => {
     expect(draft.readOnly).toBe(false);
     expect(draft.encrypted).toBe(false);
     expect(draft.attributes).toEqual([]);
+    expect(draft.element).toBeNull();
     expect(draft.localId).toBeDefined();
 
     spy.mockRestore();

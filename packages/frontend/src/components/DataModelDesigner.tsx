@@ -26,7 +26,12 @@ import {
 
 const TYPE_OPTIONS = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'date'];
 
-const STRING_CONSTRAINTS: AttributeConstraintDraft['type'][] = ['regex', 'minLength', 'maxLength'];
+const STRING_CONSTRAINTS: AttributeConstraintDraft['type'][] = [
+  'regex',
+  'minLength',
+  'maxLength',
+  'enum'
+];
 const NUMERIC_CONSTRAINTS: AttributeConstraintDraft['type'][] = ['min', 'max'];
 
 const getConstraintTypesForAttribute = (type: string): AttributeConstraintDraft['type'][] => {
@@ -41,6 +46,12 @@ const getConstraintTypesForAttribute = (type: string): AttributeConstraintDraft[
 };
 
 const formatConstraintDisplay = (constraint: AttributeConstraintDraft): string => {
+  if (constraint.type === 'enum') {
+    return constraint.values.length > 0
+      ? `Enum: ${constraint.values.join(', ')}`
+      : 'Enum';
+  }
+
   const value = constraint.value.trim();
   switch (constraint.type) {
     case 'regex':
@@ -60,8 +71,11 @@ const formatConstraintDisplay = (constraint: AttributeConstraintDraft): string =
 
 const cloneAttributeDraft = (attribute: AttributeDraft): AttributeDraft => ({
   ...attribute,
-  constraints: attribute.constraints.map((constraint) => ({ ...constraint })),
-  attributes: attribute.attributes.map(cloneAttributeDraft)
+  constraints: attribute.constraints.map((constraint) =>
+    constraint.type === 'enum' ? { type: 'enum', values: [...constraint.values] } : { ...constraint }
+  ),
+  attributes: attribute.attributes.map(cloneAttributeDraft),
+  element: attribute.element ? cloneAttributeDraft(attribute.element) : null
 });
 
 const cloneDraft = (draft: DataModelDraft): DataModelDraft => ({
@@ -549,6 +563,29 @@ const DataModelDesigner = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleCopy = async () => {
+    if (!draft && !selectedDataModel) {
+      return;
+    }
+
+    const currentDraft = draft ?? createDataModelDraft(selectedDataModel!);
+    const payload = JSON.stringify(toDataModelPayload(currentDraft), null, 2);
+
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(payload);
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = payload;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  };
+
   const canSave = Boolean(draft && isDirty && draft.name.trim().length > 0);
 
   const { mutate: autoSaveDataModel } = updateDataModelMutation;
@@ -691,6 +728,9 @@ const DataModelDesigner = () => {
                   <div className="data-model-summary-actions">
                     <button type="button" className="secondary" onClick={handleExport}>
                       Export JSON
+                    </button>
+                    <button type="button" className="secondary" onClick={() => void handleCopy()}>
+                      Copy JSON
                     </button>
                     <button
                       type="button"
@@ -961,6 +1001,12 @@ const AttributeItem = ({
       ? attribute.constraints.map((constraint) => formatConstraintDisplay(constraint)).join(', ')
       : '—';
   const displayDescription = attribute.description.trim() || '—';
+  const displayElement =
+    attribute.type.trim().toLowerCase() === 'array'
+      ? attribute.element
+        ? `${attribute.element.name.trim() || 'Element'} (${attribute.element.type.trim() || '—'})`
+        : '—'
+      : null;
 
   return (
     <div className="attribute-card" style={{ marginLeft: depth * 16 }}>
@@ -988,6 +1034,12 @@ const AttributeItem = ({
               <dt>Constraints</dt>
               <dd>{displayConstraints}</dd>
             </div>
+            {displayElement !== null && (
+              <div className="attribute-detail">
+                <dt>Element</dt>
+                <dd>{displayElement}</dd>
+              </div>
+            )}
             <div className="attribute-detail attribute-detail-description">
               <dt>Description</dt>
               <dd>{displayDescription}</dd>
@@ -1053,55 +1105,32 @@ type AttributeModalProps = {
   nameFieldRef: RefObject<HTMLInputElement>;
 };
 
-const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: AttributeModalProps) => {
-  const cloneConstraints = useCallback(
-    (constraints: AttributeDraft['constraints']) => constraints.map((constraint) => ({ ...constraint })),
-    []
-  );
+type ConstraintEditorProps = {
+  attributeType: string;
+  constraints: AttributeConstraintDraft[];
+  onChange: (constraints: AttributeConstraintDraft[]) => void;
+};
 
-  const [formState, setFormState] = useState(() => ({
-    name: attribute.name,
-    type: attribute.type,
-    description: attribute.description,
-    required: attribute.required,
-    unique: attribute.unique,
-    constraints: cloneConstraints(attribute.constraints),
-    readOnly: attribute.readOnly,
-    encrypted: attribute.encrypted
-  }));
-
-  const [constraintDraft, setConstraintDraft] = useState<{
-    type: AttributeConstraintDraft['type'] | '';
-    value: string;
-  }>({ type: '', value: '' });
-
-  const [constraintError, setConstraintError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setFormState({
-      name: attribute.name,
-      type: attribute.type,
-      description: attribute.description,
-      required: attribute.required,
-      unique: attribute.unique,
-      constraints: cloneConstraints(attribute.constraints),
-      readOnly: attribute.readOnly,
-      encrypted: attribute.encrypted
-    });
-  }, [attribute, cloneConstraints]);
-
+const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEditorProps) => {
   const constraintTypes = useMemo(
-    () => getConstraintTypesForAttribute(formState.type),
-    [formState.type]
+    () => getConstraintTypesForAttribute(attributeType),
+    [attributeType]
   );
 
   const availableConstraintTypes = useMemo(
     () =>
       constraintTypes.filter(
-        (type) => !formState.constraints.some((constraint) => constraint.type === type)
+        (type) => !constraints.some((constraint) => constraint.type === type)
       ),
-    [constraintTypes, formState.constraints]
+    [constraintTypes, constraints]
   );
+
+  const [constraintDraft, setConstraintDraft] = useState<{
+    type: AttributeConstraintDraft['type'] | '';
+    value: string;
+  }>({ type: availableConstraintTypes[0] ?? '', value: '' });
+
+  const [constraintError, setConstraintError] = useState<string | null>(null);
 
   useEffect(() => {
     setConstraintDraft((previous) => {
@@ -1111,19 +1140,32 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
       return { type: nextType, value: '' };
     });
     setConstraintError(null);
-  }, [availableConstraintTypes]);
+  }, [availableConstraintTypes, attributeType]);
 
   const removeConstraint = (typeToRemove: AttributeConstraintDraft['type']) => {
-    setFormState((previous) => ({
-      ...previous,
-      constraints: previous.constraints.filter((constraint) => constraint.type !== typeToRemove)
-    }));
+    onChange(constraints.filter((constraint) => constraint.type !== typeToRemove));
     setConstraintError(null);
   };
 
   const handleAddConstraint = () => {
     if (!constraintDraft.type) {
       setConstraintError('Select a constraint type.');
+      return;
+    }
+
+    if (constraintDraft.type === 'enum') {
+      const values = constraintDraft.value
+        .split(/,|\n/)
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+      const unique = Array.from(new Set(values));
+      if (unique.length === 0) {
+        setConstraintError('Enter at least one value.');
+        return;
+      }
+      onChange([...constraints, { type: 'enum', values: unique }]);
+      setConstraintDraft((previous) => ({ ...previous, value: '' }));
+      setConstraintError(null);
       return;
     }
 
@@ -1134,10 +1176,7 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
     }
 
     if (constraintDraft.type === 'regex') {
-      setFormState((previous) => ({
-        ...previous,
-        constraints: [...previous.constraints, { type: 'regex', value: trimmedValue }]
-      }));
+      onChange([...constraints, { type: 'regex', value: trimmedValue }]);
       setConstraintDraft((previous) => ({ ...previous, value: '' }));
       setConstraintError(null);
       return;
@@ -1155,40 +1194,165 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
         setConstraintError('Enter a non-negative integer value.');
         return;
       }
-      setFormState((previous) => ({
-        ...previous,
-        constraints: [...previous.constraints, { type: constraintDraft.type, value: String(integer) }]
-      }));
+      onChange([...constraints, { type: constraintDraft.type, value: String(integer) }]);
       setConstraintDraft((previous) => ({ ...previous, value: '' }));
       setConstraintError(null);
       return;
     }
 
-    setFormState((previous) => ({
-      ...previous,
-      constraints: [...previous.constraints, { type: constraintDraft.type, value: String(numeric) }]
-    }));
+    onChange([...constraints, { type: constraintDraft.type, value: String(numeric) }]);
     setConstraintDraft((previous) => ({ ...previous, value: '' }));
     setConstraintError(null);
   };
 
   const constraintValueInputType =
-    !constraintDraft.type || constraintDraft.type === 'regex' ? 'text' : 'number';
+    !constraintDraft.type || constraintDraft.type === 'regex' || constraintDraft.type === 'enum'
+      ? 'text'
+      : 'number';
   const constraintValueStep =
     constraintDraft.type === 'minLength' || constraintDraft.type === 'maxLength'
       ? 1
       : constraintDraft.type === 'min' || constraintDraft.type === 'max'
-      ? 'any'
-      : undefined;
+        ? 'any'
+        : undefined;
   const constraintPlaceholder =
     constraintDraft.type === 'regex'
       ? 'Pattern, e.g. ^[A-Z]+$'
-      : constraintDraft.type
-      ? 'Value'
-      : 'Select a constraint';
+      : constraintDraft.type === 'enum'
+        ? 'Comma-separated values'
+        : constraintDraft.type
+          ? 'Value'
+          : 'Select a constraint';
+
+  return (
+    <div className="constraint-editor">
+      {constraints.length > 0 ? (
+        <ul className="constraint-list">
+          {constraints.map((constraint) => (
+            <li key={constraint.type} className="constraint-item">
+              <span>{formatConstraintDisplay(constraint)}</span>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => removeConstraint(constraint.type)}
+                aria-label={`Remove ${constraint.type} constraint`}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="status">No constraints added.</p>
+      )}
+      {constraintError && (
+        <p className="status error" role="alert">
+          {constraintError}
+        </p>
+      )}
+      {availableConstraintTypes.length > 0 ? (
+        <div className="constraint-form">
+          <select
+            value={constraintDraft.type}
+            onChange={(event) => {
+              const nextType = event.target.value as AttributeConstraintDraft['type'] | '';
+              setConstraintDraft({ type: nextType, value: '' });
+            }}
+            aria-label="Constraint type"
+          >
+            <option value="">Select constraint</option>
+            {availableConstraintTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+          <input
+            type={constraintValueInputType}
+            value={constraintDraft.value}
+            onChange={(event) =>
+              setConstraintDraft((previous) => ({ ...previous, value: event.target.value }))
+            }
+            aria-label="Constraint value"
+            placeholder={constraintPlaceholder}
+            disabled={!constraintDraft.type}
+            step={constraintValueStep}
+          />
+          <button
+            type="button"
+            className="secondary"
+            onClick={handleAddConstraint}
+            disabled={!constraintDraft.type}
+          >
+            Add constraint
+          </button>
+        </div>
+      ) : (
+        <p className="status">No additional constraints available for this type.</p>
+      )}
+    </div>
+  );
+};
+
+const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: AttributeModalProps) => {
+  const cloneConstraints = useCallback(
+    (constraints: AttributeDraft['constraints']) =>
+      constraints.map((constraint) =>
+        constraint.type === 'enum' ? { type: 'enum', values: [...constraint.values] } : { ...constraint }
+      ),
+    []
+  );
+
+  const [formState, setFormState] = useState(() => ({
+    name: attribute.name,
+    type: attribute.type,
+    description: attribute.description,
+    required: attribute.required,
+    unique: attribute.unique,
+    constraints: cloneConstraints(attribute.constraints),
+    readOnly: attribute.readOnly,
+    encrypted: attribute.encrypted
+  }));
+
+  const [elementState, setElementState] = useState<AttributeDraft | null>(() =>
+    attribute.element ? cloneAttributeDraft(attribute.element) : null
+  );
+  const [elementError, setElementError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFormState({
+      name: attribute.name,
+      type: attribute.type,
+      description: attribute.description,
+      required: attribute.required,
+      unique: attribute.unique,
+      constraints: cloneConstraints(attribute.constraints),
+      readOnly: attribute.readOnly,
+      encrypted: attribute.encrypted
+    });
+    setElementState(attribute.element ? cloneAttributeDraft(attribute.element) : null);
+    setElementError(null);
+  }, [attribute, cloneConstraints]);
+
+  const isArrayType = formState.type.trim().toLowerCase() === 'array';
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    let element: AttributeDraft | null = null;
+
+    if (isArrayType) {
+      if (elementState) {
+        const name = elementState.name.trim();
+        const type = elementState.type.trim();
+        if (!name || !type) {
+          setElementError('Array element requires a name and type.');
+          return;
+        }
+        setElementError(null);
+        element = cloneAttributeDraft({ ...elementState, name, type });
+      }
+    }
+
     onSubmit(attribute.localId, {
       name: formState.name,
       type: formState.type,
@@ -1197,7 +1361,8 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
       unique: formState.unique,
       constraints: cloneConstraints(formState.constraints),
       readOnly: formState.readOnly,
-      encrypted: formState.encrypted
+      encrypted: formState.encrypted,
+      element: isArrayType ? element : null
     });
     onClose();
   };
@@ -1266,8 +1431,10 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
                   type: nextType,
                   constraints: []
                 }));
-                setConstraintDraft({ type: '', value: '' });
-                setConstraintError(null);
+                setElementError(null);
+                if (nextType.trim().toLowerCase() !== 'array') {
+                  setElementState(null);
+                }
               }}
               required
             >
@@ -1283,73 +1450,161 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
           </label>
           <div className="field constraint-field">
             <span>Constraints</span>
-            <div className="constraint-editor">
-              {formState.constraints.length > 0 ? (
-                <ul className="constraint-list">
-                  {formState.constraints.map((constraint) => (
-                    <li key={constraint.type} className="constraint-item">
-                      <span>{formatConstraintDisplay(constraint)}</span>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        onClick={() => removeConstraint(constraint.type)}
-                        aria-label={`Remove ${constraint.type} constraint`}
-                      >
-                        ×
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="status">No constraints added.</p>
-              )}
-              {constraintError && (
-                <p className="status error" role="alert">
-                  {constraintError}
-                </p>
-              )}
-              {availableConstraintTypes.length > 0 ? (
-                <div className="constraint-form">
-                  <select
-                    value={constraintDraft.type}
-                    onChange={(event) => {
-                      const nextType = event.target.value as AttributeConstraintDraft['type'] | '';
-                      setConstraintDraft({ type: nextType, value: '' });
-                    }}
-                    aria-label="Constraint type"
-                  >
-                    <option value="">Select constraint</option>
-                    {availableConstraintTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    type={constraintValueInputType}
-                    value={constraintDraft.value}
-                    onChange={(event) =>
-                      setConstraintDraft((previous) => ({ ...previous, value: event.target.value }))
-                    }
-                    aria-label="Constraint value"
-                    placeholder={constraintPlaceholder}
-                    disabled={!constraintDraft.type}
-                    step={constraintValueStep}
-                  />
+            <ConstraintEditor
+              attributeType={formState.type}
+              constraints={formState.constraints}
+              onChange={(constraints) =>
+                setFormState((previous) => ({ ...previous, constraints }))
+              }
+            />
+          </div>
+          {isArrayType && (
+            <div className="field array-element-field">
+              <div className="array-element-header">
+                <span>Array elements</span>
+                {elementState ? (
                   <button
                     type="button"
                     className="secondary"
-                    onClick={handleAddConstraint}
-                    disabled={!constraintDraft.type}
+                    onClick={() => setElementState(null)}
                   >
-                    Add constraint
+                    Remove element
                   </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setElementState(createEmptyAttributeDraft())}
+                  >
+                    Define element
+                  </button>
+                )}
+              </div>
+              {elementState ? (
+                <div className="array-element-form">
+                  <label className="field">
+                    <span>Element name</span>
+                    <input
+                      type="text"
+                      value={elementState.name}
+                      onChange={(event) =>
+                        setElementState((previous) =>
+                          previous ? { ...previous, name: event.target.value } : previous
+                        )
+                      }
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Element type</span>
+                    <select
+                      value={elementState.type}
+                      onChange={(event) =>
+                        setElementState((previous) =>
+                          previous
+                            ? {
+                                ...previous,
+                                type: event.target.value,
+                                constraints: []
+                              }
+                            : previous
+                        )
+                      }
+                      required
+                    >
+                      <option value="" disabled>
+                        Select type
+                      </option>
+                      {TYPE_OPTIONS.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="field constraint-field">
+                    <span>Element constraints</span>
+                    <ConstraintEditor
+                      attributeType={elementState.type}
+                      constraints={elementState.constraints}
+                      onChange={(constraints) =>
+                        setElementState((previous) =>
+                          previous ? { ...previous, constraints } : previous
+                        )
+                      }
+                    />
+                  </div>
+                  <label className="field">
+                    <span>Element description</span>
+                    <textarea
+                      value={elementState.description}
+                      onChange={(event) =>
+                        setElementState((previous) =>
+                          previous ? { ...previous, description: event.target.value } : previous
+                        )
+                      }
+                      rows={3}
+                    />
+                  </label>
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={elementState.required}
+                      onChange={(event) =>
+                        setElementState((previous) =>
+                          previous ? { ...previous, required: event.target.checked } : previous
+                        )
+                      }
+                    />
+                    <span>Required</span>
+                  </label>
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={elementState.unique}
+                      onChange={(event) =>
+                        setElementState((previous) =>
+                          previous ? { ...previous, unique: event.target.checked } : previous
+                        )
+                      }
+                    />
+                    <span>Unique</span>
+                  </label>
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={elementState.readOnly}
+                      onChange={(event) =>
+                        setElementState((previous) =>
+                          previous ? { ...previous, readOnly: event.target.checked } : previous
+                        )
+                      }
+                    />
+                    <span>Read-only</span>
+                  </label>
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={elementState.encrypted}
+                      onChange={(event) =>
+                        setElementState((previous) =>
+                          previous ? { ...previous, encrypted: event.target.checked } : previous
+                        )
+                      }
+                    />
+                    <span>Encrypted</span>
+                  </label>
                 </div>
               ) : (
-                <p className="status">No additional constraints available for this type.</p>
+                <p className="status">No element definition provided.</p>
+              )}
+              {elementError && (
+                <p className="status error" role="alert">
+                  {elementError}
+                </p>
               )}
             </div>
-          </div>
+          )}
           <label className="field">
             <span>Description</span>
             <textarea

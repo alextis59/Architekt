@@ -16,12 +16,15 @@ export type AttributeDraft = {
   readOnly: boolean;
   encrypted: boolean;
   attributes: AttributeDraft[];
+  element: AttributeDraft | null;
 };
 
-export type AttributeConstraintDraft = {
-  type: 'regex' | 'minLength' | 'maxLength' | 'min' | 'max';
-  value: string;
-};
+export type AttributeConstraintDraft =
+  | {
+      type: 'regex' | 'minLength' | 'maxLength' | 'min' | 'max';
+      value: string;
+    }
+  | { type: 'enum'; values: string[] };
 
 export type DataModelDraft = {
   id?: string;
@@ -48,7 +51,8 @@ export const createEmptyAttributeDraft = (): AttributeDraft => ({
   constraints: [],
   readOnly: false,
   encrypted: false,
-  attributes: []
+  attributes: [],
+  element: null
 });
 
 const createAttributeDraftFromModel = (attribute: DataModel['attributes'][number]): AttributeDraft => ({
@@ -60,12 +64,17 @@ const createAttributeDraftFromModel = (attribute: DataModel['attributes'][number
   required: attribute.required,
   unique: attribute.unique,
   constraints: attribute.constraints.map((constraint) => ({
-    type: constraint.type,
-    value: constraint.type === 'regex' ? constraint.value : String(constraint.value)
+    ...constraint,
+    ...(constraint.type === 'regex'
+      ? { value: constraint.value }
+      : constraint.type === 'enum'
+        ? { values: [...constraint.values] }
+        : { value: String(constraint.value) })
   })),
   readOnly: attribute.readOnly,
   encrypted: attribute.encrypted,
-  attributes: attribute.attributes.map(createAttributeDraftFromModel)
+  attributes: attribute.attributes.map(createAttributeDraftFromModel),
+  element: attribute.element ? createAttributeDraftFromModel(attribute.element) : null
 });
 
 export const createDataModelDraft = (dataModel: DataModel): DataModelDraft => ({
@@ -96,6 +105,19 @@ const toAttributePayload = (attribute: AttributeDraft): DataModelAttributePayloa
         continue;
       }
       constraintMap.set(type, { type, value });
+      continue;
+    }
+
+    if (type === 'enum') {
+      const unique = new Set(
+        constraint.values
+          .map((value) => value.trim())
+          .filter((value): value is string => value.length > 0)
+      );
+      if (unique.size === 0) {
+        continue;
+      }
+      constraintMap.set(type, { type: 'enum', values: [...unique] });
       continue;
     }
 
@@ -131,6 +153,10 @@ const toAttributePayload = (attribute: AttributeDraft): DataModelAttributePayloa
     encrypted: attribute.encrypted,
     attributes: attribute.attributes.map(toAttributePayload)
   };
+
+  if (attribute.type.trim().toLowerCase() === 'array' && attribute.element) {
+    payload.element = toAttributePayload(attribute.element);
+  }
 
   if (attribute.id) {
     payload.id = attribute.id;
