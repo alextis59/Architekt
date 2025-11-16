@@ -473,7 +473,7 @@ const ComponentDesigner = () => {
 
     const currentDraft =
       draft ?? createComponentDraft(selectedComponent!, project.entryPoints);
-    const payload = toExportableComponentPayload(currentDraft);
+    const payload = toExportableComponentPayload(currentDraft, dataModelLookup);
     const fileName = `${currentDraft.name.trim() || 'component'}.json`;
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -493,7 +493,7 @@ const ComponentDesigner = () => {
 
     const currentDraft =
       draft ?? createComponentDraft(selectedComponent!, project.entryPoints);
-    const payload = JSON.stringify(toExportableComponentPayload(currentDraft), null, 2);
+    const payload = JSON.stringify(toExportableComponentPayload(currentDraft, dataModelLookup), null, 2);
 
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(payload);

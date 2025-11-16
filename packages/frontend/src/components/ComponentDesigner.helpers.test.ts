@@ -5,7 +5,8 @@ import {
   createComponentDraft,
   createEmptyComponentDraft,
   createEmptyEntryPointDraft,
-  toComponentPayload
+  toComponentPayload,
+  toExportableComponentPayload
 } from './ComponentDesigner.helpers.js';
 
 const createComponent = (): { component: Component; entryPoints: Record<string, ComponentEntryPoint> } => {
@@ -125,5 +126,47 @@ describe('ComponentDesigner helpers', () => {
 
   it('provides an empty component draft template', () => {
     expect(createEmptyComponentDraft()).toEqual({ name: '', description: '', entryPoints: [] });
+  });
+
+  it('replaces model identifiers with names in exportable payloads', () => {
+    const draft: ComponentDraft = {
+      name: 'Customer API',
+      description: 'Handles customers',
+      entryPoints: [
+        {
+          localId: 'entry-1',
+          name: 'Get customer',
+          description: 'Fetch by id',
+          type: 'http',
+          protocol: 'HTTP',
+          method: 'GET',
+          path: '/customers/:id',
+          requestModelIds: ['model-1', 'unknown-id'],
+          responseModelIds: ['model-2']
+        }
+      ]
+    };
+
+    const lookup = new Map<string, string>([
+      ['model-1', 'Customer Profile'],
+      ['model-2', 'Audit Event']
+    ]);
+
+    expect(toExportableComponentPayload(draft, lookup)).toEqual({
+      name: 'Customer API',
+      description: 'Handles customers',
+      entryPoints: [
+        {
+          name: 'Get customer',
+          description: 'Fetch by id',
+          type: 'http',
+          protocol: 'HTTP',
+          method: 'GET',
+          path: '/customers/:id',
+          requestModelIds: ['Customer Profile', 'unknown-id'],
+          responseModelIds: ['Audit Event']
+        }
+      ]
+    });
   });
 });
