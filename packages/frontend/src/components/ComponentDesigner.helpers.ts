@@ -14,7 +14,6 @@ export type EntryPointDraft = {
   protocol: string;
   method: string;
   path: string;
-  target: string;
   requestModelIds: string[];
   responseModelIds: string[];
 };
@@ -37,7 +36,6 @@ const createEntryPointDraftFromModel = (
   protocol: entryPoint.protocol,
   method: entryPoint.method,
   path: entryPoint.path,
-  target: entryPoint.target,
   requestModelIds: [...entryPoint.requestModelIds],
   responseModelIds: [...entryPoint.responseModelIds]
 });
@@ -69,7 +67,6 @@ export const createEmptyEntryPointDraft = (): EntryPointDraft => ({
   protocol: '',
   method: '',
   path: '',
-  target: '',
   requestModelIds: [],
   responseModelIds: []
 });
@@ -97,7 +94,6 @@ const toEntryPointPayload = (
     protocol: entryPoint.protocol.trim(),
     method: entryPoint.method.trim(),
     path: entryPoint.path.trim(),
-    target: entryPoint.target.trim(),
     requestModelIds: normalizeIdentifiers(entryPoint.requestModelIds),
     responseModelIds: normalizeIdentifiers(entryPoint.responseModelIds)
   };

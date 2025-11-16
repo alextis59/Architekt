@@ -273,7 +273,6 @@ describe('projects API helpers', () => {
           protocol: ' HTTPS ',
           method: ' GET ',
           path: ' /path ',
-          target: ' target ',
           requestModelIds: [' model ', 'model'],
           responseModelIds: [' resp ', 'resp']
         },
@@ -284,7 +283,6 @@ describe('projects API helpers', () => {
           protocol: '',
           method: '',
           path: '',
-          target: '',
           requestModelIds: [],
           responseModelIds: []
         }
@@ -309,7 +307,6 @@ describe('projects API helpers', () => {
           protocol: 'HTTPS',
           method: 'GET',
           path: '/path',
-          target: 'target',
           requestModelIds: ['model'],
           responseModelIds: ['resp']
         }

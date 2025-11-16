@@ -17,7 +17,6 @@ const createComponent = (): { component: Component; entryPoints: Record<string, 
     protocol: 'HTTP',
     method: 'GET',
     path: '/customers/:id',
-    target: '',
     requestModelIds: ['model-1'],
     responseModelIds: ['model-1']
   };
@@ -55,7 +54,6 @@ describe('ComponentDesigner helpers', () => {
           protocol: 'HTTP',
           method: 'GET',
           path: '/customers/:id',
-          target: '',
           requestModelIds: ['model-1'],
           responseModelIds: ['model-1']
         }
@@ -75,7 +73,6 @@ describe('ComponentDesigner helpers', () => {
       protocol: '',
       method: '',
       path: '',
-      target: '',
       requestModelIds: [],
       responseModelIds: []
     });
@@ -99,7 +96,6 @@ describe('ComponentDesigner helpers', () => {
           protocol: '  HTTP  ',
           method: '  POST  ',
           path: '  /orders  ',
-          target: '  ',
           requestModelIds: [' model-1 ', 'model-1'],
           responseModelIds: [' model-2 ', '']
         }
@@ -120,7 +116,6 @@ describe('ComponentDesigner helpers', () => {
           protocol: 'HTTP',
           method: 'POST',
           path: '/orders',
-          target: '',
           requestModelIds: ['model-1'],
           responseModelIds: ['model-2']
         }

@@ -417,7 +417,6 @@ type ComponentEntryPointPayload = {
   protocol: string;
   method: string;
   path: string;
-  target: string;
   requestModelIds: string[];
   responseModelIds: string[];
 };
@@ -445,7 +444,6 @@ const sanitizeEntryPointPayload = (
     protocol: entryPoint.protocol.trim(),
     method: entryPoint.method.trim(),
     path: entryPoint.path.trim(),
-    target: entryPoint.target.trim(),
     requestModelIds: sanitizeIdentifiers(entryPoint.requestModelIds ?? []),
     responseModelIds: sanitizeIdentifiers(entryPoint.responseModelIds ?? [])
   };

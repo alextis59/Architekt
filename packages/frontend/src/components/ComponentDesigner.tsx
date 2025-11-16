@@ -53,8 +53,7 @@ const ENTRY_POINT_FORM_DEFAULTS: EntryPointFormConfig = {
   allowedMethods: ENTRY_POINT_METHOD_OPTIONS.map((option) => option.value),
   showProtocol: true,
   showMethod: true,
-  showPath: true,
-  showTarget: true
+  showPath: true
 };
 
 const filterEntryPointOptions = (
@@ -88,8 +87,7 @@ const applyEntryPointTypeRules = (entryPoint: EntryPointDraft): EntryPointDraft 
       config.showMethod && config.allowedMethods.includes(entryPoint.method)
         ? entryPoint.method
         : '',
-    path: config.showPath ? entryPoint.path : '',
-    target: config.showTarget ? entryPoint.target : ''
+    path: config.showPath ? entryPoint.path : ''
   };
 };
 
@@ -285,6 +283,21 @@ const ComponentDesigner = () => {
     }
   });
 
+  const saveDraft = useCallback(
+    (draftToSave: ComponentDraft) => {
+      if (!selectedProjectId || !draftToSave.id) {
+        return;
+      }
+
+      updateComponentMutation.mutate({
+        projectId: selectedProjectId,
+        componentId: draftToSave.id,
+        payload: toComponentPayload(draftToSave)
+      });
+    },
+    [selectedProjectId, updateComponentMutation]
+  );
+
   const handleCreateComponent = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedProjectId) {
@@ -394,25 +407,22 @@ const ComponentDesigner = () => {
       name: trimmedName
     });
 
-    setDraft((previous) => {
-      if (!previous) {
-        return previous;
-      }
+    const entryPoints =
+      entryPointModalMode === 'create'
+        ? [...draft.entryPoints, normalizedEntryPoint]
+        : draft.entryPoints.map((entryPoint) =>
+            entryPoint.localId === normalizedEntryPoint.localId ? normalizedEntryPoint : entryPoint
+          );
 
-      const entryPoints =
-        entryPointModalMode === 'create'
-          ? [...previous.entryPoints, normalizedEntryPoint]
-          : previous.entryPoints.map((entryPoint) =>
-              entryPoint.localId === normalizedEntryPoint.localId ? normalizedEntryPoint : entryPoint
-            );
+    const updatedDraft = {
+      ...draft,
+      entryPoints
+    };
 
-      return {
-        ...previous,
-        entryPoints
-      };
-    });
+    setDraft(updatedDraft);
     setExpandedEntryPointIds((previous) => new Set(previous).add(normalizedEntryPoint.localId));
     setIsDirty(true);
+    saveDraft(updatedDraft);
     closeEntryPointModal();
   };
 
@@ -441,15 +451,11 @@ const ComponentDesigner = () => {
 
   const handleSaveDraft = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedProjectId || !draft || !draft.id) {
+    if (!draft) {
       return;
     }
 
-    updateComponentMutation.mutate({
-      projectId: selectedProjectId,
-      componentId: draft.id,
-      payload: toComponentPayload(draft)
-    });
+    saveDraft(draft);
   };
 
   const handleDeleteComponent = () => {
@@ -995,7 +1001,6 @@ const EntryPointItem = ({
   const displayProtocol = entryPoint.protocol.trim() || '—';
   const displayMethod = entryPoint.method.trim() || '—';
   const displayPath = entryPoint.path.trim() || '—';
-  const displayTarget = entryPoint.target.trim() || '—';
   const displayDescription = entryPoint.description.trim() || '—';
   const summaryParts = [
     entryPoint.type.trim(),
@@ -1051,10 +1056,6 @@ const EntryPointItem = ({
             <div className="entry-point-detail">
               <dt>Path or channel</dt>
               <dd>{displayPath}</dd>
-            </div>
-            <div className="entry-point-detail">
-              <dt>Target / endpoint</dt>
-              <dd>{displayTarget}</dd>
             </div>
             <div className="entry-point-detail entry-point-detail-description">
               <dt>Description</dt>
@@ -1244,17 +1245,6 @@ const EntryPointModal = ({
                   value={entryPoint.path}
                   onChange={(event) => onChange({ path: event.target.value })}
                   placeholder="/customers, orders.queue…"
-                />
-              </label>
-            )}
-            {formConfig.showTarget && (
-              <label className="field">
-                <span>Target / endpoint</span>
-                <input
-                  type="text"
-                  value={entryPoint.target}
-                  onChange={(event) => onChange({ target: event.target.value })}
-                  placeholder="Host, broker, topic…"
                 />
               </label>
             )}
