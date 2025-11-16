@@ -114,8 +114,13 @@ describe('projects API helpers', () => {
         {
           name: 'Step',
           description: '  Description  ',
-          sourceSystemId: 'sys-1',
-          targetSystemId: 'sys-2',
+          source: {
+            componentId: 'comp-1',
+            entryPointId: 'ep-1'
+          },
+          target: {
+            componentId: 'comp-2'
+          },
           tags: ['tag', 'tag'],
           alternateFlowIds: ['alt-1', 'alt-1'],
           id: 'step-1'
@@ -134,8 +139,13 @@ describe('projects API helpers', () => {
           {
             name: 'Step',
             description: '  Description  ',
-            sourceSystemId: 'sys-1',
-            targetSystemId: 'sys-2',
+            source: {
+              componentId: 'comp-1',
+              entryPointId: 'ep-1'
+            },
+            target: {
+              componentId: 'comp-2'
+            },
             tags: ['tag'],
             alternateFlowIds: ['alt-1'],
             id: 'step-1'

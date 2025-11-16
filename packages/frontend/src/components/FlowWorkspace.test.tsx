@@ -80,8 +80,14 @@ const projectFixture: Project = {
           id: 'step-1',
           name: 'Validate cart',
           description: 'Ensure items are available',
-          sourceSystemId: 'sys-1',
-          targetSystemId: 'sys-2',
+          source: {
+            componentId: 'component-1',
+            entryPointId: 'ep-ui-checkout'
+          },
+          target: {
+            componentId: 'component-2',
+            entryPointId: 'ep-payments-authorize'
+          },
           tags: ['validation'],
           alternateFlowIds: []
         },
@@ -89,8 +95,14 @@ const projectFixture: Project = {
           id: 'step-2',
           name: 'Process payment',
           description: 'Charge the selected payment method',
-          sourceSystemId: 'sys-2',
-          targetSystemId: 'sys-2',
+          source: {
+            componentId: 'component-2',
+            entryPointId: 'ep-payments-authorize'
+          },
+          target: {
+            componentId: 'component-2',
+            entryPointId: 'ep-payments-capture'
+          },
           tags: ['billing'],
           alternateFlowIds: ['flow-2']
         }
@@ -107,8 +119,14 @@ const projectFixture: Project = {
           id: 'step-3',
           name: 'Retry payment',
           description: 'Attempt alternate processor',
-          sourceSystemId: 'sys-2',
-          targetSystemId: 'sys-2',
+          source: {
+            componentId: 'component-2',
+            entryPointId: 'ep-payments-authorize'
+          },
+          target: {
+            componentId: 'component-2',
+            entryPointId: 'ep-payments-capture'
+          },
           tags: ['billing', 'retry'],
           alternateFlowIds: []
         }
@@ -116,8 +134,58 @@ const projectFixture: Project = {
     }
   },
   dataModels: {},
-  components: {},
-  entryPoints: {}
+  components: {
+    'component-1': {
+      id: 'component-1',
+      name: 'Storefront UI',
+      description: 'Customer UI',
+      entryPointIds: ['ep-ui-checkout']
+    },
+    'component-2': {
+      id: 'component-2',
+      name: 'Payments API',
+      description: 'Payment processor',
+      entryPointIds: ['ep-payments-authorize', 'ep-payments-capture']
+    }
+  },
+  entryPoints: {
+    'ep-ui-checkout': {
+      id: 'ep-ui-checkout',
+      name: 'Start checkout',
+      description: '',
+      type: 'http',
+      protocol: 'HTTP',
+      method: 'POST',
+      path: '/checkout',
+      target: '',
+      requestModelIds: [],
+      responseModelIds: []
+    },
+    'ep-payments-authorize': {
+      id: 'ep-payments-authorize',
+      name: 'Authorize payment',
+      description: '',
+      type: 'http',
+      protocol: 'HTTP',
+      method: 'POST',
+      path: '/payments/authorize',
+      target: '',
+      requestModelIds: [],
+      responseModelIds: []
+    },
+    'ep-payments-capture': {
+      id: 'ep-payments-capture',
+      name: 'Capture payment',
+      description: '',
+      type: 'http',
+      protocol: 'HTTP',
+      method: 'POST',
+      path: '/payments/capture',
+      target: '',
+      requestModelIds: [],
+      responseModelIds: []
+    }
+  }
 };
 
 describe('FlowWorkspace', () => {

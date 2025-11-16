@@ -97,12 +97,17 @@ type CreateFlowInput = {
   steps?: unknown;
 };
 
+type StepEndpointInput = {
+  componentId?: unknown;
+  entryPointId?: unknown;
+};
+
 type StepInput = {
   id?: unknown;
   name: unknown;
   description?: unknown;
-  sourceSystemId: unknown;
-  targetSystemId: unknown;
+  source?: unknown;
+  target?: unknown;
   tags?: unknown;
   alternateFlowIds?: unknown;
 };
@@ -272,16 +277,6 @@ const ensureSystemScope = (project: Project, input: unknown): string[] => {
   }
 
   return scope;
-};
-
-const ensureSystemInScope = (project: Project, systemId: string, scope: Set<string>, role: string) => {
-  if (!project.systems[systemId]) {
-    throw new BadRequestError(`Step ${role} system ${systemId} does not exist in project ${project.id}`);
-  }
-
-  if (!scope.has(systemId)) {
-    throw new BadRequestError(`Step ${role} system ${systemId} must be part of the flow scope`);
-  }
 };
 
 const ensureAlternateFlows = (flowIds: Set<string>, value: unknown): string[] => {
@@ -701,13 +696,11 @@ const validateComponentEntryPointModels = (project: Project, entryPoints: Compon
 
 const sanitizeSteps = ({
   project,
-  scope,
   rawSteps,
   existingFlowIds,
   reuseSteps
 }: {
   project: Project;
-  scope: string[];
   rawSteps: unknown;
   existingFlowIds: Set<string>;
   reuseSteps?: Map<string, Step>;
@@ -720,8 +713,52 @@ const sanitizeSteps = ({
     throw new BadRequestError('Flow steps must be an array');
   }
 
-  const scopeSet = new Set(scope);
   const result: Step[] = [];
+
+  const sanitizeEndpoint = (raw: unknown, role: 'source' | 'target'): Step['source'] => {
+    if (!raw || typeof raw !== 'object') {
+      throw new BadRequestError(`Step ${role} must be an object`);
+    }
+
+    const input = raw as StepEndpointInput;
+    const componentId = ensureString(input.componentId);
+
+    if (!componentId) {
+      throw new BadRequestError(`Step ${role} component is required`);
+    }
+
+    const component = project.components[componentId];
+    if (!component) {
+      throw new BadRequestError(
+        `Step ${role} component ${componentId} does not exist in project ${project.id}`
+      );
+    }
+
+    const entryPointIdValue = ensureString(input.entryPointId);
+    let entryPointId: string | null = null;
+
+    if (entryPointIdValue) {
+      const entryPoint = project.entryPoints[entryPointIdValue];
+      if (!entryPoint) {
+        throw new BadRequestError(
+          `Step ${role} entry point ${entryPointIdValue} does not exist in project ${project.id}`
+        );
+      }
+
+      if (!component.entryPointIds.includes(entryPointIdValue)) {
+        throw new BadRequestError(
+          `Step ${role} entry point ${entryPointIdValue} must belong to component ${componentId}`
+        );
+      }
+
+      entryPointId = entryPointIdValue;
+    }
+
+    return {
+      componentId,
+      entryPointId
+    };
+  };
 
   for (const raw of rawSteps) {
     const stepInput = (raw && typeof raw === 'object' ? (raw as StepInput) : {}) as StepInput;
@@ -733,15 +770,8 @@ const sanitizeSteps = ({
     }
 
     const description = ensureString(stepInput.description);
-    const sourceSystemId = ensureString(stepInput.sourceSystemId);
-    const targetSystemId = ensureString(stepInput.targetSystemId);
-
-    if (!sourceSystemId || !targetSystemId) {
-      throw new BadRequestError('Step source and target systems are required');
-    }
-
-    ensureSystemInScope(project, sourceSystemId, scopeSet, 'source');
-    ensureSystemInScope(project, targetSystemId, scopeSet, 'target');
+    const source = sanitizeEndpoint(stepInput.source, 'source');
+    const target = sanitizeEndpoint(stepInput.target, 'target');
 
     const tags = ensureTags(stepInput.tags);
     const alternateFlowIds = ensureAlternateFlows(existingFlowIds, stepInput.alternateFlowIds);
@@ -758,22 +788,14 @@ const sanitizeSteps = ({
       id,
       name,
       description,
-      sourceSystemId,
-      targetSystemId,
+      source,
+      target,
       tags,
       alternateFlowIds
     });
   }
 
   return result;
-};
-
-const validateExistingStepsAgainstScope = (steps: Step[], project: Project, scope: string[]) => {
-  const scopeSet = new Set(scope);
-  for (const step of steps) {
-    ensureSystemInScope(project, step.sourceSystemId, scopeSet, 'source');
-    ensureSystemInScope(project, step.targetSystemId, scopeSet, 'target');
-  }
 };
 
 export const listProjects = async (persistence: PersistenceAdapter, userId: string) => {
@@ -1039,7 +1061,6 @@ export const createFlow = async (
   const existingFlowIds = new Set<string>([flowId, ...Object.keys(project.flows)]);
   const steps = sanitizeSteps({
     project,
-    scope: systemScopeIds,
     rawSteps: input.steps,
     existingFlowIds
   });
@@ -1085,13 +1106,11 @@ export const updateFlow = async (
   if (input.steps !== undefined) {
     steps = sanitizeSteps({
       project,
-      scope: systemScopeIds,
       rawSteps: input.steps,
       existingFlowIds,
       reuseSteps
     });
   } else {
-    validateExistingStepsAgainstScope(flow.steps, project, systemScopeIds);
     steps = flow.steps;
   }
 

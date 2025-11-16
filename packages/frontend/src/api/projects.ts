@@ -142,8 +142,14 @@ type StepPayload = {
   id?: string;
   name: string;
   description: string;
-  sourceSystemId: string;
-  targetSystemId: string;
+  source: {
+    componentId: string;
+    entryPointId?: string | null;
+  };
+  target: {
+    componentId: string;
+    entryPointId?: string | null;
+  };
   tags: string[];
   alternateFlowIds: string[];
 };
@@ -511,4 +517,3 @@ export type {
   ComponentPayload,
   ComponentEntryPointPayload
 };
-

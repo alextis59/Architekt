@@ -1,9 +1,14 @@
+export type StepEndpoint = {
+  componentId: string;
+  entryPointId: string | null;
+};
+
 export type Step = {
   id: string;
   name: string;
   description: string;
-  sourceSystemId: string;
-  targetSystemId: string;
+  source: StepEndpoint;
+  target: StepEndpoint;
   tags: string[];
   alternateFlowIds: string[];
 };
@@ -94,6 +99,7 @@ type UnknownRecord = Record<string, unknown> | undefined | null;
 
 type SanitizedEntity<T> = T & { id: string; name: string };
 
+type StepEndpointInput = Partial<StepEndpoint>;
 type StepInput = Partial<Step> & { id?: string };
 type FlowInput = Partial<Flow> & { id?: string; steps?: StepInput[] };
 type DataModelAttributeInput =
@@ -234,12 +240,23 @@ const sanitizeConstraintList = (raw: unknown): AttributeConstraint[] => {
   return result;
 };
 
+const sanitizeStepEndpoint = (raw: unknown): StepEndpoint => {
+  const candidate = (raw && typeof raw === 'object' ? (raw as StepEndpointInput) : {}) as StepEndpointInput;
+  const componentId = ensureString(candidate.componentId);
+  const entryPointId = ensureString(candidate.entryPointId);
+
+  return {
+    componentId,
+    entryPointId: entryPointId || null
+  };
+};
+
 const sanitizeStep = (raw: StepInput): Step => ({
   id: ensureString(raw?.id),
   name: ensureString(raw?.name),
   description: ensureString(raw?.description, ''),
-  sourceSystemId: ensureString(raw?.sourceSystemId),
-  targetSystemId: ensureString(raw?.targetSystemId),
+  source: sanitizeStepEndpoint(raw?.source),
+  target: sanitizeStepEndpoint(raw?.target),
   tags: ensureStringArray(raw?.tags),
   alternateFlowIds: ensureStringArray(raw?.alternateFlowIds)
 });

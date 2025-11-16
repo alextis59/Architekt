@@ -33,8 +33,14 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
               {
                 id: 'step-1',
                 name: 'Step 1',
-                sourceSystemId: 'root-1',
-                targetSystemId: 'root-1',
+                source: {
+                  componentId: 'component-1',
+                  entryPointId: ''
+                },
+                target: {
+                  componentId: 'component-1',
+                  entryPointId: ''
+                },
                 alternateFlowIds: ['']
               }
             ]
@@ -154,12 +160,29 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
                 id: 'step-1',
                 name: 'Valid Step',
                 description: null,
-                sourceSystemId: 'root',
-                targetSystemId: 'root',
+                source: {
+                  componentId: 'component-1',
+                  entryPointId: null
+                },
+                target: {
+                  componentId: 'component-2',
+                  entryPointId: null
+                },
                 tags: [''],
                 alternateFlowIds: ['alt']
               },
-              { id: 'step-2', name: '', sourceSystemId: 'root', targetSystemId: 'root' }
+              {
+                id: 'step-2',
+                name: '',
+                source: {
+                  componentId: 'component-1',
+                  entryPointId: null
+                },
+                target: {
+                  componentId: 'component-2',
+                  entryPointId: null
+                }
+              }
             ]
           },
           'missing-name': { id: 'missing-name', name: '', description: '', systemScopeIds: [], tags: [], steps: [] }

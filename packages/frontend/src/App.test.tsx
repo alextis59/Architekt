@@ -42,8 +42,14 @@ const project = {
           id: 'step-a',
           name: 'Initial step',
           description: 'Synthetic step for tests',
-          sourceSystemId: 'sys-1',
-          targetSystemId: 'sys-1',
+          source: {
+            componentId: 'component-1',
+            entryPointId: 'entry-1'
+          },
+          target: {
+            componentId: 'component-1',
+            entryPointId: 'entry-1'
+          },
           tags: ['demo'],
           alternateFlowIds: []
         }

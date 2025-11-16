@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import type { Flow, Project, System } from '@architekt/domain';
+import type {
+  Component,
+  ComponentEntryPoint,
+  Flow,
+  Project,
+  Step,
+  System
+} from '@architekt/domain';
 import {
   createFlow as createFlowRequest,
   deleteFlow as deleteFlowRequest,
@@ -37,15 +44,7 @@ type DeleteFlowMutationInput = {
   flowId: string;
 };
 
-export type FlowDraftStep = {
-  id?: string;
-  name: string;
-  description: string;
-  sourceSystemId: string;
-  targetSystemId: string;
-  tags: string[];
-  alternateFlowIds: string[];
-};
+export type FlowDraftStep = { id?: string } & Omit<Step, 'id'>;
 
 export type FlowDraft = {
   id?: string;
@@ -87,6 +86,8 @@ const parseTagInput = (input: string): string[] =>
 
 const cloneDraftStep = (step: FlowDraftStep): FlowDraftStep => ({
   ...step,
+  source: { ...step.source },
+  target: { ...step.target },
   tags: [...step.tags],
   alternateFlowIds: [...step.alternateFlowIds]
 });
@@ -120,8 +121,14 @@ export const toFlowPayload = (draft: FlowDraft, options: { includeIds?: boolean 
       id: includeIds ? step.id : undefined,
       name: step.name.trim(),
       description: step.description.trim(),
-      sourceSystemId: step.sourceSystemId,
-      targetSystemId: step.targetSystemId,
+      source: {
+        componentId: step.source.componentId,
+        entryPointId: step.source.entryPointId ?? null
+      },
+      target: {
+        componentId: step.target.componentId,
+        entryPointId: step.target.entryPointId ?? null
+      },
       tags: sanitizeTagList(step.tags),
       alternateFlowIds: Array.from(new Set(step.alternateFlowIds))
     }))
@@ -181,7 +188,6 @@ export const validateFlowDraft = (draft: FlowDraft, project: Project): FlowValid
     result.flow.push('Some scoped systems are no longer available in the project.');
   }
 
-  const scopeSet = new Set(validScope);
   const stepNames = new Map<string, number>();
   const flowIds = new Set(Object.keys(project.flows));
   if (draft.id) {
@@ -210,20 +216,44 @@ export const validateFlowDraft = (draft: FlowDraft, project: Project): FlowValid
       }
     }
 
-    if (!step.sourceSystemId) {
-      errors.push('Select a source system.');
+    const sourceComponentId = step.source.componentId.trim();
+    if (!sourceComponentId) {
+      errors.push('Select a source component.');
+    } else if (!project.components[sourceComponentId]) {
+      errors.push('Source component is no longer available in the project.');
     }
 
-    if (!step.targetSystemId) {
-      errors.push('Select a target system.');
+    const targetComponentId = step.target.componentId.trim();
+    if (!targetComponentId) {
+      errors.push('Select a target component.');
+    } else if (!project.components[targetComponentId]) {
+      errors.push('Target component is no longer available in the project.');
     }
 
-    if (step.sourceSystemId && !scopeSet.has(step.sourceSystemId)) {
-      errors.push('Source system must be part of the flow scope.');
+    const sourceEntryPointId = step.source.entryPointId ? step.source.entryPointId.trim() : '';
+    if (sourceEntryPointId) {
+      if (!project.entryPoints[sourceEntryPointId]) {
+        errors.push('Source entry point is no longer available in the project.');
+      } else if (
+        sourceComponentId &&
+        project.components[sourceComponentId] &&
+        !project.components[sourceComponentId]?.entryPointIds.includes(sourceEntryPointId)
+      ) {
+        errors.push('Source entry point must belong to the selected component.');
+      }
     }
 
-    if (step.targetSystemId && !scopeSet.has(step.targetSystemId)) {
-      errors.push('Target system must be part of the flow scope.');
+    const targetEntryPointId = step.target.entryPointId ? step.target.entryPointId.trim() : '';
+    if (targetEntryPointId) {
+      if (!project.entryPoints[targetEntryPointId]) {
+        errors.push('Target entry point is no longer available in the project.');
+      } else if (
+        targetComponentId &&
+        project.components[targetComponentId] &&
+        !project.components[targetComponentId]?.entryPointIds.includes(targetEntryPointId)
+      ) {
+        errors.push('Target entry point must belong to the selected component.');
+      }
     }
 
     if (step.alternateFlowIds.some((id) => !flowIds.has(id))) {
@@ -247,11 +277,13 @@ export const validateFlowDraft = (draft: FlowDraft, project: Project): FlowValid
 
 const FlowLinearView = ({
   steps,
-  systemsById,
+  componentsById,
+  entryPointsById,
   flowsById
 }: {
   steps: FlowDraftStep[];
-  systemsById: Record<string, System>;
+  componentsById: Record<string, Component>;
+  entryPointsById: Record<string, ComponentEntryPoint>;
   flowsById: Record<string, Flow>;
 }) => {
   if (steps.length === 0) {
@@ -261,8 +293,14 @@ const FlowLinearView = ({
   return (
     <div className="flow-linear-view">
       {steps.map((step, index) => {
-        const source = systemsById[step.sourceSystemId];
-        const target = systemsById[step.targetSystemId];
+        const sourceComponent = componentsById[step.source.componentId];
+        const targetComponent = componentsById[step.target.componentId];
+        const sourceEntryPoint = step.source.entryPointId
+          ? entryPointsById[step.source.entryPointId]
+          : undefined;
+        const targetEntryPoint = step.target.entryPointId
+          ? entryPointsById[step.target.entryPointId]
+          : undefined;
         return (
           <article key={step.id ?? `${step.name}-${index}`} className="flow-step-card">
             <header className="flow-step-header">
@@ -280,8 +318,23 @@ const FlowLinearView = ({
               )}
             </header>
             <p className="step-systems">
-              <strong>From:</strong> {source?.name ?? 'Unknown'} <span aria-hidden="true">→</span>{' '}
-              <strong>To:</strong> {target?.name ?? 'Unknown'}
+              <strong>From:</strong>{' '}
+              {sourceComponent?.name ?? 'Unknown'}
+              {sourceEntryPoint && (
+                <>
+                  {' '}
+                  <span className="entry-point-label">({sourceEntryPoint.name})</span>
+                </>
+              )}{' '}
+              <span aria-hidden="true">→</span>{' '}
+              <strong>To:</strong>{' '}
+              {targetComponent?.name ?? 'Unknown'}
+              {targetEntryPoint && (
+                <>
+                  {' '}
+                  <span className="entry-point-label">({targetEntryPoint.name})</span>
+                </>
+              )}
             </p>
             {step.description && <p className="step-description">{step.description}</p>}
             {step.alternateFlowIds.length > 0 && (
@@ -395,11 +448,13 @@ const FlowGraphView = ({ steps, flowsById }: { steps: FlowDraftStep[]; flowsById
 
 const FlowPlaybackView = ({
   steps,
-  systemsById,
+  componentsById,
+  entryPointsById,
   flowsById
 }: {
   steps: FlowDraftStep[];
-  systemsById: Record<string, System>;
+  componentsById: Record<string, Component>;
+  entryPointsById: Record<string, ComponentEntryPoint>;
   flowsById: Record<string, Flow>;
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -429,8 +484,14 @@ const FlowPlaybackView = ({
   }
 
   const step = steps[currentIndex];
-  const source = systemsById[step.sourceSystemId];
-  const target = systemsById[step.targetSystemId];
+  const sourceComponent = componentsById[step.source.componentId];
+  const targetComponent = componentsById[step.target.componentId];
+  const sourceEntryPoint = step.source.entryPointId
+    ? entryPointsById[step.source.entryPointId]
+    : undefined;
+  const targetEntryPoint = step.target.entryPointId
+    ? entryPointsById[step.target.entryPointId]
+    : undefined;
 
   const handleNext = () => {
     setCurrentIndex((prev) => (prev + 1 < steps.length ? prev + 1 : prev));
@@ -471,7 +532,22 @@ const FlowPlaybackView = ({
       <article className="playback-card">
         <h4>{step.name || `Step ${currentIndex + 1}`}</h4>
         <p>
-          <strong>From:</strong> {source?.name ?? 'Unknown'} → <strong>To:</strong> {target?.name ?? 'Unknown'}
+          <strong>From:</strong>{' '}
+          {sourceComponent?.name ?? 'Unknown'}
+          {sourceEntryPoint && (
+            <>
+              {' '}
+              <span className="entry-point-label">({sourceEntryPoint.name})</span>
+            </>
+          )}{' '}
+          → <strong>To:</strong>{' '}
+          {targetComponent?.name ?? 'Unknown'}
+          {targetEntryPoint && (
+            <>
+              {' '}
+              <span className="entry-point-label">({targetEntryPoint.name})</span>
+            </>
+          )}
         </p>
         {step.description && <p>{step.description}</p>}
         {step.alternateFlowIds.length > 0 && (
@@ -578,6 +654,22 @@ const FlowWorkspace = () => {
 
   const systems = useMemo(() => (project ? Object.values(project.systems) : []), [project]);
   const systemsById = project?.systems ?? {};
+  const components = useMemo(() => (project ? Object.values(project.components) : []), [project]);
+  const componentsById = project?.components ?? {};
+  const entryPointsById = project?.entryPoints ?? {};
+  const entryPointsByComponentId = useMemo(() => {
+    if (!project) {
+      return {} as Record<string, ComponentEntryPoint[]>;
+    }
+
+    const map: Record<string, ComponentEntryPoint[]> = {};
+    for (const component of Object.values(project.components)) {
+      map[component.id] = component.entryPointIds
+        .map((entryPointId) => project.entryPoints[entryPointId])
+        .filter((entryPoint): entryPoint is ComponentEntryPoint => Boolean(entryPoint));
+    }
+    return map;
+  }, [project]);
   const flows = useMemo(
     () => (project ? Object.values(project.flows).sort((a, b) => a.name.localeCompare(b.name)) : []),
     [project]
@@ -778,8 +870,14 @@ const FlowWorkspace = () => {
         id: step.id,
         name: step.name,
         description: step.description,
-        sourceSystemId: step.sourceSystemId,
-        targetSystemId: step.targetSystemId,
+        source: {
+          componentId: step.source.componentId,
+          entryPointId: step.source.entryPointId ?? null
+        },
+        target: {
+          componentId: step.target.componentId,
+          entryPointId: step.target.entryPointId ?? null
+        },
         tags: step.tags,
         alternateFlowIds: step.alternateFlowIds
       }))
@@ -824,6 +922,7 @@ const FlowWorkspace = () => {
     };
 
     const scope = determineScope();
+    const defaultComponentId = components[0]?.id ?? '';
 
     const draftTemplate: FlowDraft = {
       ...createEmptyFlowDraft(scope),
@@ -836,8 +935,14 @@ const FlowWorkspace = () => {
             id: step.id,
             name: step.name ?? '',
             description: step.description ?? '',
-            sourceSystemId: step.sourceSystemId ?? scope[0] ?? '',
-            targetSystemId: step.targetSystemId ?? scope[0] ?? '',
+            source: {
+              componentId: step.source?.componentId ?? defaultComponentId,
+              entryPointId: step.source?.entryPointId ?? null
+            },
+            target: {
+              componentId: step.target?.componentId ?? defaultComponentId,
+              entryPointId: step.target?.entryPointId ?? null
+            },
             tags: step.tags ? [...step.tags] : [],
             alternateFlowIds: step.alternateFlowIds ? [...step.alternateFlowIds] : []
           }))
@@ -922,12 +1027,18 @@ const FlowWorkspace = () => {
       return;
     }
 
-    const defaultSystem = draft.systemScopeIds[0] ?? '';
+    const defaultComponentId = components[0]?.id ?? '';
     const newStep: FlowDraftStep = {
       name: '',
       description: '',
-      sourceSystemId: defaultSystem,
-      targetSystemId: defaultSystem,
+      source: {
+        componentId: defaultComponentId,
+        entryPointId: null
+      },
+      target: {
+        componentId: defaultComponentId,
+        entryPointId: null
+      },
       tags: [],
       alternateFlowIds: []
     };
@@ -1045,8 +1156,14 @@ const FlowWorkspace = () => {
           description: step.description
             ? `Derived from ${step.name || `step ${index + 1}`}: ${step.description}`
             : `Alternate path derived from ${step.name || `step ${index + 1}`}`,
-          sourceSystemId: step.sourceSystemId,
-          targetSystemId: step.targetSystemId,
+          source: {
+            componentId: step.source.componentId,
+            entryPointId: step.source.entryPointId
+          },
+          target: {
+            componentId: step.target.componentId,
+            entryPointId: step.target.entryPointId
+          },
           tags: [],
           alternateFlowIds: []
         }
@@ -1095,6 +1212,14 @@ const FlowWorkspace = () => {
     [systems]
   );
 
+  const componentOptions = useMemo(
+    () => [...components].sort((a, b) => a.name.localeCompare(b.name)),
+    [components]
+  );
+
+  const getEntryPointsForComponent = (componentId: string): ComponentEntryPoint[] =>
+    entryPointsByComponentId[componentId] ?? [];
+
   const scopedSystems = draft
     ? draft.systemScopeIds
         .map((id) => systemsById[id])
@@ -1116,9 +1241,23 @@ const FlowWorkspace = () => {
       case 'graph':
         return <FlowGraphView steps={displayedSteps} flowsById={flowsById} />;
       case 'playback':
-        return <FlowPlaybackView steps={displayedSteps} systemsById={systemsById} flowsById={flowsById} />;
+        return (
+          <FlowPlaybackView
+            steps={displayedSteps}
+            componentsById={componentsById}
+            entryPointsById={entryPointsById}
+            flowsById={flowsById}
+          />
+        );
       default:
-        return <FlowLinearView steps={displayedSteps} systemsById={systemsById} flowsById={flowsById} />;
+        return (
+          <FlowLinearView
+            steps={displayedSteps}
+            componentsById={componentsById}
+            entryPointsById={entryPointsById}
+            flowsById={flowsById}
+          />
+        );
     }
   };
 
@@ -1442,33 +1581,97 @@ const FlowWorkspace = () => {
                         </label>
                         <div className="step-system-row">
                           <label className="field">
-                            <span>Source system</span>
+                            <span>Source component</span>
                             <select
-                              value={step.sourceSystemId}
-                              onChange={(event) =>
-                                updateStepAt(index, (current) => ({ ...current, sourceSystemId: event.target.value }))
-                              }
+                              value={step.source.componentId}
+                              onChange={(event) => {
+                                const componentId = event.target.value;
+                                updateStepAt(index, (current) => ({
+                                  ...current,
+                                  source: {
+                                    componentId,
+                                    entryPointId: null
+                                  }
+                                }));
+                              }}
                             >
-                              <option value="">Select system</option>
-                              {scopedSystems.map((system) => (
-                                <option key={system.id} value={system.id}>
-                                  {system.name}
+                              <option value="">Select component</option>
+                              {componentOptions.map((component) => (
+                                <option key={component.id} value={component.id}>
+                                  {component.name}
                                 </option>
                               ))}
                             </select>
                           </label>
                           <label className="field">
-                            <span>Target system</span>
+                            <span>Target component</span>
                             <select
-                              value={step.targetSystemId}
-                              onChange={(event) =>
-                                updateStepAt(index, (current) => ({ ...current, targetSystemId: event.target.value }))
-                              }
+                              value={step.target.componentId}
+                              onChange={(event) => {
+                                const componentId = event.target.value;
+                                updateStepAt(index, (current) => ({
+                                  ...current,
+                                  target: {
+                                    componentId,
+                                    entryPointId: null
+                                  }
+                                }));
+                              }}
                             >
-                              <option value="">Select system</option>
-                              {scopedSystems.map((system) => (
-                                <option key={system.id} value={system.id}>
-                                  {system.name}
+                              <option value="">Select component</option>
+                              {componentOptions.map((component) => (
+                                <option key={component.id} value={component.id}>
+                                  {component.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <div className="step-system-row">
+                          <label className="field">
+                            <span>Source entry point (optional)</span>
+                            <select
+                              value={step.source.entryPointId ?? ''}
+                              onChange={(event) => {
+                                const entryPointId = event.target.value || null;
+                                updateStepAt(index, (current) => ({
+                                  ...current,
+                                  source: {
+                                    ...current.source,
+                                    entryPointId
+                                  }
+                                }));
+                              }}
+                              disabled={!step.source.componentId}
+                            >
+                              <option value="">No entry point</option>
+                              {getEntryPointsForComponent(step.source.componentId).map((entryPoint) => (
+                                <option key={entryPoint.id} value={entryPoint.id}>
+                                  {entryPoint.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span>Target entry point (optional)</span>
+                            <select
+                              value={step.target.entryPointId ?? ''}
+                              onChange={(event) => {
+                                const entryPointId = event.target.value || null;
+                                updateStepAt(index, (current) => ({
+                                  ...current,
+                                  target: {
+                                    ...current.target,
+                                    entryPointId
+                                  }
+                                }));
+                              }}
+                              disabled={!step.target.componentId}
+                            >
+                              <option value="">No entry point</option>
+                              {getEntryPointsForComponent(step.target.componentId).map((entryPoint) => (
+                                <option key={entryPoint.id} value={entryPoint.id}>
+                                  {entryPoint.name}
                                 </option>
                               ))}
                             </select>

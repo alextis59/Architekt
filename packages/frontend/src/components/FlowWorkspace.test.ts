@@ -36,8 +36,40 @@ describe('FlowWorkspace helpers', () => {
     },
     flows: {},
     dataModels: {},
-    components: {},
-    entryPoints: {}
+    components: {
+      'component-1': {
+        id: 'component-1',
+        name: 'Component 1',
+        description: '',
+        entryPointIds: ['ep-1', 'ep-2']
+      }
+    },
+    entryPoints: {
+      'ep-1': {
+        id: 'ep-1',
+        name: 'Endpoint 1',
+        description: '',
+        type: 'http',
+        protocol: 'HTTP',
+        method: 'GET',
+        path: '/one',
+        target: '',
+        requestModelIds: [],
+        responseModelIds: []
+      },
+      'ep-2': {
+        id: 'ep-2',
+        name: 'Endpoint 2',
+        description: '',
+        type: 'http',
+        protocol: 'HTTP',
+        method: 'POST',
+        path: '/two',
+        target: '',
+        requestModelIds: [],
+        responseModelIds: []
+      }
+    }
   };
 
   it('creates drafts from flows and converts them back to sanitized payloads', () => {
@@ -52,8 +84,14 @@ describe('FlowWorkspace helpers', () => {
           id: 'step-1',
           name: 'Validate cart',
           description: 'Ensure items are valid',
-          sourceSystemId: 'sys-1',
-          targetSystemId: 'sys-2',
+          source: {
+            componentId: 'component-1',
+            entryPointId: 'ep-1'
+          },
+          target: {
+            componentId: 'component-1',
+            entryPointId: 'ep-2'
+          },
           tags: ['validate', 'validate'],
           alternateFlowIds: ['flow-2', 'flow-2']
         }
@@ -75,8 +113,14 @@ describe('FlowWorkspace helpers', () => {
           id: 'step-1',
           name: 'Validate cart',
           description: 'Ensure items are valid',
-          sourceSystemId: 'sys-1',
-          targetSystemId: 'sys-2',
+          source: {
+            componentId: 'component-1',
+            entryPointId: 'ep-1'
+          },
+          target: {
+            componentId: 'component-1',
+            entryPointId: 'ep-2'
+          },
           tags: ['validate'],
           alternateFlowIds: ['flow-2']
         }
@@ -89,8 +133,14 @@ describe('FlowWorkspace helpers', () => {
     draft.steps.push({
       name: ' ',
       description: '',
-      sourceSystemId: '',
-      targetSystemId: '',
+      source: {
+        componentId: '',
+        entryPointId: null
+      },
+      target: {
+        componentId: '',
+        entryPointId: null
+      },
       tags: ['a', ''],
       alternateFlowIds: ['flow-1', 'flow-1']
     });
@@ -99,8 +149,8 @@ describe('FlowWorkspace helpers', () => {
     expect(validation.isValid).toBe(false);
     expect(validation.flow).toContain('Flow name is required.');
     expect(validation.steps[0]).toContain('Step name is required.');
-    expect(validation.steps[0]).toContain('Select a source system.');
-    expect(validation.steps[0]).toContain('Select a target system.');
+    expect(validation.steps[0]).toContain('Select a source component.');
+    expect(validation.steps[0]).toContain('Select a target component.');
   });
 
   it('collects tag sets from projects and drafts', () => {
@@ -132,8 +182,14 @@ describe('FlowWorkspace helpers', () => {
     draft.steps.push({
       name: 'Step',
       description: '',
-      sourceSystemId: 'sys-1',
-      targetSystemId: 'sys-1',
+      source: {
+        componentId: 'component-1',
+        entryPointId: 'ep-1'
+      },
+      target: {
+        componentId: 'component-1',
+        entryPointId: 'ep-2'
+      },
       tags: ['tag-a', 'tag-b', 'tag-a'],
       alternateFlowIds: []
     });

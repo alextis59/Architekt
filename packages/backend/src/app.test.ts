@@ -404,6 +404,16 @@ test('Flow endpoints manage flows and steps with validation', async () => {
 
   const scope = [rootSystemId, serviceSystemId];
 
+  const sourceComponentCreation = await request(app)
+    .post(`/api/projects/${projectId}/components`)
+    .send({ name: 'Root Component' });
+  const sourceComponentId = sourceComponentCreation.body.component.id;
+
+  const targetComponentCreation = await request(app)
+    .post(`/api/projects/${projectId}/components`)
+    .send({ name: 'Service Component' });
+  const targetComponentId = targetComponentCreation.body.component.id;
+
   const flowCreation = await request(app)
     .post(`/api/projects/${projectId}/flows`)
     .send({
@@ -415,8 +425,12 @@ test('Flow endpoints manage flows and steps with validation', async () => {
         {
           name: 'Authenticate',
           description: 'Entry point',
-          sourceSystemId: rootSystemId,
-          targetSystemId: serviceSystemId,
+          source: {
+            componentId: sourceComponentId
+          },
+          target: {
+            componentId: targetComponentId
+          },
           tags: ['auth'],
           alternateFlowIds: []
         }
@@ -443,8 +457,12 @@ test('Flow endpoints manage flows and steps with validation', async () => {
       steps: [
         {
           name: 'Retry',
-          sourceSystemId: serviceSystemId,
-          targetSystemId: rootSystemId,
+          source: {
+            componentId: targetComponentId
+          },
+          target: {
+            componentId: sourceComponentId
+          },
           alternateFlowIds: [flow.id]
         }
       ]
@@ -461,15 +479,23 @@ test('Flow endpoints manage flows and steps with validation', async () => {
         {
           id: stepId,
           name: 'Authenticate',
-          sourceSystemId: rootSystemId,
-          targetSystemId: serviceSystemId,
+          source: {
+            componentId: sourceComponentId
+          },
+          target: {
+            componentId: targetComponentId
+          },
           tags: ['auth', 'updated'],
           alternateFlowIds: [alternateFlowId]
         },
         {
           name: 'Dispatch',
-          sourceSystemId: serviceSystemId,
-          targetSystemId: serviceSystemId
+          source: {
+            componentId: targetComponentId
+          },
+          target: {
+            componentId: targetComponentId
+          }
         }
       ]
     });
@@ -500,6 +526,16 @@ test('GET /projects/:projectId/flows applies optional filters', async () => {
     .send({ name: 'Service Layer' });
   const serviceSystemId = systemCreation.body.system.id;
 
+  const rootComponentCreation = await request(app)
+    .post(`/api/projects/${projectId}/components`)
+    .send({ name: 'Root Component' });
+  const rootComponentId = rootComponentCreation.body.component.id;
+
+  const serviceComponentCreation = await request(app)
+    .post(`/api/projects/${projectId}/components`)
+    .send({ name: 'Service Component' });
+  const serviceComponentId = serviceComponentCreation.body.component.id;
+
   const sharedTags = ['shared'];
 
   const flowOne = await request(app)
@@ -511,8 +547,12 @@ test('GET /projects/:projectId/flows applies optional filters', async () => {
       steps: [
         {
           name: 'Authenticate',
-          sourceSystemId: rootSystemId,
-          targetSystemId: serviceSystemId
+          source: {
+            componentId: rootComponentId
+          },
+          target: {
+            componentId: serviceComponentId
+          }
         }
       ]
     });
@@ -527,8 +567,12 @@ test('GET /projects/:projectId/flows applies optional filters', async () => {
       steps: [
         {
           name: 'Process',
-          sourceSystemId: serviceSystemId,
-          targetSystemId: serviceSystemId
+          source: {
+            componentId: serviceComponentId
+          },
+          target: {
+            componentId: serviceComponentId
+          }
         }
       ]
     });
@@ -543,8 +587,12 @@ test('GET /projects/:projectId/flows applies optional filters', async () => {
       steps: [
         {
           name: 'Initialize',
-          sourceSystemId: rootSystemId,
-          targetSystemId: rootSystemId
+          source: {
+            componentId: rootComponentId
+          },
+          target: {
+            componentId: rootComponentId
+          }
         }
       ]
     });
@@ -599,6 +647,16 @@ test('Flow endpoints enforce scope and reference validation', async () => {
     .send({ name: 'Worker' });
   const workerId = serviceCreation.body.system.id;
 
+  const rootComponentCreation = await request(app)
+    .post(`/api/projects/${projectId}/components`)
+    .send({ name: 'Root Component' });
+  const rootComponentId = rootComponentCreation.body.component.id;
+
+  const workerComponentCreation = await request(app)
+    .post(`/api/projects/${projectId}/components`)
+    .send({ name: 'Worker Component' });
+  const workerComponentId = workerComponentCreation.body.component.id;
+
   const invalidStep = await request(app)
     .post(`/api/projects/${projectId}/flows`)
     .send({
@@ -607,14 +665,23 @@ test('Flow endpoints enforce scope and reference validation', async () => {
       steps: [
         {
           name: 'Process',
-          sourceSystemId: rootSystemId,
-          targetSystemId: workerId
+          source: {
+            componentId: 'missing-component',
+            entryPointId: null
+          },
+          target: {
+            componentId: 'missing-component',
+            entryPointId: null
+          }
         }
       ]
     });
 
   assert.equal(invalidStep.status, 400);
-  assert.equal(invalidStep.body.message, `Step target system ${workerId} must be part of the flow scope`);
+  assert.equal(
+    invalidStep.body.message,
+    `Step source component missing-component does not exist in project ${projectId}`
+  );
 
   const validFlow = await request(app)
     .post(`/api/projects/${projectId}/flows`)
@@ -624,8 +691,12 @@ test('Flow endpoints enforce scope and reference validation', async () => {
       steps: [
         {
           name: 'Process',
-          sourceSystemId: rootSystemId,
-          targetSystemId: workerId
+          source: {
+            componentId: rootComponentId
+          },
+          target: {
+            componentId: workerComponentId
+          }
         }
       ]
     });
@@ -639,8 +710,12 @@ test('Flow endpoints enforce scope and reference validation', async () => {
         {
           id: validFlow.body.flow.steps[0].id,
           name: 'Process',
-          sourceSystemId: rootSystemId,
-          targetSystemId: workerId,
+          source: {
+            componentId: rootComponentId
+          },
+          target: {
+            componentId: workerComponentId
+          },
           alternateFlowIds: ['unknown']
         }
       ]
@@ -649,13 +724,9 @@ test('Flow endpoints enforce scope and reference validation', async () => {
   assert.equal(invalidAlternate.status, 400);
   assert.equal(invalidAlternate.body.message, 'Alternate flow unknown is not part of the project');
 
-  const invalidScopeUpdate = await request(app)
+  const scopeUpdate = await request(app)
     .put(`/api/projects/${projectId}/flows/${flowId}`)
     .send({ systemScopeIds: [rootSystemId] });
 
-  assert.equal(invalidScopeUpdate.status, 400);
-  assert.equal(
-    invalidScopeUpdate.body.message,
-    `Step target system ${workerId} must be part of the flow scope`
-  );
+  assert.equal(scopeUpdate.status, 200);
 });

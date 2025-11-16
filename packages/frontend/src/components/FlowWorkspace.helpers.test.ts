@@ -19,8 +19,14 @@ const baseFlow: Flow = {
       id: 'step-1',
       name: 'Validate cart',
       description: 'Ensure items are available',
-      sourceSystemId: 'sys-1',
-      targetSystemId: 'sys-2',
+      source: {
+        componentId: 'component-1',
+        entryPointId: 'ep-ui-checkout'
+      },
+      target: {
+        componentId: 'component-2',
+        entryPointId: 'ep-payments-authorize'
+      },
       tags: ['validation'],
       alternateFlowIds: []
     },
@@ -28,8 +34,14 @@ const baseFlow: Flow = {
       id: 'step-2',
       name: 'Process payment',
       description: 'Charge credit card',
-      sourceSystemId: 'sys-2',
-      targetSystemId: 'sys-2',
+      source: {
+        componentId: 'component-2',
+        entryPointId: 'ep-payments-authorize'
+      },
+      target: {
+        componentId: 'component-2',
+        entryPointId: 'ep-payments-capture'
+      },
       tags: ['billing'],
       alternateFlowIds: []
     }
@@ -47,8 +59,14 @@ const alternateFlow: Flow = {
       id: 'step-3',
       name: 'Retry payment',
       description: 'Retry with alternate provider',
-      sourceSystemId: 'sys-2',
-      targetSystemId: 'sys-2',
+      source: {
+        componentId: 'component-2',
+        entryPointId: 'ep-payments-authorize'
+      },
+      target: {
+        componentId: 'component-2',
+        entryPointId: 'ep-payments-capture'
+      },
       tags: ['billing', 'retry'],
       alternateFlowIds: []
     }
@@ -82,6 +100,58 @@ const project: Project = {
   flows: {
     'flow-1': baseFlow,
     'flow-2': alternateFlow
+  },
+  components: {
+    'component-1': {
+      id: 'component-1',
+      name: 'Storefront UI',
+      description: 'Browser experience',
+      entryPointIds: ['ep-ui-checkout']
+    },
+    'component-2': {
+      id: 'component-2',
+      name: 'Payments API',
+      description: 'Charges credit cards',
+      entryPointIds: ['ep-payments-authorize', 'ep-payments-capture']
+    }
+  },
+  entryPoints: {
+    'ep-ui-checkout': {
+      id: 'ep-ui-checkout',
+      name: 'Begin checkout',
+      description: 'Starts the checkout flow',
+      type: 'http',
+      protocol: 'HTTP',
+      method: 'POST',
+      path: '/checkout',
+      target: '',
+      requestModelIds: [],
+      responseModelIds: []
+    },
+    'ep-payments-authorize': {
+      id: 'ep-payments-authorize',
+      name: 'Authorize payment',
+      description: 'Authorizes card',
+      type: 'http',
+      protocol: 'HTTP',
+      method: 'POST',
+      path: '/payments/authorize',
+      target: '',
+      requestModelIds: [],
+      responseModelIds: []
+    },
+    'ep-payments-capture': {
+      id: 'ep-payments-capture',
+      name: 'Capture payment',
+      description: 'Captures authorized payment',
+      type: 'http',
+      protocol: 'HTTP',
+      method: 'POST',
+      path: '/payments/capture',
+      target: '',
+      requestModelIds: [],
+      responseModelIds: []
+    }
   }
 };
 
@@ -120,12 +190,18 @@ describe('validateFlowDraft', () => {
     const draft = createDraftFromFlow(baseFlow);
     draft.name = 'Updated checkout';
     draft.systemScopeIds = ['sys-1'];
-    // Duplicate step name and out of scope system
+    // Duplicate step name and invalid component / entry point references
     draft.steps[1] = {
       ...draft.steps[1],
       name: 'Validate cart',
-      sourceSystemId: 'sys-2',
-      targetSystemId: 'sys-2'
+      source: {
+        componentId: 'missing-component',
+        entryPointId: 'missing-entry'
+      },
+      target: {
+        componentId: 'component-2',
+        entryPointId: 'missing-entry'
+      }
     };
 
     const result = validateFlowDraft(draft, project);
@@ -133,8 +209,9 @@ describe('validateFlowDraft', () => {
     expect(result.steps[0]).toContain('Step name must be unique.');
     expect(result.steps[1]).toEqual([
       'Step name must be unique.',
-      'Source system must be part of the flow scope.',
-      'Target system must be part of the flow scope.'
+      'Source component is no longer available in the project.',
+      'Source entry point is no longer available in the project.',
+      'Target entry point is no longer available in the project.'
     ]);
   });
 
