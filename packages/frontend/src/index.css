@@ -1059,18 +1059,19 @@ button.danger:hover:not(:disabled),
 
 .regex-builder-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.35rem;
 }
 
 .regex-builder-length {
   display: grid;
-  grid-template-columns: auto repeat(5, minmax(80px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.35rem;
   align-items: center;
 }
 
 .regex-builder-length .length-label {
+  grid-column: 1 / -1;
   font-size: 0.9rem;
   font-weight: 600;
   color: #312e81;
