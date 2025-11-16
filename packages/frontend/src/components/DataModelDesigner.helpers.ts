@@ -90,7 +90,14 @@ export const createEmptyDataModelDraft = (): DataModelDraft => ({
   attributes: []
 });
 
-const toAttributePayload = (attribute: AttributeDraft): DataModelAttributePayload => {
+type AttributePayloadOptions = {
+  includeIds?: boolean;
+};
+
+const toAttributePayload = (
+  attribute: AttributeDraft,
+  { includeIds = true }: AttributePayloadOptions = {}
+): DataModelAttributePayload => {
   const constraintMap = new Map<AttributeConstraintDraft['type'], DataModelAttributePayload['constraints'][number]>();
 
   for (const constraint of attribute.constraints) {
@@ -142,23 +149,26 @@ const toAttributePayload = (attribute: AttributeDraft): DataModelAttributePayloa
     }
   }
 
+  const type = attribute.type.trim();
   const payload: DataModelAttributePayload = {
     name: attribute.name.trim(),
     description: attribute.description.trim(),
-    type: attribute.type.trim(),
+    type,
     required: attribute.required,
     unique: attribute.unique,
     constraints: Array.from(constraintMap.values()),
     readOnly: attribute.readOnly,
     encrypted: attribute.encrypted,
-    attributes: attribute.attributes.map(toAttributePayload)
+    ...(type.toLowerCase() === 'object'
+      ? { attributes: attribute.attributes.map((child) => toAttributePayload(child, { includeIds })) }
+      : {})
   };
 
   if (attribute.type.trim().toLowerCase() === 'array' && attribute.element) {
-    payload.element = toAttributePayload(attribute.element);
+    payload.element = toAttributePayload(attribute.element, { includeIds });
   }
 
-  if (attribute.id) {
+  if (includeIds && attribute.id) {
     payload.id = attribute.id;
   }
 
@@ -169,5 +179,11 @@ export const toDataModelPayload = (draft: DataModelDraft): DataModelPayload => (
   name: draft.name.trim(),
   description: draft.description.trim(),
   attributes: draft.attributes.map(toAttributePayload)
+});
+
+export const toExportableDataModelPayload = (draft: DataModelDraft): DataModelPayload => ({
+  name: draft.name.trim(),
+  description: draft.description.trim(),
+  attributes: draft.attributes.map((attribute) => toAttributePayload(attribute, { includeIds: false }))
 });
 
