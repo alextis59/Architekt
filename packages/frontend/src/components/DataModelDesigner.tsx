@@ -1407,263 +1407,265 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
         <p id={modalDescriptionId} className="modal-description">
           Update attribute metadata, validation constraints, and protection flags.
         </p>
-        <form className="modal-form attribute-modal-form" onSubmit={handleSubmit}>
-          <label className="field">
-            <span>Name</span>
-            <input
-              type="text"
-              ref={nameFieldRef}
-              value={formState.name}
-              onChange={(event) =>
-                setFormState((previous) => ({ ...previous, name: event.target.value }))
-              }
-              required
-            />
-          </label>
-          <label className="field">
-            <span>Type</span>
-            <select
-              value={formState.type}
-              onChange={(event) => {
-                const nextType = event.target.value;
-                setFormState((previous) => ({
-                  ...previous,
-                  type: nextType,
-                  constraints: []
-                }));
-                setElementError(null);
-                if (nextType.trim().toLowerCase() !== 'array') {
-                  setElementState(null);
+        <div className="modal-body">
+          <form className="modal-form attribute-modal-form" onSubmit={handleSubmit}>
+            <label className="field">
+              <span>Name</span>
+              <input
+                type="text"
+                ref={nameFieldRef}
+                value={formState.name}
+                onChange={(event) =>
+                  setFormState((previous) => ({ ...previous, name: event.target.value }))
                 }
-              }}
-              required
-            >
-              <option value="" disabled>
-                Select type
-              </option>
-              {TYPE_OPTIONS.map((type) => (
-                <option key={type} value={type}>
-                  {type}
+                required
+              />
+            </label>
+            <label className="field">
+              <span>Type</span>
+              <select
+                value={formState.type}
+                onChange={(event) => {
+                  const nextType = event.target.value;
+                  setFormState((previous) => ({
+                    ...previous,
+                    type: nextType,
+                    constraints: []
+                  }));
+                  setElementError(null);
+                  if (nextType.trim().toLowerCase() !== 'array') {
+                    setElementState(null);
+                  }
+                }}
+                required
+              >
+                <option value="" disabled>
+                  Select type
                 </option>
-              ))}
-            </select>
-          </label>
-          <div className="field constraint-field">
-            <span>Constraints</span>
-            <ConstraintEditor
-              attributeType={formState.type}
-              constraints={formState.constraints}
-              onChange={(constraints) =>
-                setFormState((previous) => ({ ...previous, constraints }))
-              }
-            />
-          </div>
-          {isArrayType && (
-            <div className="field array-element-field">
-              <div className="array-element-header">
-                <span>Array elements</span>
+                {TYPE_OPTIONS.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="field constraint-field">
+              <span>Constraints</span>
+              <ConstraintEditor
+                attributeType={formState.type}
+                constraints={formState.constraints}
+                onChange={(constraints) =>
+                  setFormState((previous) => ({ ...previous, constraints }))
+                }
+              />
+            </div>
+            {isArrayType && (
+              <div className="field array-element-field">
+                <div className="array-element-header">
+                  <span>Array elements</span>
+                  {elementState ? (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setElementState(null)}
+                    >
+                      Remove element
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setElementState(createEmptyAttributeDraft())}
+                    >
+                      Define element
+                    </button>
+                  )}
+                </div>
                 {elementState ? (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => setElementState(null)}
-                  >
-                    Remove element
-                  </button>
+                  <div className="array-element-form">
+                    <label className="field">
+                      <span>Element name</span>
+                      <input
+                        type="text"
+                        value={elementState.name}
+                        onChange={(event) =>
+                          setElementState((previous) =>
+                            previous ? { ...previous, name: event.target.value } : previous
+                          )
+                        }
+                        required
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Element type</span>
+                      <select
+                        value={elementState.type}
+                        onChange={(event) =>
+                          setElementState((previous) =>
+                            previous
+                              ? {
+                                  ...previous,
+                                  type: event.target.value,
+                                  constraints: []
+                                }
+                              : previous
+                          )
+                        }
+                        required
+                      >
+                        <option value="" disabled>
+                          Select type
+                        </option>
+                        {TYPE_OPTIONS.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="field constraint-field">
+                      <span>Element constraints</span>
+                      <ConstraintEditor
+                        attributeType={elementState.type}
+                        constraints={elementState.constraints}
+                        onChange={(constraints) =>
+                          setElementState((previous) =>
+                            previous ? { ...previous, constraints } : previous
+                          )
+                        }
+                      />
+                    </div>
+                    <label className="field">
+                      <span>Element description</span>
+                      <textarea
+                        value={elementState.description}
+                        onChange={(event) =>
+                          setElementState((previous) =>
+                            previous ? { ...previous, description: event.target.value } : previous
+                          )
+                        }
+                        rows={3}
+                      />
+                    </label>
+                    <label className="checkbox-field">
+                      <input
+                        type="checkbox"
+                        checked={elementState.required}
+                        onChange={(event) =>
+                          setElementState((previous) =>
+                            previous ? { ...previous, required: event.target.checked } : previous
+                          )
+                        }
+                      />
+                      <span>Required</span>
+                    </label>
+                    <label className="checkbox-field">
+                      <input
+                        type="checkbox"
+                        checked={elementState.unique}
+                        onChange={(event) =>
+                          setElementState((previous) =>
+                            previous ? { ...previous, unique: event.target.checked } : previous
+                          )
+                        }
+                      />
+                      <span>Unique</span>
+                    </label>
+                    <label className="checkbox-field">
+                      <input
+                        type="checkbox"
+                        checked={elementState.readOnly}
+                        onChange={(event) =>
+                          setElementState((previous) =>
+                            previous ? { ...previous, readOnly: event.target.checked } : previous
+                          )
+                        }
+                      />
+                      <span>Read-only</span>
+                    </label>
+                    <label className="checkbox-field">
+                      <input
+                        type="checkbox"
+                        checked={elementState.encrypted}
+                        onChange={(event) =>
+                          setElementState((previous) =>
+                            previous ? { ...previous, encrypted: event.target.checked } : previous
+                          )
+                        }
+                      />
+                      <span>Encrypted</span>
+                    </label>
+                  </div>
                 ) : (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => setElementState(createEmptyAttributeDraft())}
-                  >
-                    Define element
-                  </button>
+                  <p className="status">No element definition provided.</p>
+                )}
+                {elementError && (
+                  <p className="status error" role="alert">
+                    {elementError}
+                  </p>
                 )}
               </div>
-              {elementState ? (
-                <div className="array-element-form">
-                  <label className="field">
-                    <span>Element name</span>
-                    <input
-                      type="text"
-                      value={elementState.name}
-                      onChange={(event) =>
-                        setElementState((previous) =>
-                          previous ? { ...previous, name: event.target.value } : previous
-                        )
-                      }
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Element type</span>
-                    <select
-                      value={elementState.type}
-                      onChange={(event) =>
-                        setElementState((previous) =>
-                          previous
-                            ? {
-                                ...previous,
-                                type: event.target.value,
-                                constraints: []
-                              }
-                            : previous
-                        )
-                      }
-                      required
-                    >
-                      <option value="" disabled>
-                        Select type
-                      </option>
-                      {TYPE_OPTIONS.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="field constraint-field">
-                    <span>Element constraints</span>
-                    <ConstraintEditor
-                      attributeType={elementState.type}
-                      constraints={elementState.constraints}
-                      onChange={(constraints) =>
-                        setElementState((previous) =>
-                          previous ? { ...previous, constraints } : previous
-                        )
-                      }
-                    />
-                  </div>
-                  <label className="field">
-                    <span>Element description</span>
-                    <textarea
-                      value={elementState.description}
-                      onChange={(event) =>
-                        setElementState((previous) =>
-                          previous ? { ...previous, description: event.target.value } : previous
-                        )
-                      }
-                      rows={3}
-                    />
-                  </label>
-                  <label className="checkbox-field">
-                    <input
-                      type="checkbox"
-                      checked={elementState.required}
-                      onChange={(event) =>
-                        setElementState((previous) =>
-                          previous ? { ...previous, required: event.target.checked } : previous
-                        )
-                      }
-                    />
-                    <span>Required</span>
-                  </label>
-                  <label className="checkbox-field">
-                    <input
-                      type="checkbox"
-                      checked={elementState.unique}
-                      onChange={(event) =>
-                        setElementState((previous) =>
-                          previous ? { ...previous, unique: event.target.checked } : previous
-                        )
-                      }
-                    />
-                    <span>Unique</span>
-                  </label>
-                  <label className="checkbox-field">
-                    <input
-                      type="checkbox"
-                      checked={elementState.readOnly}
-                      onChange={(event) =>
-                        setElementState((previous) =>
-                          previous ? { ...previous, readOnly: event.target.checked } : previous
-                        )
-                      }
-                    />
-                    <span>Read-only</span>
-                  </label>
-                  <label className="checkbox-field">
-                    <input
-                      type="checkbox"
-                      checked={elementState.encrypted}
-                      onChange={(event) =>
-                        setElementState((previous) =>
-                          previous ? { ...previous, encrypted: event.target.checked } : previous
-                        )
-                      }
-                    />
-                    <span>Encrypted</span>
-                  </label>
-                </div>
-              ) : (
-                <p className="status">No element definition provided.</p>
-              )}
-              {elementError && (
-                <p className="status error" role="alert">
-                  {elementError}
-                </p>
-              )}
+            )}
+            <label className="field">
+              <span>Description</span>
+              <textarea
+                value={formState.description}
+                onChange={(event) =>
+                  setFormState((previous) => ({ ...previous, description: event.target.value }))
+                }
+                rows={3}
+              />
+            </label>
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={formState.required}
+                onChange={(event) =>
+                  setFormState((previous) => ({ ...previous, required: event.target.checked }))
+                }
+              />
+              <span>Required</span>
+            </label>
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={formState.unique}
+                onChange={(event) =>
+                  setFormState((previous) => ({ ...previous, unique: event.target.checked }))
+                }
+              />
+              <span>Unique</span>
+            </label>
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={formState.readOnly}
+                onChange={(event) =>
+                  setFormState((previous) => ({ ...previous, readOnly: event.target.checked }))
+                }
+              />
+              <span>Read-only</span>
+            </label>
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={formState.encrypted}
+                onChange={(event) =>
+                  setFormState((previous) => ({ ...previous, encrypted: event.target.checked }))
+                }
+              />
+              <span>Encrypted</span>
+            </label>
+            <div className="modal-actions">
+              <button type="button" className="secondary" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="submit" className="primary">
+                Save attribute
+              </button>
             </div>
-          )}
-          <label className="field">
-            <span>Description</span>
-            <textarea
-              value={formState.description}
-              onChange={(event) =>
-                setFormState((previous) => ({ ...previous, description: event.target.value }))
-              }
-              rows={3}
-            />
-          </label>
-          <label className="checkbox-field">
-            <input
-              type="checkbox"
-              checked={formState.required}
-              onChange={(event) =>
-                setFormState((previous) => ({ ...previous, required: event.target.checked }))
-              }
-            />
-            <span>Required</span>
-          </label>
-          <label className="checkbox-field">
-            <input
-              type="checkbox"
-              checked={formState.unique}
-              onChange={(event) =>
-                setFormState((previous) => ({ ...previous, unique: event.target.checked }))
-              }
-            />
-            <span>Unique</span>
-          </label>
-          <label className="checkbox-field">
-            <input
-              type="checkbox"
-              checked={formState.readOnly}
-              onChange={(event) =>
-                setFormState((previous) => ({ ...previous, readOnly: event.target.checked }))
-              }
-            />
-            <span>Read-only</span>
-          </label>
-          <label className="checkbox-field">
-            <input
-              type="checkbox"
-              checked={formState.encrypted}
-              onChange={(event) =>
-                setFormState((previous) => ({ ...previous, encrypted: event.target.checked }))
-              }
-            />
-            <span>Encrypted</span>
-          </label>
-          <div className="modal-actions">
-            <button type="button" className="secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="primary">
-              Save attribute
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
