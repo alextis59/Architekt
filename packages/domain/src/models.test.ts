@@ -57,6 +57,7 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
                 unique: null,
                 readOnly: 'no',
                 encrypted: 'yes',
+                private: 'ignored',
                 attributes: [
                   { id: 'attr-child', name: 'unused', description: '', type: '' },
                   { id: 'attr-child-2', name: 'Legal', description: null, type: 'object', attributes: null }
@@ -109,10 +110,12 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
   assert.deepEqual(attribute.constraints, []);
   assert.equal(attribute.readOnly, false);
   assert.equal(attribute.encrypted, false);
+  assert.equal(attribute.private, false);
   assert.equal(attribute.attributes.length, 1);
   assert.equal(attribute.attributes[0].id, 'attr-child-2');
   assert.equal(attribute.attributes[0].required, false);
   assert.equal(attribute.attributes[0].unique, false);
+  assert.equal(attribute.attributes[0].private, false);
   assert.equal(Object.keys(project.components).length, 1);
   const component = project.components['component-1'];
   assert.ok(component);
@@ -165,7 +168,15 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
             name: 'Model',
             description: null,
             attributes: [
-              { id: 'attr-keep', name: 'Attribute', type: 'string', description: null, readOnly: true, encrypted: true },
+              {
+                id: 'attr-keep',
+                name: 'Attribute',
+                type: 'string',
+                description: null,
+                readOnly: true,
+                encrypted: true,
+                private: true
+              },
               { id: 'attr-drop', name: '', type: 'string' }
             ]
           },
@@ -211,6 +222,7 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
   assert.equal(project.dataModels['valid-model'].attributes.length, 1);
   assert.equal(project.dataModels['valid-model'].attributes[0].readOnly, true);
   assert.equal(project.dataModels['valid-model'].attributes[0].encrypted, true);
+  assert.equal(project.dataModels['valid-model'].attributes[0].private, true);
   assert.deepEqual(Object.keys(project.components), ['valid-component']);
   assert.equal(project.components['valid-component'].entryPoints.length, 1);
   assert.deepEqual(project.components['valid-component'].entryPoints[0].requestModelIds, ['valid-model']);

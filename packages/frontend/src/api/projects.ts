@@ -188,6 +188,7 @@ type DataModelAttributePayload = {
   constraints: AttributeConstraintPayload[];
   readOnly: boolean;
   encrypted: boolean;
+  private: boolean;
   attributes?: DataModelAttributePayload[];
   element?: DataModelAttributePayload | null;
 };
@@ -294,6 +295,7 @@ const sanitizeAttributePayload = (
     constraints,
     readOnly: Boolean(attribute.readOnly),
     encrypted: Boolean(attribute.encrypted),
+    private: Boolean(attribute.private),
     ...(isObjectType
       ? {
           attributes: attributes

@@ -170,6 +170,7 @@ describe('projects API helpers', () => {
           ],
           readOnly: true,
           encrypted: false,
+          private: false,
           attributes: [
             {
               name: 'Child',
@@ -193,6 +194,7 @@ describe('projects API helpers', () => {
           constraints: [],
           readOnly: false,
           encrypted: false,
+          private: false,
           attributes: []
         }
       ]
@@ -220,7 +222,8 @@ describe('projects API helpers', () => {
             { type: 'minLength', value: 5 }
           ],
           readOnly: true,
-          encrypted: false
+          encrypted: false,
+          private: false
         }
       ]
     });

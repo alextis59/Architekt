@@ -15,6 +15,7 @@ export type AttributeDraft = {
   constraints: AttributeConstraintDraft[];
   readOnly: boolean;
   encrypted: boolean;
+  private: boolean;
   attributes: AttributeDraft[];
   element: AttributeDraft | null;
 };
@@ -51,6 +52,7 @@ export const createEmptyAttributeDraft = (): AttributeDraft => ({
   constraints: [],
   readOnly: false,
   encrypted: false,
+  private: false,
   attributes: [],
   element: null
 });
@@ -73,6 +75,7 @@ const createAttributeDraftFromModel = (attribute: DataModel['attributes'][number
   })),
   readOnly: attribute.readOnly,
   encrypted: attribute.encrypted,
+  private: attribute.private,
   attributes: attribute.attributes.map(createAttributeDraftFromModel),
   element: attribute.element ? createAttributeDraftFromModel(attribute.element) : null
 });
@@ -159,6 +162,7 @@ const toAttributePayload = (
     constraints: Array.from(constraintMap.values()),
     readOnly: attribute.readOnly,
     encrypted: attribute.encrypted,
+    private: attribute.private,
     ...(type.toLowerCase() === 'object'
       ? { attributes: attribute.attributes.map((child) => toAttributePayload(child, { includeIds })) }
       : {})
