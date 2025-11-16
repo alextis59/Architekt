@@ -82,11 +82,32 @@ const normalizeIdentifiers = (identifiers: string[]): string[] => {
   return [...seen];
 };
 
+const mapModelIdentifiers = (
+  identifiers: string[],
+  modelLookup?: Map<string, string>
+): string[] => {
+  const normalized = normalizeIdentifiers(identifiers);
+
+  if (!modelLookup) {
+    return normalized;
+  }
+
+  const resolved = new Set<string>();
+  for (const identifier of normalized) {
+    const name = (modelLookup.get(identifier) ?? identifier).trim();
+    if (name.length > 0) {
+      resolved.add(name);
+    }
+  }
+
+  return [...resolved];
+};
+
 const toEntryPointPayload = (
   entryPoint: EntryPointDraft,
-  options: { includeIds?: boolean } = {}
+  options: { includeIds?: boolean; modelLookup?: Map<string, string> } = {}
 ): ComponentEntryPointPayload => {
-  const { includeIds = true } = options;
+  const { includeIds = true, modelLookup } = options;
   const payload: ComponentEntryPointPayload = {
     name: entryPoint.name.trim(),
     description: entryPoint.description.trim(),
@@ -94,8 +115,8 @@ const toEntryPointPayload = (
     protocol: entryPoint.protocol.trim(),
     method: entryPoint.method.trim(),
     path: entryPoint.path.trim(),
-    requestModelIds: normalizeIdentifiers(entryPoint.requestModelIds),
-    responseModelIds: normalizeIdentifiers(entryPoint.responseModelIds)
+    requestModelIds: mapModelIdentifiers(entryPoint.requestModelIds, modelLookup),
+    responseModelIds: mapModelIdentifiers(entryPoint.responseModelIds, modelLookup)
   };
 
   if (includeIds && entryPoint.id) {
@@ -111,10 +132,13 @@ export const toComponentPayload = (draft: ComponentDraft): ComponentPayload => (
   entryPoints: draft.entryPoints.map(toEntryPointPayload)
 });
 
-export const toExportableComponentPayload = (draft: ComponentDraft): ComponentPayload => ({
+export const toExportableComponentPayload = (
+  draft: ComponentDraft,
+  modelLookup?: Map<string, string>
+): ComponentPayload => ({
   name: draft.name.trim(),
   description: draft.description.trim(),
   entryPoints: draft.entryPoints.map((entryPoint) =>
-    toEntryPointPayload(entryPoint, { includeIds: false })
+    toEntryPointPayload(entryPoint, { includeIds: false, modelLookup })
   )
 });
