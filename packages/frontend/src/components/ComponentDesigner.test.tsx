@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Project } from '@architekt/domain';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -40,6 +40,17 @@ const resetStore = () => {
     selectedComponentId: null
   });
 };
+
+const createDataTransferMock = (): DataTransfer =>
+  ({
+    dropEffect: 'move',
+    effectAllowed: 'move',
+    files: [],
+    items: [],
+    types: [],
+    setData: vi.fn(),
+    getData: vi.fn()
+  } as unknown as DataTransfer);
 
 const projectFixture: Project = {
   id: 'proj-1',
@@ -295,6 +306,127 @@ describe('ComponentDesigner', () => {
 
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: 'Edit component' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('duplicates an entry point and places the copy after the source', async () => {
+    const user = userEvent.setup();
+    const queryClient = createTestQueryClient();
+    const project = structuredClone(projectFixture);
+
+    apiMocks.fetchProjectDetails.mockImplementation(async () => project);
+
+    await act(async () => {
+      useProjectStore.setState({
+        selectedProjectId: 'proj-1',
+        selectedSystemId: null,
+        selectedFlowId: null,
+        selectedDataModelId: null,
+        selectedComponentId: 'comp-1'
+      });
+    });
+
+    queryClient.setQueryData(queryKeys.project('proj-1'), project);
+
+    await act(async () => {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <ComponentDesigner />
+        </QueryClientProvider>
+      );
+    });
+
+    const entryPointCards = await screen.findAllByRole('article');
+    expect(entryPointCards).toHaveLength(1);
+
+    await user.click(
+      within(entryPointCards[0]).getByRole('button', { name: /Get customer/ })
+    );
+
+    const duplicateButton = await within(entryPointCards[0]).findByRole('button', {
+      name: 'Duplicate entry point'
+    });
+
+    await act(async () => {
+      await user.click(duplicateButton);
+    });
+
+    await waitFor(() => {
+      const updatedCards = screen.getAllByRole('article');
+      expect(updatedCards).toHaveLength(2);
+      expect(within(updatedCards[0]).getByText('Get customer')).toBeInTheDocument();
+      expect(within(updatedCards[1]).getByText('Get customer (copy)')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled();
+    });
+  });
+
+  it('reorders entry points via drag and drop', async () => {
+    const queryClient = createTestQueryClient();
+    const project = structuredClone(projectFixture);
+
+    project.components['comp-1'].entryPointIds = ['entry-1', 'entry-2'];
+    project.entryPoints['entry-2'] = {
+      ...project.entryPoints['entry-1'],
+      id: 'entry-2',
+      name: 'Update customer',
+      method: 'PUT'
+    };
+
+    apiMocks.fetchProjectDetails.mockImplementation(async () => project);
+
+    await act(async () => {
+      useProjectStore.setState({
+        selectedProjectId: 'proj-1',
+        selectedSystemId: null,
+        selectedFlowId: null,
+        selectedDataModelId: null,
+        selectedComponentId: 'comp-1'
+      });
+    });
+
+    queryClient.setQueryData(queryKeys.project('proj-1'), project);
+
+    await act(async () => {
+      render(
+        <QueryClientProvider client={queryClient}>
+          <ComponentDesigner />
+        </QueryClientProvider>
+      );
+    });
+
+    const getEntryPointNames = () =>
+      screen
+        .getAllByRole('article')
+        .map(
+          (card) =>
+            within(card)
+              .getByText((_, element) => element?.classList.contains('entry-point-name') ?? false)
+              .textContent?.trim() ?? ''
+        );
+
+    await screen.findAllByRole('article');
+    expect(getEntryPointNames()).toEqual(['Get customer', 'Update customer']);
+
+    const entryPointCards = screen.getAllByRole('article');
+    const dragHandle = entryPointCards[1].querySelector('.entry-point-drag-handle');
+    expect(dragHandle).not.toBeNull();
+
+    const dataTransfer = createDataTransferMock();
+
+    await act(async () => {
+      fireEvent.dragStart(dragHandle!, { dataTransfer });
+      fireEvent.dragEnter(entryPointCards[0], { dataTransfer });
+      fireEvent.dragOver(entryPointCards[0], { dataTransfer });
+      fireEvent.drop(entryPointCards[0], { dataTransfer });
+      fireEvent.dragEnd(dragHandle!, { dataTransfer });
+    });
+
+    await waitFor(() => {
+      expect(getEntryPointNames()).toEqual(['Update customer', 'Get customer']);
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeEnabled();
     });
   });
 

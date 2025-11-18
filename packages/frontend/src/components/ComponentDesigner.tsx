@@ -23,6 +23,7 @@ import {
   toComponentPayload,
   toExportableComponentPayload
 } from './ComponentDesigner.helpers.js';
+import { generateLocalId } from './DataModelDesigner.helpers.js';
 import {
   ENTRY_POINT_METHOD_OPTIONS,
   ENTRY_POINT_PROTOCOL_OPTIONS,
@@ -105,12 +106,15 @@ const ComponentDesigner = () => {
   const [entryPointModalDraft, setEntryPointModalDraft] = useState<EntryPointDraft | null>(null);
   const [entryPointFormError, setEntryPointFormError] = useState<string | null>(null);
   const [expandedEntryPointIds, setExpandedEntryPointIds] = useState<Set<string>>(() => new Set());
+  const [draggingEntryPointId, setDraggingEntryPointId] = useState<string | null>(null);
+  const [dragOverEntryPointId, setDragOverEntryPointId] = useState<string | null>(null);
 
   const createNameFieldRef = useRef<HTMLInputElement | null>(null);
   const editNameFieldRef = useRef<HTMLInputElement | null>(null);
   const entryPointNameFieldRef = useRef<HTMLInputElement | null>(null);
   const modalActivatorRef = useRef<HTMLElement | null>(null);
   const previousDraftStateRef = useRef<{ draft: ComponentDraft | null; isDirty: boolean } | null>(null);
+  const draggingEntryPointIdRef = useRef<string | null>(null);
 
   const projectQuery = useQuery({
     queryKey: selectedProjectId ? queryKeys.project(selectedProjectId) : ['project', 'none'],
@@ -426,6 +430,45 @@ const ComponentDesigner = () => {
     closeEntryPointModal();
   };
 
+  const handleDuplicateEntryPoint = (entryPointId: string) => {
+    let duplicatedEntryPointId: string | null = null;
+
+    setDraft((previous) => {
+      if (!previous) {
+        return previous;
+      }
+
+      const index = previous.entryPoints.findIndex((entryPoint) => entryPoint.localId === entryPointId);
+      if (index === -1) {
+        return previous;
+      }
+
+      const entryPoint = previous.entryPoints[index];
+      const duplicate: EntryPointDraft = {
+        ...cloneEntryPointDraft(entryPoint),
+        id: undefined,
+        localId: generateLocalId(),
+        name: entryPoint.name ? `${entryPoint.name} (copy)` : ''
+      };
+
+      duplicatedEntryPointId = duplicate.localId;
+      setIsDirty(true);
+
+      return {
+        ...previous,
+        entryPoints: [
+          ...previous.entryPoints.slice(0, index + 1),
+          duplicate,
+          ...previous.entryPoints.slice(index + 1)
+        ]
+      };
+    });
+
+    if (duplicatedEntryPointId) {
+      setExpandedEntryPointIds((previous) => new Set(previous).add(duplicatedEntryPointId!));
+    }
+  };
+
   const handleRemoveEntryPoint = (entryPointId: string) => {
     setDraft((previous) => {
       if (!previous) {
@@ -442,6 +485,43 @@ const ComponentDesigner = () => {
       const next = new Set(previous);
       next.delete(entryPointId);
       return next;
+    });
+  };
+
+  const moveEntryPoint = (sourceId: string, targetId: string | null) => {
+    setDraft((previous) => {
+      if (!previous) {
+        return previous;
+      }
+
+      const sourceIndex = previous.entryPoints.findIndex((entryPoint) => entryPoint.localId === sourceId);
+      if (sourceIndex === -1) {
+        return previous;
+      }
+
+      if (targetId === sourceId || (targetId === null && sourceIndex === previous.entryPoints.length - 1)) {
+        return previous;
+      }
+
+      const entryPoints = [...previous.entryPoints];
+      const [moved] = entryPoints.splice(sourceIndex, 1);
+
+      if (targetId === null) {
+        entryPoints.push(moved);
+      } else {
+        const targetIndex = entryPoints.findIndex((entryPoint) => entryPoint.localId === targetId);
+        if (targetIndex === -1) {
+          return previous;
+        }
+
+        entryPoints.splice(targetIndex, 0, moved);
+      }
+      setIsDirty(true);
+
+      return {
+        ...previous,
+        entryPoints
+      };
     });
   };
 
@@ -540,6 +620,36 @@ const ComponentDesigner = () => {
       }
       return next;
     });
+  };
+
+  const handleEntryPointDragStart = (entryPointId: string) => {
+    draggingEntryPointIdRef.current = entryPointId;
+    setDraggingEntryPointId(entryPointId);
+    setDragOverEntryPointId(entryPointId);
+  };
+
+  const handleEntryPointDragEnter = (entryPointId: string) => {
+    if (dragOverEntryPointId !== entryPointId) {
+      setDragOverEntryPointId(entryPointId);
+    }
+  };
+
+  const handleEntryPointDrop = (entryPointId: string) => {
+    if (draggingEntryPointIdRef.current) {
+      moveEntryPoint(draggingEntryPointIdRef.current, entryPointId);
+    }
+    draggingEntryPointIdRef.current = null;
+    setDraggingEntryPointId(null);
+    setDragOverEntryPointId(null);
+  };
+
+  const handleEntryPointsDrop = () => {
+    if (draggingEntryPointIdRef.current) {
+      moveEntryPoint(draggingEntryPointIdRef.current, null);
+    }
+    draggingEntryPointIdRef.current = null;
+    setDraggingEntryPointId(null);
+    setDragOverEntryPointId(null);
   };
 
   const openCreateModal = () => {
@@ -773,7 +883,23 @@ const ComponentDesigner = () => {
                         New entry point
                       </button>
                     </div>
-                    <div className="entry-points">
+                    <div
+                      className="entry-points"
+                      onDragOver={(event) => {
+                        if (!draggingEntryPointId) {
+                          return;
+                        }
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = 'move';
+                      }}
+                      onDrop={(event) => {
+                        if (!draggingEntryPointId) {
+                          return;
+                        }
+                        event.preventDefault();
+                        handleEntryPointsDrop();
+                      }}
+                    >
                       {draft.entryPoints.length === 0 && (
                         <p className="status">No entry points yet. Add your first entry point.</p>
                       )}
@@ -785,9 +911,30 @@ const ComponentDesigner = () => {
                           expandedEntryPointIds={expandedEntryPointIds}
                           onToggle={toggleEntryPointExpansion}
                           onEdit={openEditEntryPointModal}
+                          onDuplicate={handleDuplicateEntryPoint}
                           onRemove={handleRemoveEntryPoint}
+                          onDragStart={handleEntryPointDragStart}
+                          onDragEnter={handleEntryPointDragEnter}
+                          onDrop={handleEntryPointDrop}
+                          onDragEnd={handleEntryPointsDrop}
+                          isDragging={draggingEntryPointId === entryPoint.localId}
+                          isDropTarget={dragOverEntryPointId === entryPoint.localId}
                         />
                       ))}
+                      {draggingEntryPointId && (
+                        <div
+                          className="entry-point-dropzone"
+                          onDragOver={(event) => {
+                            event.preventDefault();
+                            event.dataTransfer.dropEffect = 'move';
+                          }}
+                          onDrop={(event) => {
+                            event.preventDefault();
+                            handleEntryPointsDrop();
+                          }}
+                          aria-label="Move entry point to end"
+                        />
+                      )}
                     </div>
                     <footer className="component-actions">
                       <button type="submit" className="primary" disabled={!canSave || isMutating}>
@@ -984,7 +1131,14 @@ type EntryPointItemProps = {
   expandedEntryPointIds: Set<string>;
   onToggle: (entryPointId: string) => void;
   onEdit: (entryPointId: string) => void;
+  onDuplicate: (entryPointId: string) => void;
   onRemove: (entryPointId: string) => void;
+  onDragStart: (entryPointId: string) => void;
+  onDragEnter: (entryPointId: string) => void;
+  onDrop: (entryPointId: string) => void;
+  onDragEnd: () => void;
+  isDragging: boolean;
+  isDropTarget: boolean;
 };
 
 const EntryPointItem = ({
@@ -993,7 +1147,14 @@ const EntryPointItem = ({
   expandedEntryPointIds,
   onToggle,
   onEdit,
-  onRemove
+  onDuplicate,
+  onRemove,
+  onDragStart,
+  onDragEnter,
+  onDrop,
+  onDragEnd,
+  isDragging,
+  isDropTarget
 }: EntryPointItemProps) => {
   const isExpanded = expandedEntryPointIds.has(entryPoint.localId);
   const displayName = entryPoint.name.trim() || 'Untitled entry point';
@@ -1019,8 +1180,46 @@ const EntryPointItem = ({
       : entryPoint.responseModelIds.map((id) => dataModelLookup.get(id) ?? 'Unknown model');
 
   return (
-    <article className="entry-point-card">
+    <article
+      className={clsx('entry-point-card', {
+        'entry-point-dragging': isDragging,
+        'entry-point-drop-target': isDropTarget && !isDragging
+      })}
+      onDragEnter={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onDragEnter(entryPoint.localId);
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = 'move';
+        onDragEnter(entryPoint.localId);
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onDrop(entryPoint.localId);
+      }}
+    >
       <div className="entry-point-header">
+        <button
+          type="button"
+          className="icon-button entry-point-drag-handle"
+          aria-label="Reorder entry point"
+          draggable
+          onDragStart={(event) => {
+            event.stopPropagation();
+            event.dataTransfer.effectAllowed = 'move';
+            onDragStart(entryPoint.localId);
+          }}
+          onDragEnd={(event) => {
+            event.stopPropagation();
+            onDragEnd();
+          }}
+        >
+          ☰
+        </button>
         <button
           type="button"
           className="entry-point-toggle"
@@ -1091,6 +1290,9 @@ const EntryPointItem = ({
           <div className="entry-point-actions">
             <button type="button" className="secondary" onClick={() => onEdit(entryPoint.localId)}>
               Edit entry point
+            </button>
+            <button type="button" className="secondary" onClick={() => onDuplicate(entryPoint.localId)}>
+              Duplicate entry point
             </button>
             <button type="button" className="danger" onClick={() => onRemove(entryPoint.localId)}>
               Remove

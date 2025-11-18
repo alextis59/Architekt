@@ -1638,6 +1638,7 @@ button.danger:hover:not(:disabled),
   display: flex;
   align-items: center;
   background: rgba(248, 250, 252, 0.85);
+  gap: 0.4rem;
 }
 
 .entry-point-toggle {
@@ -1654,6 +1655,25 @@ button.danger:hover:not(:disabled),
   color: #1e293b;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
+}
+
+.entry-point-drag-handle {
+  border: none;
+  background: none;
+  color: #475569;
+  cursor: grab;
+  padding: 0.65rem 0.4rem 0.65rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1;
+  border-radius: 14px;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.entry-point-drag-handle:focus-visible,
+.entry-point-drag-handle:hover {
+  color: #312e81;
+  background: rgba(129, 140, 248, 0.18);
+  outline: none;
 }
 
 .entry-point-toggle:hover,
@@ -1678,6 +1698,16 @@ button.danger:hover:not(:disabled),
   flex-direction: column;
   gap: 0.15rem;
   min-width: 0;
+}
+
+.entry-point-card.entry-point-dragging {
+  opacity: 0.75;
+}
+
+.entry-point-card.entry-point-drop-target {
+  outline: 2px dashed rgba(99, 102, 241, 0.7);
+  outline-offset: -10px;
+  background: rgba(224, 231, 255, 0.35);
 }
 
 .entry-point-name {
@@ -1750,6 +1780,18 @@ button.danger:hover:not(:disabled),
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 0.5rem;
+}
+
+.entry-point-dropzone {
+  border: 1px dashed rgba(99, 102, 241, 0.6);
+  border-radius: 14px;
+  height: 2.75rem;
+  margin-top: -0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4338ca;
+  background: rgba(224, 231, 255, 0.25);
 }
 
 .association-group {
