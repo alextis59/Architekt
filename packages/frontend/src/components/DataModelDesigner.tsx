@@ -84,6 +84,40 @@ const cloneDraft = (draft: DataModelDraft): DataModelDraft => ({
   attributes: draft.attributes.map(cloneAttributeDraft)
 });
 
+const collectAttributeIds = (attributes: AttributeDraft[]): Set<string> => {
+  const ids = new Set<string>();
+  const visit = (attribute: AttributeDraft) => {
+    ids.add(attribute.localId);
+    attribute.attributes.forEach(visit);
+    if (attribute.element) {
+      visit(attribute.element);
+    }
+  };
+
+  attributes.forEach(visit);
+  return ids;
+};
+
+const retainExpandedAttributeIds = (
+  expanded: Set<string>,
+  draft: DataModelDraft | null
+): Set<string> => {
+  if (!draft) {
+    return new Set<string>();
+  }
+
+  const validIds = collectAttributeIds(draft.attributes);
+  const next = new Set<string>();
+
+  expanded.forEach((id) => {
+    if (validIds.has(id)) {
+      next.add(id);
+    }
+  });
+
+  return next;
+};
+
 type UpdateAttributeFn = (attribute: AttributeDraft) => AttributeDraft;
 
 const updateAttributeInList = (
@@ -166,6 +200,7 @@ const DataModelDesigner = () => {
   const [activeAttributeId, setActiveAttributeId] = useState<string | null>(null);
   const [pendingAutoSave, setPendingAutoSave] = useState(false);
   const previousDraftStateRef = useRef<{ draft: DataModelDraft | null; isDirty: boolean } | null>(null);
+  const previousDataModelIdRef = useRef<string | null>(null);
 
   const createNameFieldRef = useRef<HTMLInputElement | null>(null);
   const editNameFieldRef = useRef<HTMLInputElement | null>(null);
@@ -208,13 +243,22 @@ const DataModelDesigner = () => {
       setIsDirty(false);
       setExpandedAttributeIds(new Set());
       setActiveAttributeId(null);
+      previousDataModelIdRef.current = selectedDataModelId ?? null;
       return;
     }
 
-    setDraft(createDataModelDraft(project.dataModels[selectedDataModelId]));
+    const nextDraft = createDataModelDraft(project.dataModels[selectedDataModelId]);
+    setDraft(nextDraft);
     setIsDirty(false);
-    setExpandedAttributeIds(new Set());
-    setActiveAttributeId(null);
+    setExpandedAttributeIds((previous) =>
+      selectedDataModelId !== previousDataModelIdRef.current
+        ? new Set<string>()
+        : retainExpandedAttributeIds(previous, nextDraft)
+    );
+    setActiveAttributeId((current) =>
+      selectedDataModelId !== previousDataModelIdRef.current ? null : current
+    );
+    previousDataModelIdRef.current = selectedDataModelId;
   }, [project, selectedDataModelId]);
 
   const createDataModelMutation = useMutation({
@@ -258,6 +302,7 @@ const DataModelDesigner = () => {
       payload: DataModelPayload;
     }) => updateDataModel(projectId, dataModelId, payload),
     onSuccess: (dataModel, variables) => {
+      const nextDraft = createDataModelDraft(dataModel);
       queryClient.setQueryData<Project | undefined>(queryKeys.project(variables.projectId), (previous) => {
         if (!previous) {
           return previous;
@@ -271,9 +316,9 @@ const DataModelDesigner = () => {
           }
         };
       });
-      setDraft(createDataModelDraft(dataModel));
+      setDraft(nextDraft);
       setIsDirty(false);
-      setExpandedAttributeIds(new Set());
+      setExpandedAttributeIds((previous) => retainExpandedAttributeIds(previous, nextDraft));
       setActiveAttributeId(null);
       previousDraftStateRef.current = null;
       setActiveModal(null);

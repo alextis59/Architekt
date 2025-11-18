@@ -105,6 +105,34 @@ describe('DataModelDesigner helpers', () => {
     });
   });
 
+  it('preserves enum constraints when provided as delimited strings', () => {
+    const draft = {
+      id: 'model-3',
+      name: 'Membership',
+      description: '',
+      attributes: [
+        {
+          id: 'attr-1',
+          localId: 'attr-1',
+          name: 'tier',
+          description: '',
+          type: 'string',
+          required: false,
+          unique: false,
+          constraints: [{ type: 'enum', value: ' silver, gold\nplatinum ' } as never],
+          readOnly: false,
+          encrypted: false
+        }
+      ]
+    } satisfies DataModelDraft;
+
+    const payload = toDataModelPayload(draft);
+
+    expect(payload.attributes[0].constraints).toEqual([
+      { type: 'enum', values: ['silver', 'gold', 'platinum'] }
+    ]);
+  });
+
   it('omits attribute ids and non-object children for export payloads', () => {
     const draft = {
       name: 'Inventory',

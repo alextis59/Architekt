@@ -119,8 +119,13 @@ const toAttributePayload = (
     }
 
     if (type === 'enum') {
+      const candidates = Array.isArray(constraint.values)
+        ? constraint.values
+        : typeof (constraint as { value?: unknown }).value === 'string'
+          ? ((constraint as { value: string }).value.split(/,|\n/) as string[])
+          : [];
       const unique = new Set(
-        constraint.values
+        candidates
           .map((value) => value.trim())
           .filter((value): value is string => value.length > 0)
       );
