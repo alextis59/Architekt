@@ -327,7 +327,7 @@ const parseAttributeConstraint = (raw: unknown): DataModelAttribute['constraints
     throw new BadRequestError('Data model attribute constraint must be an object');
   }
 
-  const candidate = raw as { type?: unknown; value?: unknown };
+  const candidate = raw as { type?: unknown; value?: unknown; values?: unknown };
   const type = ensureString(candidate.type);
 
   switch (type) {
@@ -359,11 +359,16 @@ const parseAttributeConstraint = (raw: unknown): DataModelAttribute['constraints
       return { type, value: numeric };
     }
     case 'enum': {
-      if (!Array.isArray(candidate.value)) {
+      const candidates = Array.isArray(candidate.values)
+        ? candidate.values
+        : Array.isArray(candidate.value)
+          ? candidate.value
+          : [];
+      if (!Array.isArray(candidates)) {
         throw new BadRequestError('Enum constraint requires an array of values');
       }
       const unique = new Set<string>();
-      for (const value of candidate.value) {
+      for (const value of candidates) {
         const stringValue = ensureString(value);
         if (stringValue) {
           unique.add(stringValue);
