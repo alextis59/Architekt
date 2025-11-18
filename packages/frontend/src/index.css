@@ -17,10 +17,11 @@ body {
   align-items: center;
   justify-content: center;
   padding: 2rem;
+  overflow-x: hidden;
 }
 
 main.app {
-  width: min(1280px, 100%);
+  width: min(1280px, calc(100vw - 4rem));
   background: rgba(248, 250, 252, 0.96);
   border-radius: 28px;
   padding: 2.5rem;
@@ -1511,6 +1512,7 @@ button.danger:hover:not(:disabled),
 
   main.app {
     padding: 2rem;
+    width: min(1280px, calc(100vw - 3rem));
     gap: 2rem;
   }
 
@@ -1550,6 +1552,7 @@ button.danger:hover:not(:disabled),
 
   main.app {
     padding: 1.1rem;
+    width: min(1280px, calc(100vw - 1.5rem));
   }
 
   .hero {

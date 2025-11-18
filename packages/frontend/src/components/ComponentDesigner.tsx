@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { FormEvent, RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  FormEvent,
+  PointerEvent as ReactPointerEvent,
+  RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
 import type { Project } from '@architekt/domain';
 import {
   createComponent,
@@ -115,6 +124,8 @@ const ComponentDesigner = () => {
   const modalActivatorRef = useRef<HTMLElement | null>(null);
   const previousDraftStateRef = useRef<{ draft: ComponentDraft | null; isDirty: boolean } | null>(null);
   const draggingEntryPointIdRef = useRef<string | null>(null);
+  const dragPointerIdRef = useRef<number | null>(null);
+  const dragOverEntryPointIdRef = useRef<string | null>(null);
 
   const projectQuery = useQuery({
     queryKey: selectedProjectId ? queryKeys.project(selectedProjectId) : ['project', 'none'],
@@ -624,6 +635,7 @@ const ComponentDesigner = () => {
 
   const handleEntryPointDragStart = (entryPointId: string) => {
     draggingEntryPointIdRef.current = entryPointId;
+    dragOverEntryPointIdRef.current = entryPointId;
     setDraggingEntryPointId(entryPointId);
     setDragOverEntryPointId(entryPointId);
   };
@@ -651,6 +663,89 @@ const ComponentDesigner = () => {
     setDraggingEntryPointId(null);
     setDragOverEntryPointId(null);
   };
+
+  useEffect(() => {
+    dragOverEntryPointIdRef.current = dragOverEntryPointId;
+  }, [dragOverEntryPointId]);
+
+  const handleEntryPointPointerMove = useCallback((event: PointerEvent) => {
+    if (dragPointerIdRef.current !== event.pointerId || !draggingEntryPointIdRef.current) {
+      return;
+    }
+
+    event.preventDefault();
+    const element = document.elementFromPoint(event.clientX, event.clientY);
+    const dropzone = element?.closest<HTMLElement>('.entry-point-dropzone');
+    const card = element?.closest<HTMLElement>('[data-entry-point-id]');
+
+    if (dropzone) {
+      dragOverEntryPointIdRef.current = null;
+      setDragOverEntryPointId(null);
+      return;
+    }
+
+    if (card?.dataset.entryPointId) {
+      dragOverEntryPointIdRef.current = card.dataset.entryPointId ?? null;
+      setDragOverEntryPointId((previous) =>
+        previous !== card.dataset.entryPointId ? card.dataset.entryPointId ?? null : previous
+      );
+      return;
+    }
+
+    dragOverEntryPointIdRef.current = null;
+    setDragOverEntryPointId(null);
+  }, []);
+
+  const handleEntryPointPointerEnd = useCallback(
+    (event: PointerEvent) => {
+      if (dragPointerIdRef.current !== event.pointerId) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (draggingEntryPointIdRef.current) {
+        moveEntryPoint(draggingEntryPointIdRef.current, dragOverEntryPointIdRef.current);
+      }
+
+      draggingEntryPointIdRef.current = null;
+      dragPointerIdRef.current = null;
+      setDraggingEntryPointId(null);
+      setDragOverEntryPointId(null);
+
+      window.removeEventListener('pointermove', handleEntryPointPointerMove);
+      window.removeEventListener('pointerup', handleEntryPointPointerEnd);
+      window.removeEventListener('pointercancel', handleEntryPointPointerEnd);
+    },
+    [handleEntryPointPointerMove, moveEntryPoint]
+  );
+
+  const handleEntryPointPointerDragStart = (
+    entryPointId: string,
+    event: ReactPointerEvent<HTMLButtonElement>
+  ) => {
+    if (event.pointerType === 'mouse') {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    dragPointerIdRef.current = event.pointerId;
+    handleEntryPointDragStart(entryPointId);
+
+    window.addEventListener('pointermove', handleEntryPointPointerMove);
+    window.addEventListener('pointerup', handleEntryPointPointerEnd);
+    window.addEventListener('pointercancel', handleEntryPointPointerEnd);
+  };
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('pointermove', handleEntryPointPointerMove);
+      window.removeEventListener('pointerup', handleEntryPointPointerEnd);
+      window.removeEventListener('pointercancel', handleEntryPointPointerEnd);
+    };
+  }, [handleEntryPointPointerEnd, handleEntryPointPointerMove]);
 
   const openCreateModal = () => {
     createComponentMutation.reset();
@@ -917,6 +1012,7 @@ const ComponentDesigner = () => {
                           onDragEnter={handleEntryPointDragEnter}
                           onDrop={handleEntryPointDrop}
                           onDragEnd={handleEntryPointsDrop}
+                          onPointerDragStart={handleEntryPointPointerDragStart}
                           isDragging={draggingEntryPointId === entryPoint.localId}
                           isDropTarget={dragOverEntryPointId === entryPoint.localId}
                         />
@@ -924,6 +1020,7 @@ const ComponentDesigner = () => {
                       {draggingEntryPointId && (
                         <div
                           className="entry-point-dropzone"
+                          data-entry-point-dropzone="end"
                           onDragOver={(event) => {
                             event.preventDefault();
                             event.dataTransfer.dropEffect = 'move';
@@ -1137,6 +1234,7 @@ type EntryPointItemProps = {
   onDragEnter: (entryPointId: string) => void;
   onDrop: (entryPointId: string) => void;
   onDragEnd: () => void;
+  onPointerDragStart: (entryPointId: string, event: ReactPointerEvent<HTMLButtonElement>) => void;
   isDragging: boolean;
   isDropTarget: boolean;
 };
@@ -1153,6 +1251,7 @@ const EntryPointItem = ({
   onDragEnter,
   onDrop,
   onDragEnd,
+  onPointerDragStart,
   isDragging,
   isDropTarget
 }: EntryPointItemProps) => {
@@ -1185,6 +1284,7 @@ const EntryPointItem = ({
         'entry-point-dragging': isDragging,
         'entry-point-drop-target': isDropTarget && !isDragging
       })}
+      data-entry-point-id={entryPoint.localId}
       onDragEnter={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1217,6 +1317,7 @@ const EntryPointItem = ({
             event.stopPropagation();
             onDragEnd();
           }}
+          onPointerDown={(event) => onPointerDragStart(entryPoint.localId, event)}
         >
           ☰
         </button>
