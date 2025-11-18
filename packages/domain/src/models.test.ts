@@ -133,6 +133,51 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
   assert.deepEqual(entryPoint.requestModelIds, ['model-1']);
 });
 
+test('validateDomainAggregate preserves enum constraints defined with values arrays', () => {
+  const aggregate = validateDomainAggregate({
+    projects: {
+      proj: {
+        id: 'proj',
+        name: 'Payments',
+        description: '',
+        tags: [],
+        rootSystemId: 'root',
+        systems: { root: { id: 'root', name: 'Root', description: '', tags: [], childIds: [], isRoot: true } },
+        flows: {},
+        components: {},
+        entryPoints: {},
+        dataModels: {
+          'model-1': {
+            id: 'model-1',
+            name: 'Card',
+            description: '',
+            attributes: [
+              {
+                id: 'attr-1',
+                name: 'Type',
+                description: '',
+                type: 'string',
+                required: false,
+                unique: false,
+                constraints: [{ type: 'enum', values: ['VISA', 'MASTERCARD', 'VISA'] }],
+                readOnly: false,
+                encrypted: false,
+                private: false,
+                attributes: []
+              }
+            ]
+          }
+        }
+      }
+    }
+  });
+
+  const project = aggregate.projects.proj;
+  assert.ok(project);
+  const attribute = project.dataModels['model-1'].attributes[0];
+  assert.deepEqual(attribute.constraints, [{ type: 'enum', values: ['VISA', 'MASTERCARD'] }]);
+});
+
 test('validateDomainAggregate removes entities missing identifiers', () => {
   const aggregate = validateDomainAggregate({
     projects: {

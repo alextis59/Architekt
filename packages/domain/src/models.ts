@@ -168,7 +168,7 @@ const sanitizeConstraint = (raw: unknown): AttributeConstraint | null => {
     return null;
   }
 
-  const candidate = raw as { type?: unknown; value?: unknown };
+  const candidate = raw as { type?: unknown; value?: unknown; values?: unknown };
   const type = ensureString(candidate.type);
 
   switch (type) {
@@ -200,11 +200,13 @@ const sanitizeConstraint = (raw: unknown): AttributeConstraint | null => {
       return { type, value: numeric };
     }
     case 'enum': {
-      if (!Array.isArray(candidate.value)) {
-        return null;
-      }
+      const candidates = Array.isArray(candidate.values)
+        ? candidate.values
+        : Array.isArray(candidate.value)
+          ? candidate.value
+          : [];
       const unique = new Set<string>();
-      for (const item of candidate.value) {
+      for (const item of candidates) {
         const value = ensureString(item);
         if (value) {
           unique.add(value);
