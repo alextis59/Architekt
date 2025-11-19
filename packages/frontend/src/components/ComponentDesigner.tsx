@@ -1262,13 +1262,6 @@ const EntryPointItem = ({
   const displayMethod = entryPoint.method.trim() || '—';
   const displayPath = entryPoint.path.trim() || '—';
   const displayDescription = entryPoint.description.trim() || '—';
-  const summaryParts = [
-    entryPoint.type.trim(),
-    entryPoint.protocol.trim(),
-    entryPoint.method.trim(),
-    entryPoint.path.trim()
-  ].filter(Boolean);
-
   const requestModels =
     entryPoint.requestModelIds.length === 0
       ? []
@@ -1331,10 +1324,8 @@ const EntryPointItem = ({
             {isExpanded ? '▾' : '▸'}
           </span>
           <div className="entry-point-title">
+            <span className="entry-point-method">{displayMethod}</span>
             <span className="entry-point-name">{displayName}</span>
-            <span className="entry-point-meta">
-              {summaryParts.length > 0 ? summaryParts.join(' • ') : 'No interface details provided'}
-            </span>
           </div>
         </button>
       </div>

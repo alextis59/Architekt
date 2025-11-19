@@ -1240,6 +1240,11 @@ button.danger:hover:not(:disabled),
   gap: 1.5rem;
 }
 
+.component-sidebar,
+.component-editor {
+  min-width: 0;
+}
+
 .component-sidebar {
   display: flex;
   flex-direction: column;
@@ -1698,9 +1703,23 @@ button.danger:hover:not(:disabled),
 
 .entry-point-title {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  align-items: center;
+  gap: 0.5rem;
   min-width: 0;
+}
+
+.entry-point-method {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.16);
+  color: #312e81;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
 }
 
 .entry-point-card.entry-point-dragging {
@@ -1714,6 +1733,7 @@ button.danger:hover:not(:disabled),
 }
 
 .entry-point-name {
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
