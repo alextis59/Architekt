@@ -38,6 +38,11 @@ export const createMemoryPersistence = (initialData: unknown = {}): PersistenceA
     async save(userId, data) {
       const aggregate = validateDomainAggregate(data);
       store = { ...store, [userId]: aggregate };
+    },
+    async loadAll() {
+      return Object.fromEntries(
+        Object.entries(store).map(([userId, aggregate]) => [userId, validateDomainAggregate(aggregate)])
+      );
     }
   };
 };

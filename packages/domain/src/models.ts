@@ -82,6 +82,7 @@ export type Project = {
   name: string;
   description: string;
   tags: string[];
+  sharedWith: string[];
   rootSystemId: string;
   systems: Record<string, System>;
   flows: Record<string, Flow>;
@@ -356,6 +357,19 @@ const sanitizeSystem = (raw: SystemInput): System => ({
   isRoot: ensureBoolean(raw?.isRoot, false)
 });
 
+const sanitizeSharedUsers = (value: unknown): string[] => {
+  const emails = ensureStringArray(value).map((email) => email.toLowerCase().trim());
+  const unique = new Set<string>();
+
+  for (const email of emails) {
+    if (email) {
+      unique.add(email);
+    }
+  }
+
+  return [...unique];
+};
+
 const sanitizeProject = (raw: ProjectInput): Project => {
   const systemsInput = raw?.systems && typeof raw.systems === 'object' ? raw.systems : {};
   const flowsInput = raw?.flows && typeof raw.flows === 'object' ? raw.flows : {};
@@ -405,6 +419,7 @@ const sanitizeProject = (raw: ProjectInput): Project => {
     name: ensureString(raw?.name),
     description: ensureString(raw?.description, ''),
     tags: ensureStringArray(raw?.tags),
+    sharedWith: sanitizeSharedUsers(raw?.sharedWith),
     rootSystemId,
     systems: Object.fromEntries(systemEntries),
     flows: Object.fromEntries(flowEntries),

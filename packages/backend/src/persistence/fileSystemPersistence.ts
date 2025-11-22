@@ -153,6 +153,12 @@ export const createFileSystemPersistence = ({
       const store = await readStore();
       const aggregate = validateDomainAggregate(data);
       await writeStore({ ...store, [userId]: aggregate });
+    },
+    async loadAll() {
+      const store = await readStore();
+      return Object.fromEntries(
+        Object.entries(store).map(([userId, aggregate]) => [userId, validateDomainAggregate(aggregate)])
+      );
     }
   };
 };

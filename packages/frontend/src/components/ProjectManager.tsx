@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
-import { createProject, fetchProjects, updateProject, type ProjectSummary } from '../api/projects.js';
+import { createProject, fetchProjects, shareProject, updateProject, type ProjectSummary } from '../api/projects.js';
 import { queryKeys } from '../queryKeys.js';
 import { selectSelectedProjectId, useProjectStore } from '../store/projectStore.js';
 
@@ -31,6 +31,7 @@ const ProjectManager = () => {
     description: '',
     tags: ''
   });
+  const [shareEmail, setShareEmail] = useState('');
   const [activeModal, setActiveModal] = useState<'create' | 'edit' | null>(null);
   const [editingProject, setEditingProject] = useState<ProjectSummary | null>(null);
 
@@ -38,6 +39,7 @@ const ProjectManager = () => {
 
   const resetForm = useCallback(() => {
     setFormState({ name: '', description: '', tags: '' });
+    setShareEmail('');
   }, []);
 
   const closeModalState = useCallback(() => {
@@ -74,33 +76,47 @@ const ProjectManager = () => {
     }
   });
 
+  const shareProjectMutation = useMutation({
+    mutationFn: ({ projectId, email }: { projectId: string; email: string }) => shareProject(projectId, email),
+    onSuccess: (project) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.project(project.id) });
+      setEditingProject((previous) => (previous && previous.id === project.id ? { ...previous, sharedWith: project.sharedWith } : previous));
+      setShareEmail('');
+    }
+  });
+
   const dismissModal = useCallback(() => {
     createProjectMutation.reset();
     updateProjectMutation.reset();
+    shareProjectMutation.reset();
     closeModalState();
-  }, [closeModalState, createProjectMutation, updateProjectMutation]);
+  }, [closeModalState, createProjectMutation, shareProjectMutation, updateProjectMutation]);
 
   const openCreateModal = useCallback(() => {
     createProjectMutation.reset();
     updateProjectMutation.reset();
+    shareProjectMutation.reset();
     setEditingProject(null);
     setFormState({ name: '', description: '', tags: '' });
     setActiveModal('create');
-  }, [createProjectMutation, updateProjectMutation]);
+  }, [createProjectMutation, shareProjectMutation, updateProjectMutation]);
 
   const openEditModal = useCallback(
     (project: ProjectSummary) => {
       createProjectMutation.reset();
       updateProjectMutation.reset();
+      shareProjectMutation.reset();
       setEditingProject(project);
       setFormState({
         name: project.name,
         description: project.description ?? '',
         tags: project.tags.join(', ')
       });
+      setShareEmail('');
       setActiveModal('edit');
     },
-    [createProjectMutation, updateProjectMutation]
+    [createProjectMutation, shareProjectMutation, updateProjectMutation]
   );
 
   useEffect(() => {
@@ -128,6 +144,10 @@ const ProjectManager = () => {
   }, [activeModal]);
 
   const projects = useMemo(() => (data ? sortProjects(data) : []), [data]);
+  const sharedUsers = useMemo(
+    () => (editingProject ? [...editingProject.sharedWith].sort((a, b) => a.localeCompare(b)) : []),
+    [editingProject]
+  );
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -146,6 +166,19 @@ const ProjectManager = () => {
     } else {
       createProjectMutation.mutate(payload);
     }
+  };
+
+  const handleShare = () => {
+    if (!editingProject) {
+      return;
+    }
+
+    const normalizedEmail = shareEmail.trim();
+    if (!normalizedEmail) {
+      return;
+    }
+
+    shareProjectMutation.mutate({ projectId: editingProject.id, email: normalizedEmail });
   };
 
   const isEditModalOpen = activeModal === 'edit';
@@ -349,6 +382,51 @@ const ProjectManager = () => {
                 </button>
               </div>
             </form>
+            {isEditModalOpen && (
+              <div className="share-section" aria-live="polite">
+                <div className="share-header">
+                  <h4>Share project</h4>
+                  <p className="panel-subtitle">Invite collaborators by email to edit this workspace.</p>
+                </div>
+                {sharedUsers.length > 0 ? (
+                  <div className="shared-users" aria-label="Collaborators">
+                    {sharedUsers.map((email) => (
+                      <span key={email} className="tag">
+                        {email}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="status">No collaborators yet.</p>
+                )}
+                <div className="share-controls">
+                  <label className="field">
+                    <span>Invite by email</span>
+                    <input
+                      type="email"
+                      value={shareEmail}
+                      onChange={(event) => setShareEmail(event.target.value)}
+                      placeholder="person@example.com"
+                    />
+                  </label>
+                  {shareProjectMutation.isError && (
+                    <p className="status error" role="alert">
+                      {shareProjectMutation.error instanceof Error
+                        ? shareProjectMutation.error.message
+                        : 'Unable to share project'}
+                    </p>
+                  )}
+                  <button
+                    className="primary"
+                    type="button"
+                    onClick={handleShare}
+                    disabled={!shareEmail.trim() || shareProjectMutation.isPending || !editingProject}
+                  >
+                    {shareProjectMutation.isPending ? 'Sharing…' : 'Share project'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

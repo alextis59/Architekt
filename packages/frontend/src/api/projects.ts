@@ -1,7 +1,7 @@
 import type { Component, DataModel, Flow, Project, System } from '@architekt/domain';
 import { apiRequest } from './client.js';
 
-export type ProjectSummary = Pick<Project, 'id' | 'name' | 'description' | 'tags' | 'rootSystemId'>;
+export type ProjectSummary = Pick<Project, 'id' | 'name' | 'description' | 'tags' | 'rootSystemId' | 'sharedWith'>;
 
 const sanitizeTags = (tags: string[]): string[] => {
   const unique = new Set<string>();
@@ -27,12 +27,13 @@ const sanitizeIdentifiers = (identifiers: string[]): string[] => {
 
 export const fetchProjects = async (): Promise<ProjectSummary[]> => {
   const response = await apiRequest<{ projects: Project[] }>('/projects');
-  return response.projects.map(({ id, name, description, tags, rootSystemId }) => ({
+  return response.projects.map(({ id, name, description, tags, rootSystemId, sharedWith }) => ({
     id,
     name,
     description,
     tags,
-    rootSystemId
+    rootSystemId,
+    sharedWith
   }));
 };
 
@@ -72,6 +73,17 @@ export const updateProject = async (
   const response = await apiRequest<{ project: Project }>(`/projects/${projectId}`, {
     method: 'PUT',
     body: JSON.stringify(payload)
+  });
+
+  return response.project;
+};
+
+export const shareProject = async (projectId: string, email: string): Promise<Project> => {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const response = await apiRequest<{ project: Project }>(`/projects/${projectId}/share`, {
+    method: 'POST',
+    body: JSON.stringify({ email: normalizedEmail })
   });
 
   return response.project;

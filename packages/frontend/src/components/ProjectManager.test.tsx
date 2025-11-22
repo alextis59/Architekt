@@ -10,7 +10,8 @@ const projectManagerMocks = {
   api: {
     fetchProjects: vi.fn(),
     createProject: vi.fn(),
-    updateProject: vi.fn()
+    updateProject: vi.fn(),
+    shareProject: vi.fn()
   }
 };
 
@@ -49,6 +50,7 @@ describe('ProjectManager', () => {
     projectManagerMocks.api.fetchProjects.mockReset();
     projectManagerMocks.api.createProject.mockReset();
     projectManagerMocks.api.updateProject.mockReset();
+    projectManagerMocks.api.shareProject.mockReset();
     useProjectStore.setState({
       selectedProjectId: null,
       selectedSystemId: null,
@@ -65,8 +67,8 @@ describe('ProjectManager', () => {
 
   it('renders projects sorted alphabetically and navigates when a project is selected', async () => {
     projectManagerMocks.api.fetchProjects.mockResolvedValue([
-      { id: 'b', name: 'Beta', description: '', tags: [], rootSystemId: 'sys' },
-      { id: 'a', name: 'Alpha', description: 'First', tags: ['core'], rootSystemId: 'sys' }
+      { id: 'b', name: 'Beta', description: '', tags: [], rootSystemId: 'sys', sharedWith: [] },
+      { id: 'a', name: 'Alpha', description: 'First', tags: ['core'], rootSystemId: 'sys', sharedWith: [] }
     ]);
 
     const queryClient = createClient();
@@ -105,6 +107,7 @@ describe('ProjectManager', () => {
       description: 'Desc',
       tags: ['core'],
       rootSystemId: 'root',
+      sharedWith: [],
       systems: {},
       flows: {},
       dataModels: {},
@@ -180,7 +183,14 @@ describe('ProjectManager', () => {
 
   it('opens the edit modal with project details and submits updates', async () => {
     projectManagerMocks.api.fetchProjects.mockResolvedValue([
-      { id: 'proj-1', name: 'Alpha', description: 'First', tags: ['core'], rootSystemId: 'root' }
+      {
+        id: 'proj-1',
+        name: 'Alpha',
+        description: 'First',
+        tags: ['core'],
+        rootSystemId: 'root',
+        sharedWith: []
+      }
     ]);
     projectManagerMocks.api.updateProject.mockResolvedValue({
       id: 'proj-1',
@@ -188,6 +198,7 @@ describe('ProjectManager', () => {
       description: 'First revised',
       tags: ['core', 'beta'],
       rootSystemId: 'root',
+      sharedWith: [],
       systems: {},
       flows: {},
       dataModels: {},
@@ -238,7 +249,14 @@ describe('ProjectManager', () => {
 
   it('shows an error when project update fails', async () => {
     projectManagerMocks.api.fetchProjects.mockResolvedValue([
-      { id: 'proj-1', name: 'Alpha', description: 'First', tags: ['core'], rootSystemId: 'root' }
+      {
+        id: 'proj-1',
+        name: 'Alpha',
+        description: 'First',
+        tags: ['core'],
+        rootSystemId: 'root',
+        sharedWith: []
+      }
     ]);
     projectManagerMocks.api.updateProject.mockRejectedValue(new Error('Unable to update project'));
 
@@ -254,6 +272,53 @@ describe('ProjectManager', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(/Unable to update project/);
+    });
+  });
+
+  it('shares a project with a collaborator email', async () => {
+    projectManagerMocks.api.fetchProjects.mockResolvedValue([
+      {
+        id: 'proj-1',
+        name: 'Alpha',
+        description: '',
+        tags: [],
+        rootSystemId: 'root',
+        sharedWith: ['ally@example.com']
+      }
+    ]);
+    projectManagerMocks.api.shareProject.mockResolvedValue({
+      id: 'proj-1',
+      name: 'Alpha',
+      description: '',
+      tags: [],
+      rootSystemId: 'root',
+      sharedWith: ['ally@example.com', 'new@example.com'],
+      systems: {},
+      flows: {},
+      dataModels: {},
+      components: {}
+    });
+
+    const queryClient = createClient();
+    renderComponent(queryClient);
+
+    const user = userEvent.setup();
+    const editButton = await screen.findByRole('button', { name: /Edit project Alpha/i });
+    await user.click(editButton);
+
+    const dialog = await screen.findByRole('dialog', { name: /Edit project/i });
+    expect(within(dialog).getByText('ally@example.com')).toBeInTheDocument();
+
+    const shareInput = within(dialog).getByLabelText(/Invite by email/i);
+    await user.type(shareInput, 'New@Example.com ');
+    await user.click(within(dialog).getByRole('button', { name: /Share project/i }));
+
+    await waitFor(() => {
+      expect(projectManagerMocks.api.shareProject).toHaveBeenCalledWith('proj-1', 'New@Example.com');
+    });
+
+    await waitFor(() => {
+      expect(within(dialog).getByText('new@example.com')).toBeInTheDocument();
     });
   });
 });
