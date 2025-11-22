@@ -35,6 +35,7 @@ test('persists and loads aggregate data', async () => {
         name: 'Test project',
         description: 'Example',
         tags: ['demo'],
+        sharedWith: [],
         rootSystemId: systemId,
         systems: {
           [systemId]: {
@@ -102,6 +103,7 @@ test('keeps data isolated per user', async () => {
         name: 'Alpha',
         description: '',
         tags: [],
+        sharedWith: [],
         rootSystemId: 'root-a',
         systems: {
           'root-a': { id: 'root-a', name: 'Alpha Root', description: '', tags: [], childIds: [], isRoot: true }
@@ -120,6 +122,7 @@ test('keeps data isolated per user', async () => {
         name: 'Beta',
         description: '',
         tags: [],
+        sharedWith: [],
         rootSystemId: 'root-b',
         systems: {
           'root-b': { id: 'root-b', name: 'Beta Root', description: '', tags: [], childIds: [], isRoot: true }

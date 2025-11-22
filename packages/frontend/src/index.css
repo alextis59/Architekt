@@ -484,6 +484,35 @@ button.danger:hover:not(:disabled),
   margin-top: 0.5rem;
 }
 
+.share-section {
+  border-top: 1px solid #e5e5e5;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.share-header h4 {
+  margin: 0;
+}
+
+.share-header .panel-subtitle {
+  margin: 0.25rem 0 0;
+}
+
+.share-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.shared-users {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .icon-button {
   background: none;
   border: none;

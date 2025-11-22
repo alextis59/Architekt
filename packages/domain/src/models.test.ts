@@ -146,6 +146,7 @@ test('validateDomainAggregate preserves enum constraints defined with values arr
         flows: {},
         components: {},
         entryPoints: {},
+        sharedWith: ['User@Example.com', 'user@example.com', ''],
         dataModels: {
           'model-1': {
             id: 'model-1',
@@ -176,6 +177,7 @@ test('validateDomainAggregate preserves enum constraints defined with values arr
   assert.ok(project);
   const attribute = project.dataModels['model-1'].attributes[0];
   assert.deepEqual(attribute.constraints, [{ type: 'enum', values: ['VISA', 'MASTERCARD'] }]);
+  assert.deepEqual(project.sharedWith, ['user@example.com']);
 });
 
 test('validateDomainAggregate removes entities missing identifiers', () => {

@@ -65,6 +65,7 @@ test('GET /projects returns sanitized projects', async () => {
         name: 'Demo',
         description: '',
         tags: [],
+        sharedWith: [],
       rootSystemId: 'sys-1',
       systems: {
         'sys-1': {
@@ -726,4 +727,159 @@ test('Flow endpoints enforce scope and reference validation', async () => {
     .send({ systemScopeIds: [rootSystemId] });
 
   assert.equal(scopeUpdate.status, 200);
+});
+
+test('shared projects can be accessed and updated by collaborators', async () => {
+  const persistence = createMemoryPersistence();
+  const ownerApp = createApp({
+    persistence,
+    auth: { mode: 'local', defaultUserId: 'owner', defaultUserName: 'Owner' }
+  });
+  const guestApp = createApp({
+    persistence,
+    auth: { mode: 'local', defaultUserId: 'guest', defaultUserName: 'Guest' }
+  });
+
+  const creation = await request(ownerApp).post('/api/projects').send({ name: 'Shared Project' });
+  const projectId = creation.body.project.id;
+
+  const share = await request(ownerApp)
+    .post(`/api/projects/${projectId}/share`)
+    .send({ email: 'guest@local' });
+
+  assert.equal(share.status, 200);
+  assert.deepEqual(share.body.project.sharedWith, ['guest@local']);
+
+  const guestList = await request(guestApp).get('/api/projects');
+  assert.equal(guestList.status, 200);
+  assert.equal(guestList.body.projects[0]?.id, projectId);
+
+  const guestUpdate = await request(guestApp)
+    .put(`/api/projects/${projectId}`)
+    .send({ name: 'Shared Project', description: 'Updated by guest' });
+
+  assert.equal(guestUpdate.status, 200);
+  assert.equal(guestUpdate.body.project.description, 'Updated by guest');
+
+  const guestComponent = await request(guestApp)
+    .post(`/api/projects/${projectId}/components`)
+    .send({ name: 'Guest Component' });
+
+  assert.equal(guestComponent.status, 201);
+
+  const ownerView = await request(ownerApp).get(`/api/projects/${projectId}`);
+  assert.equal(ownerView.status, 200);
+  const createdId = guestComponent.body.component.id as string;
+  assert.equal(ownerView.body.project.components[createdId].name, 'Guest Component');
+});
+
+test('shared collaborators can manage all project resources', async () => {
+  const persistence = createMemoryPersistence();
+  const ownerApp = createApp({
+    persistence,
+    auth: { mode: 'local', defaultUserId: 'owner', defaultUserName: 'Owner' }
+  });
+  const guestApp = createApp({
+    persistence,
+    auth: { mode: 'local', defaultUserId: 'guest', defaultUserName: 'Guest' }
+  });
+
+  const creation = await request(ownerApp).post('/api/projects').send({ name: 'Shared Project' });
+  const projectId = creation.body.project.id as string;
+  const rootSystemId = creation.body.project.rootSystemId as string;
+
+  const share = await request(ownerApp)
+    .post(`/api/projects/${projectId}/share`)
+    .send({ email: 'guest@local' });
+
+  assert.equal(share.status, 200);
+
+  const sharedProject = await request(guestApp).get(`/api/projects/${projectId}`);
+  assert.equal(sharedProject.status, 200);
+  assert.equal(sharedProject.body.project.id, projectId);
+
+  const systemCreation = await request(guestApp)
+    .post(`/api/projects/${projectId}/systems`)
+    .send({ name: 'Shared Subsystem', parentId: rootSystemId });
+
+  assert.equal(systemCreation.status, 201);
+  const systemId = systemCreation.body.system.id as string;
+
+  const systemUpdate = await request(guestApp)
+    .put(`/api/projects/${projectId}/systems/${systemId}`)
+    .send({ description: 'Managed by collaborator' });
+
+  assert.equal(systemUpdate.status, 200);
+  assert.equal(systemUpdate.body.system.description, 'Managed by collaborator');
+
+  const dataModelCreation = await request(guestApp)
+    .post(`/api/projects/${projectId}/data-models`)
+    .send({ name: 'Shared Model', description: 'Collaborator created', attributes: [] });
+
+  assert.equal(dataModelCreation.status, 201);
+  const dataModelId = dataModelCreation.body.dataModel.id as string;
+
+  const componentOne = await request(guestApp)
+    .post(`/api/projects/${projectId}/components`)
+    .send({
+      name: 'Shared API',
+      entryPoints: [
+        {
+          name: 'Get item',
+          type: 'http',
+          protocol: 'HTTP',
+          method: 'GET',
+          path: '/items/:id',
+          requestModelIds: [dataModelId],
+          responseModelIds: [dataModelId]
+        }
+      ]
+    });
+
+  assert.equal(componentOne.status, 201);
+  const sourceComponentId = componentOne.body.component.id as string;
+  const entryPointId = componentOne.body.component.entryPointIds[0] as string;
+
+  const componentTwo = await request(guestApp)
+    .post(`/api/projects/${projectId}/components`)
+    .send({ name: 'Shared Worker' });
+
+  assert.equal(componentTwo.status, 201);
+  const targetComponentId = componentTwo.body.component.id as string;
+
+  const flowCreation = await request(guestApp)
+    .post(`/api/projects/${projectId}/flows`)
+    .send({
+      name: 'Shared Flow',
+      systemScopeIds: [rootSystemId, systemId],
+      steps: [
+        {
+          name: 'Process request',
+          source: { componentId: sourceComponentId, entryPointId },
+          target: { componentId: targetComponentId }
+        }
+      ]
+    });
+
+  assert.equal(flowCreation.status, 201);
+  const flowId = flowCreation.body.flow.id as string;
+
+  const flowUpdate = await request(guestApp)
+    .put(`/api/projects/${projectId}/flows/${flowId}`)
+    .send({ description: 'Updated by collaborator' });
+
+  assert.equal(flowUpdate.status, 200);
+  assert.equal(flowUpdate.body.flow.description, 'Updated by collaborator');
+
+  const guestView = await request(guestApp).get(`/api/projects/${projectId}`);
+  assert.ok(guestView.body.project.systems[systemId]);
+  assert.ok(guestView.body.project.dataModels[dataModelId]);
+  assert.ok(guestView.body.project.components[sourceComponentId]);
+  assert.ok(guestView.body.project.flows[flowId]);
+
+  const ownerView = await request(ownerApp).get(`/api/projects/${projectId}`);
+  assert.ok(ownerView.body.project.systems[systemId]);
+  assert.ok(ownerView.body.project.dataModels[dataModelId]);
+  assert.ok(ownerView.body.project.components[sourceComponentId]);
+  assert.ok(ownerView.body.project.flows[flowId]);
 });

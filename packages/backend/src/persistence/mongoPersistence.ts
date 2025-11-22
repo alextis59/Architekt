@@ -79,6 +79,24 @@ export const createMongoPersistence = ({
         },
         { upsert: true }
       );
+    },
+    async loadAll() {
+      const col = await getCollection();
+      const document = await col.findOne({ _id: 'architekt' });
+
+      if (!document) {
+        return {};
+      }
+
+      const aggregates =
+        document.aggregates ??
+        ('aggregate' in document && document.aggregate
+          ? { 'local-user': validateDomainAggregate((document as { aggregate: DomainAggregate }).aggregate) }
+          : {});
+
+      return Object.fromEntries(
+        Object.entries(aggregates).map(([userId, aggregate]) => [userId, validateDomainAggregate(aggregate)])
+      );
     }
   };
 };

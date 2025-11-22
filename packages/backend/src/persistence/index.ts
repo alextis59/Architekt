@@ -6,6 +6,7 @@ import { createMongoPersistence } from './mongoPersistence.js';
 export type PersistenceAdapter = {
   load: (userId: string) => Promise<DomainAggregate>;
   save: (userId: string, data: DomainAggregate) => Promise<void>;
+  loadAll: () => Promise<Record<string, DomainAggregate>>;
 };
 
 export type FileSystemPersistenceConfig = {
