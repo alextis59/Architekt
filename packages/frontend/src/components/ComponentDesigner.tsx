@@ -481,6 +481,13 @@ const ComponentDesigner = () => {
   };
 
   const handleRemoveEntryPoint = (entryPointId: string) => {
+    const entryPointName = draft?.entryPoints.find((entryPoint) => entryPoint.localId === entryPointId)?.name;
+    const entryPointLabel = entryPointName?.trim() || 'this entry point';
+
+    if (!window.confirm(`Are you sure you want to remove ${entryPointLabel}?`)) {
+      return;
+    }
+
     setDraft((previous) => {
       if (!previous) {
         return previous;
