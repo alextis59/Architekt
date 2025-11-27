@@ -16,6 +16,7 @@ export type EntryPointDraft = {
   name: string;
   description: string;
   type: string;
+  functionName: string;
   protocol: string;
   method: string;
   path: string;
@@ -40,6 +41,7 @@ const createEntryPointDraftFromModel = (
   name: entryPoint.name,
   description: entryPoint.description,
   type: entryPoint.type,
+  functionName: entryPoint.functionName,
   protocol: entryPoint.protocol,
   method: entryPoint.method,
   path: entryPoint.path,
@@ -73,6 +75,7 @@ export const createEmptyEntryPointDraft = (): EntryPointDraft => ({
   name: '',
   description: '',
   type: '',
+  functionName: '',
   protocol: '',
   method: '',
   path: '',
@@ -123,6 +126,7 @@ const toEntryPointPayload = (
     name: entryPoint.name.trim(),
     description: entryPoint.description.trim(),
     type: entryPoint.type.trim(),
+    functionName: entryPoint.functionName.trim(),
     protocol: entryPoint.protocol.trim(),
     method: entryPoint.method.trim(),
     path: entryPoint.path.trim(),

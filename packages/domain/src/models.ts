@@ -54,6 +54,7 @@ export type ComponentEntryPoint = {
   name: string;
   description: string;
   type: string;
+  functionName: string;
   protocol: string;
   method: string;
   path: string;
@@ -342,6 +343,7 @@ const sanitizeComponentEntryPoint = (raw: ComponentEntryPointInput): ComponentEn
   name: ensureString(raw?.name),
   description: ensureString(raw?.description, ''),
   type: ensureString(raw?.type),
+  functionName: ensureString(raw?.functionName, ''),
   protocol: ensureString(raw?.protocol),
   method: ensureString(raw?.method, ''),
   path: ensureString(raw?.path, ''),

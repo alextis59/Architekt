@@ -426,6 +426,7 @@ export type ComponentEntryPointPayload = {
   name: string;
   description: string;
   type: string;
+  functionName: string;
   protocol: string;
   method: string;
   path: string;
@@ -446,6 +447,7 @@ const sanitizeEntryPointPayload = (
 ): ComponentEntryPointPayload | null => {
   const name = entryPoint.name.trim();
   const type = entryPoint.type.trim();
+  const functionName = (entryPoint.functionName ?? '').trim();
 
   if (!name || !type) {
     return null;
@@ -455,6 +457,7 @@ const sanitizeEntryPointPayload = (
     name,
     description: entryPoint.description.trim(),
     type,
+    functionName,
     protocol: entryPoint.protocol.trim(),
     method: entryPoint.method.trim(),
     path: entryPoint.path.trim(),
