@@ -519,6 +519,15 @@ const DataModelDesigner = () => {
 
   const handleRemoveAttribute = (attributeId: string) => {
     const attributeToRemove = draft ? findAttributeInList(draft.attributes, attributeId) : null;
+    const attributeLabel = attributeToRemove?.name?.trim() || 'this attribute';
+
+    if (
+      !window.confirm(
+        `Are you sure you want to remove ${attributeLabel}? This will also delete any nested attributes.`
+      )
+    ) {
+      return;
+    }
     setDraft((previous) => {
       if (!previous) {
         return previous;
@@ -1824,7 +1833,12 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
                     <button
                       type="button"
                       className="secondary"
-                      onClick={() => setElementState(null)}
+                      onClick={() => {
+                        if (!window.confirm('Remove this array element definition?')) {
+                          return;
+                        }
+                        setElementState(null);
+                      }}
                     >
                       Remove element
                     </button>

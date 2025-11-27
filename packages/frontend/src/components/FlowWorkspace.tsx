@@ -1047,6 +1047,15 @@ const FlowWorkspace = () => {
   };
 
   const handleRemoveStep = (index: number) => {
+    const stepName = draft?.steps[index]?.name;
+    const stepLabel = stepName?.trim()
+      ? `step "${stepName.trim()}"`
+      : `step ${index + 1}`;
+
+    if (!window.confirm(`Are you sure you want to remove ${stepLabel}?`)) {
+      return;
+    }
+
     setDraft((previous) => {
       if (!previous) {
         return previous;
