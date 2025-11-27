@@ -57,6 +57,154 @@ export const createEmptyAttributeDraft = (): AttributeDraft => ({
   element: null
 });
 
+export const getConstraintTypesForAttribute = (
+  type: string
+): AttributeConstraintDraft['type'][] => {
+  const normalized = type.trim().toLowerCase();
+  if (normalized === 'string') {
+    return ['regex', 'minLength', 'maxLength', 'enum'];
+  }
+  if (normalized === 'number' || normalized === 'integer') {
+    return ['min', 'max'];
+  }
+  return [];
+};
+
+export const formatConstraintDisplay = (constraint: AttributeConstraintDraft): string => {
+  if (constraint.type === 'enum') {
+    return constraint.values.length > 0
+      ? `Enum: ${constraint.values.join(', ')}`
+      : 'Enum';
+  }
+
+  const value = constraint.value.trim();
+  switch (constraint.type) {
+    case 'regex':
+      return value ? `Regex: ${value}` : 'Regex';
+    case 'minLength':
+      return value ? `Min length: ${value}` : 'Min length';
+    case 'maxLength':
+      return value ? `Max length: ${value}` : 'Max length';
+    case 'min':
+      return value ? `Min: ${value}` : 'Min';
+    case 'max':
+      return value ? `Max: ${value}` : 'Max';
+    default:
+      return value || constraint.type;
+  }
+};
+
+export const cloneAttributeDraft = (attribute: AttributeDraft): AttributeDraft => ({
+  ...attribute,
+  constraints: attribute.constraints.map((constraint) =>
+    constraint.type === 'enum' ? { type: 'enum', values: [...constraint.values] } : { ...constraint }
+  ),
+  attributes: attribute.attributes.map(cloneAttributeDraft),
+  element: attribute.element ? cloneAttributeDraft(attribute.element) : null
+});
+
+export const collectAttributeIds = (attributes: AttributeDraft[]): Set<string> => {
+  const ids = new Set<string>();
+  const visit = (attribute: AttributeDraft) => {
+    ids.add(attribute.localId);
+    attribute.attributes.forEach(visit);
+    if (attribute.element) {
+      visit(attribute.element);
+    }
+  };
+
+  attributes.forEach(visit);
+  return ids;
+};
+
+export const retainExpandedAttributeIds = (
+  expanded: Set<string>,
+  draft: { attributes: AttributeDraft[] } | null
+): Set<string> => {
+  if (!draft) {
+    return new Set<string>();
+  }
+
+  const validIds = collectAttributeIds(draft.attributes);
+  const next = new Set<string>();
+
+  expanded.forEach((id) => {
+    if (validIds.has(id)) {
+      next.add(id);
+    }
+  });
+
+  return next;
+};
+
+type UpdateAttributeFn = (attribute: AttributeDraft) => AttributeDraft;
+
+export const updateAttributeInList = (
+  attributes: AttributeDraft[],
+  targetId: string,
+  updater: UpdateAttributeFn
+): AttributeDraft[] =>
+  attributes.map((attribute) => {
+    if (attribute.localId === targetId) {
+      return updater(attribute);
+    }
+
+    return {
+      ...attribute,
+      attributes: updateAttributeInList(attribute.attributes, targetId, updater)
+    };
+  });
+
+export const removeAttributeFromList = (attributes: AttributeDraft[], targetId: string): AttributeDraft[] =>
+  attributes
+    .filter((attribute) => attribute.localId !== targetId)
+    .map((attribute) => ({
+      ...attribute,
+      attributes: removeAttributeFromList(attribute.attributes, targetId)
+    }));
+
+export const addAttributeToList = (
+  attributes: AttributeDraft[],
+  parentId: string | null,
+  newAttribute: AttributeDraft
+): AttributeDraft[] => {
+  if (parentId === null) {
+    return [...attributes, newAttribute];
+  }
+
+  return attributes.map((attribute) => {
+    if (attribute.localId === parentId) {
+      return {
+        ...attribute,
+        attributes: [...attribute.attributes, newAttribute]
+      };
+    }
+
+    return {
+      ...attribute,
+      attributes: addAttributeToList(attribute.attributes, parentId, newAttribute)
+    };
+  });
+};
+
+export const findAttributeInList = (
+  attributes: AttributeDraft[],
+  targetId: string
+): AttributeDraft | null => {
+  for (const attribute of attributes) {
+    if (attribute.localId === targetId) {
+      return attribute;
+    }
+
+    const nestedMatch = findAttributeInList(attribute.attributes, targetId);
+    if (nestedMatch) {
+      return nestedMatch;
+    }
+  }
+
+  return null;
+};
+
 const createAttributeDraftFromModel = (attribute: DataModel['attributes'][number]): AttributeDraft => ({
   id: attribute.id,
   localId: attribute.id ?? generateLocalId(),
@@ -97,7 +245,7 @@ type AttributePayloadOptions = {
   includeIds?: boolean;
 };
 
-const toAttributePayload = (
+export const toAttributePayload = (
   attribute: AttributeDraft,
   { includeIds = true }: AttributePayloadOptions = {}
 ): DataModelAttributePayload => {

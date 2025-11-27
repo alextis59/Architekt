@@ -3,7 +3,12 @@ import type {
   ComponentEntryPointPayload,
   ComponentPayload
 } from '../api/projects.js';
-import { generateLocalId } from './DataModelDesigner.helpers.js';
+import {
+  AttributeDraft,
+  cloneAttributeDraft,
+  generateLocalId,
+  toAttributePayload
+} from './DataModelDesigner.helpers.js';
 
 export type EntryPointDraft = {
   id?: string;
@@ -16,6 +21,8 @@ export type EntryPointDraft = {
   path: string;
   requestModelIds: string[];
   responseModelIds: string[];
+  requestAttributes: AttributeDraft[];
+  responseAttributes: AttributeDraft[];
 };
 
 export type ComponentDraft = {
@@ -37,7 +44,9 @@ const createEntryPointDraftFromModel = (
   method: entryPoint.method,
   path: entryPoint.path,
   requestModelIds: [...entryPoint.requestModelIds],
-  responseModelIds: [...entryPoint.responseModelIds]
+  responseModelIds: [...entryPoint.responseModelIds],
+  requestAttributes: (entryPoint.requestAttributes ?? []).map(cloneAttributeDraft),
+  responseAttributes: (entryPoint.responseAttributes ?? []).map(cloneAttributeDraft)
 });
 
 export const createComponentDraft = (
@@ -68,7 +77,9 @@ export const createEmptyEntryPointDraft = (): EntryPointDraft => ({
   method: '',
   path: '',
   requestModelIds: [],
-  responseModelIds: []
+  responseModelIds: [],
+  requestAttributes: [],
+  responseAttributes: []
 });
 
 const normalizeIdentifiers = (identifiers: string[]): string[] => {
@@ -116,7 +127,13 @@ const toEntryPointPayload = (
     method: entryPoint.method.trim(),
     path: entryPoint.path.trim(),
     requestModelIds: mapModelIdentifiers(entryPoint.requestModelIds, modelLookup),
-    responseModelIds: mapModelIdentifiers(entryPoint.responseModelIds, modelLookup)
+    responseModelIds: mapModelIdentifiers(entryPoint.responseModelIds, modelLookup),
+    requestAttributes: entryPoint.requestAttributes.map((attribute) =>
+      toAttributePayload(attribute, { includeIds })
+    ),
+    responseAttributes: entryPoint.responseAttributes.map((attribute) =>
+      toAttributePayload(attribute, { includeIds })
+    )
   };
 
   if (includeIds && entryPoint.id) {

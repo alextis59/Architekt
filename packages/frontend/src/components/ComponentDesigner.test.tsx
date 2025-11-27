@@ -107,7 +107,9 @@ const projectFixture: Project = {
       method: 'GET',
       path: '/customers/:id',
       requestModelIds: ['model-1'],
-      responseModelIds: ['model-1']
+      responseModelIds: ['model-1'],
+      requestAttributes: [],
+      responseAttributes: []
     }
   }
 };
@@ -261,7 +263,9 @@ describe('ComponentDesigner', () => {
             method: 'get',
             path: '/customers/',
             requestModelIds: ['model-2'],
-            responseModelIds: ['model-1', 'model-2']
+            responseModelIds: ['model-1', 'model-2'],
+            requestAttributes: [],
+            responseAttributes: []
           }
         ]
       });
@@ -298,7 +302,9 @@ describe('ComponentDesigner', () => {
             method: 'get',
             path: '/customers/',
             requestModelIds: ['model-2'],
-            responseModelIds: ['model-1', 'model-2']
+            responseModelIds: ['model-1', 'model-2'],
+            requestAttributes: [],
+            responseAttributes: []
           }
         ]
       });

@@ -59,6 +59,8 @@ export type ComponentEntryPoint = {
   path: string;
   requestModelIds: string[];
   responseModelIds: string[];
+  requestAttributes: DataModelAttribute[];
+  responseAttributes: DataModelAttribute[];
 };
 
 export type Component = {
@@ -111,7 +113,13 @@ type DataModelAttributeInput =
   };
 type DataModelInput = Partial<DataModel> & { id?: string; attributes?: unknown };
 type ComponentEntryPointInput =
-  Partial<ComponentEntryPoint> & { id?: string; requestModelIds?: unknown; responseModelIds?: unknown };
+  Partial<ComponentEntryPoint> & {
+    id?: string;
+    requestModelIds?: unknown;
+    responseModelIds?: unknown;
+    requestAttributes?: unknown;
+    responseAttributes?: unknown;
+  };
 type ComponentInput = Partial<Component> & { id?: string; entryPointIds?: unknown };
 type SystemInput = Partial<System> & { id?: string };
 type ProjectInput =
@@ -338,7 +346,9 @@ const sanitizeComponentEntryPoint = (raw: ComponentEntryPointInput): ComponentEn
   method: ensureString(raw?.method, ''),
   path: ensureString(raw?.path, ''),
   requestModelIds: ensureStringArray(raw?.requestModelIds),
-  responseModelIds: ensureStringArray(raw?.responseModelIds)
+  responseModelIds: ensureStringArray(raw?.responseModelIds),
+  requestAttributes: sanitizeDataModelAttributeList(raw?.requestAttributes),
+  responseAttributes: sanitizeDataModelAttributeList(raw?.responseAttributes)
 });
 
 const sanitizeComponent = (raw: ComponentInput): Component => ({

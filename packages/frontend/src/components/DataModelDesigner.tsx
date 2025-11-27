@@ -21,170 +21,24 @@ import {
   DataModelDraft,
   createDataModelDraft,
   createEmptyAttributeDraft,
+  cloneAttributeDraft,
+  retainExpandedAttributeIds,
+  updateAttributeInList,
+  removeAttributeFromList,
+  addAttributeToList,
+  findAttributeInList,
+  getConstraintTypesForAttribute,
+  formatConstraintDisplay,
   toDataModelPayload,
   toExportableDataModelPayload
 } from './DataModelDesigner.helpers.js';
 
 const TYPE_OPTIONS = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'date'];
 
-const STRING_CONSTRAINTS: AttributeConstraintDraft['type'][] = [
-  'regex',
-  'minLength',
-  'maxLength',
-  'enum'
-];
-const NUMERIC_CONSTRAINTS: AttributeConstraintDraft['type'][] = ['min', 'max'];
-
-const getConstraintTypesForAttribute = (type: string): AttributeConstraintDraft['type'][] => {
-  const normalized = type.trim().toLowerCase();
-  if (normalized === 'string') {
-    return STRING_CONSTRAINTS;
-  }
-  if (normalized === 'number' || normalized === 'integer') {
-    return NUMERIC_CONSTRAINTS;
-  }
-  return [];
-};
-
-const formatConstraintDisplay = (constraint: AttributeConstraintDraft): string => {
-  if (constraint.type === 'enum') {
-    return constraint.values.length > 0
-      ? `Enum: ${constraint.values.join(', ')}`
-      : 'Enum';
-  }
-
-  const value = constraint.value.trim();
-  switch (constraint.type) {
-    case 'regex':
-      return value ? `Regex: ${value}` : 'Regex';
-    case 'minLength':
-      return value ? `Min length: ${value}` : 'Min length';
-    case 'maxLength':
-      return value ? `Max length: ${value}` : 'Max length';
-    case 'min':
-      return value ? `Min: ${value}` : 'Min';
-    case 'max':
-      return value ? `Max: ${value}` : 'Max';
-    default:
-      return value || constraint.type;
-  }
-};
-
-const cloneAttributeDraft = (attribute: AttributeDraft): AttributeDraft => ({
-  ...attribute,
-  constraints: attribute.constraints.map((constraint) =>
-    constraint.type === 'enum' ? { type: 'enum', values: [...constraint.values] } : { ...constraint }
-  ),
-  attributes: attribute.attributes.map(cloneAttributeDraft),
-  element: attribute.element ? cloneAttributeDraft(attribute.element) : null
-});
-
 const cloneDraft = (draft: DataModelDraft): DataModelDraft => ({
   ...draft,
   attributes: draft.attributes.map(cloneAttributeDraft)
 });
-
-const collectAttributeIds = (attributes: AttributeDraft[]): Set<string> => {
-  const ids = new Set<string>();
-  const visit = (attribute: AttributeDraft) => {
-    ids.add(attribute.localId);
-    attribute.attributes.forEach(visit);
-    if (attribute.element) {
-      visit(attribute.element);
-    }
-  };
-
-  attributes.forEach(visit);
-  return ids;
-};
-
-const retainExpandedAttributeIds = (
-  expanded: Set<string>,
-  draft: DataModelDraft | null
-): Set<string> => {
-  if (!draft) {
-    return new Set<string>();
-  }
-
-  const validIds = collectAttributeIds(draft.attributes);
-  const next = new Set<string>();
-
-  expanded.forEach((id) => {
-    if (validIds.has(id)) {
-      next.add(id);
-    }
-  });
-
-  return next;
-};
-
-type UpdateAttributeFn = (attribute: AttributeDraft) => AttributeDraft;
-
-const updateAttributeInList = (
-  attributes: AttributeDraft[],
-  targetId: string,
-  updater: UpdateAttributeFn
-): AttributeDraft[] =>
-  attributes.map((attribute) => {
-    if (attribute.localId === targetId) {
-      return updater(attribute);
-    }
-
-    return {
-      ...attribute,
-      attributes: updateAttributeInList(attribute.attributes, targetId, updater)
-    };
-  });
-
-const removeAttributeFromList = (attributes: AttributeDraft[], targetId: string): AttributeDraft[] =>
-  attributes
-    .filter((attribute) => attribute.localId !== targetId)
-    .map((attribute) => ({
-      ...attribute,
-      attributes: removeAttributeFromList(attribute.attributes, targetId)
-    }));
-
-const addAttributeToList = (
-  attributes: AttributeDraft[],
-  parentId: string | null,
-  newAttribute: AttributeDraft
-): AttributeDraft[] => {
-  if (parentId === null) {
-    return [...attributes, newAttribute];
-  }
-
-  return attributes.map((attribute) => {
-    if (attribute.localId === parentId) {
-      return {
-        ...attribute,
-        attributes: [...attribute.attributes, newAttribute]
-      };
-    }
-
-    return {
-      ...attribute,
-      attributes: addAttributeToList(attribute.attributes, parentId, newAttribute)
-    };
-  });
-};
-
-const findAttributeInList = (
-  attributes: AttributeDraft[],
-  targetId: string
-): AttributeDraft | null => {
-  for (const attribute of attributes) {
-    if (attribute.localId === targetId) {
-      return attribute;
-    }
-
-    const nestedMatch = findAttributeInList(attribute.attributes, targetId);
-    if (nestedMatch) {
-      return nestedMatch;
-    }
-  }
-
-  return null;
-};
 
 const DataModelDesigner = () => {
   const queryClient = useQueryClient();
@@ -1027,7 +881,7 @@ const DataModelDesigner = () => {
   );
 };
 
-type AttributeItemProps = {
+export type AttributeItemProps = {
   attribute: AttributeDraft;
   depth: number;
   expandedAttributeIds: Set<string>;
@@ -1035,16 +889,18 @@ type AttributeItemProps = {
   onEdit: (attributeId: string) => void;
   onAddChild: (parentId: string) => void;
   onRemove: (attributeId: string) => void;
+  showFlags?: boolean;
 };
 
-const AttributeItem = ({
+export const AttributeItem = ({
   attribute,
   depth,
   expandedAttributeIds,
   onToggle,
   onEdit,
   onAddChild,
-  onRemove
+  onRemove,
+  showFlags = true
 }: AttributeItemProps) => {
   const isExpanded = expandedAttributeIds.has(attribute.localId);
   const canNest = attribute.type.trim().toLowerCase() === 'object';
@@ -1105,22 +961,24 @@ const AttributeItem = ({
               <dt>Description</dt>
               <dd>{displayDescription}</dd>
             </div>
-            <div className="attribute-detail">
-              <dt>Flags</dt>
-              <dd>
-                {activeFlags.length > 0 ? (
-                  <div className="attribute-flags">
-                    {activeFlags.map((flag) => (
-                      <span key={flag.label} className="attribute-flag active">
-                        {flag.label}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="attribute-flags-empty">No flags enabled</span>
-                )}
-              </dd>
-            </div>
+            {showFlags && (
+              <div className="attribute-detail">
+                <dt>Flags</dt>
+                <dd>
+                  {activeFlags.length > 0 ? (
+                    <div className="attribute-flags">
+                      {activeFlags.map((flag) => (
+                        <span key={flag.label} className="attribute-flag active">
+                          {flag.label}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="attribute-flags-empty">No flags enabled</span>
+                  )}
+                </dd>
+              </div>
+            )}
           </dl>
           <div className="attribute-actions">
             {canNest && (
@@ -1161,11 +1019,12 @@ const AttributeItem = ({
   );
 };
 
-type AttributeModalProps = {
+export type AttributeModalProps = {
   attribute: AttributeDraft;
   onClose: () => void;
   onSubmit: (attributeId: string, updates: Partial<AttributeDraft>) => void;
   nameFieldRef: RefObject<HTMLInputElement>;
+  showFlags?: boolean;
 };
 
 type ConstraintEditorProps = {
@@ -1657,7 +1516,13 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
   );
 };
 
-const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: AttributeModalProps) => {
+export const AttributeModal = ({
+  attribute,
+  onClose,
+  onSubmit,
+  nameFieldRef,
+  showFlags = true
+}: AttributeModalProps) => {
   const cloneConstraints = useCallback(
     (constraints: AttributeDraft['constraints']) =>
       constraints.map((constraint) =>
@@ -1918,66 +1783,70 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
                         rows={3}
                       />
                     </label>
-                    <label className="checkbox-field">
-                      <input
-                        type="checkbox"
-                        checked={elementState.required}
-                        onChange={(event) =>
-                          setElementState((previous) =>
-                            previous ? { ...previous, required: event.target.checked } : previous
-                          )
-                        }
-                      />
-                      <span>Required</span>
-                    </label>
-                    <label className="checkbox-field">
-                      <input
-                        type="checkbox"
-                        checked={elementState.unique}
-                        onChange={(event) =>
-                          setElementState((previous) =>
-                            previous ? { ...previous, unique: event.target.checked } : previous
-                          )
-                        }
-                      />
-                      <span>Unique</span>
-                    </label>
-                    <label className="checkbox-field">
-                      <input
-                        type="checkbox"
-                        checked={elementState.readOnly}
-                        onChange={(event) =>
-                          setElementState((previous) =>
-                            previous ? { ...previous, readOnly: event.target.checked } : previous
-                          )
-                        }
-                      />
-                      <span>Read-only</span>
-                    </label>
-                    <label className="checkbox-field">
-                      <input
-                        type="checkbox"
-                        checked={elementState.encrypted}
-                        onChange={(event) =>
-                          setElementState((previous) =>
-                            previous ? { ...previous, encrypted: event.target.checked } : previous
-                          )
-                        }
-                      />
-                      <span>Encrypted</span>
-                    </label>
-                    <label className="checkbox-field">
-                      <input
-                        type="checkbox"
-                        checked={elementState.private}
-                        onChange={(event) =>
-                          setElementState((previous) =>
-                            previous ? { ...previous, private: event.target.checked } : previous
-                          )
-                        }
-                      />
-                      <span>Private</span>
-                    </label>
+                    {showFlags && (
+                      <>
+                        <label className="checkbox-field">
+                          <input
+                            type="checkbox"
+                            checked={elementState.required}
+                            onChange={(event) =>
+                              setElementState((previous) =>
+                                previous ? { ...previous, required: event.target.checked } : previous
+                              )
+                            }
+                          />
+                          <span>Required</span>
+                        </label>
+                        <label className="checkbox-field">
+                          <input
+                            type="checkbox"
+                            checked={elementState.unique}
+                            onChange={(event) =>
+                              setElementState((previous) =>
+                                previous ? { ...previous, unique: event.target.checked } : previous
+                              )
+                            }
+                          />
+                          <span>Unique</span>
+                        </label>
+                        <label className="checkbox-field">
+                          <input
+                            type="checkbox"
+                            checked={elementState.readOnly}
+                            onChange={(event) =>
+                              setElementState((previous) =>
+                                previous ? { ...previous, readOnly: event.target.checked } : previous
+                              )
+                            }
+                          />
+                          <span>Read-only</span>
+                        </label>
+                        <label className="checkbox-field">
+                          <input
+                            type="checkbox"
+                            checked={elementState.encrypted}
+                            onChange={(event) =>
+                              setElementState((previous) =>
+                                previous ? { ...previous, encrypted: event.target.checked } : previous
+                              )
+                            }
+                          />
+                          <span>Encrypted</span>
+                        </label>
+                        <label className="checkbox-field">
+                          <input
+                            type="checkbox"
+                            checked={elementState.private}
+                            onChange={(event) =>
+                              setElementState((previous) =>
+                                previous ? { ...previous, private: event.target.checked } : previous
+                              )
+                            }
+                          />
+                          <span>Private</span>
+                        </label>
+                      </>
+                    )}
                   </div>
                 ) : (
                   <p className="status">No element definition provided.</p>
@@ -1999,56 +1868,60 @@ const AttributeModal = ({ attribute, onClose, onSubmit, nameFieldRef }: Attribut
                 rows={3}
               />
             </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={formState.required}
-                onChange={(event) =>
-                  setFormState((previous) => ({ ...previous, required: event.target.checked }))
-                }
-              />
-              <span>Required</span>
-            </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={formState.unique}
-                onChange={(event) =>
-                  setFormState((previous) => ({ ...previous, unique: event.target.checked }))
-                }
-              />
-              <span>Unique</span>
-            </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={formState.readOnly}
-                onChange={(event) =>
-                  setFormState((previous) => ({ ...previous, readOnly: event.target.checked }))
-                }
-              />
-              <span>Read-only</span>
-            </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={formState.encrypted}
-                onChange={(event) =>
-                  setFormState((previous) => ({ ...previous, encrypted: event.target.checked }))
-                }
-              />
-              <span>Encrypted</span>
-            </label>
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={formState.private}
-                onChange={(event) =>
-                  setFormState((previous) => ({ ...previous, private: event.target.checked }))
-                }
-              />
-              <span>Private</span>
-            </label>
+            {showFlags && (
+              <>
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={formState.required}
+                    onChange={(event) =>
+                      setFormState((previous) => ({ ...previous, required: event.target.checked }))
+                    }
+                  />
+                  <span>Required</span>
+                </label>
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={formState.unique}
+                    onChange={(event) =>
+                      setFormState((previous) => ({ ...previous, unique: event.target.checked }))
+                    }
+                  />
+                  <span>Unique</span>
+                </label>
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={formState.readOnly}
+                    onChange={(event) =>
+                      setFormState((previous) => ({ ...previous, readOnly: event.target.checked }))
+                    }
+                  />
+                  <span>Read-only</span>
+                </label>
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={formState.encrypted}
+                    onChange={(event) =>
+                      setFormState((previous) => ({ ...previous, encrypted: event.target.checked }))
+                    }
+                  />
+                  <span>Encrypted</span>
+                </label>
+                <label className="checkbox-field">
+                  <input
+                    type="checkbox"
+                    checked={formState.private}
+                    onChange={(event) =>
+                      setFormState((previous) => ({ ...previous, private: event.target.checked }))
+                    }
+                  />
+                  <span>Private</span>
+                </label>
+              </>
+            )}
             <div className="modal-actions">
               <button type="button" className="secondary" onClick={onClose}>
                 Cancel

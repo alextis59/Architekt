@@ -274,7 +274,9 @@ describe('projects API helpers', () => {
           method: ' GET ',
           path: ' /path ',
           requestModelIds: [' model ', 'model'],
-          responseModelIds: [' resp ', 'resp']
+          responseModelIds: [' resp ', 'resp'],
+          requestAttributes: [],
+          responseAttributes: []
         },
         {
           name: '   ',
@@ -284,7 +286,9 @@ describe('projects API helpers', () => {
           method: '',
           path: '',
           requestModelIds: [],
-          responseModelIds: []
+          responseModelIds: [],
+          requestAttributes: [],
+          responseAttributes: []
         }
       ]
     };
@@ -308,7 +312,9 @@ describe('projects API helpers', () => {
           method: 'GET',
           path: '/path',
           requestModelIds: ['model'],
-          responseModelIds: ['resp']
+          responseModelIds: ['resp'],
+          requestAttributes: [],
+          responseAttributes: []
         }
       ]
     });

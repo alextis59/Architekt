@@ -32,7 +32,19 @@ import {
   toComponentPayload,
   toExportableComponentPayload
 } from './ComponentDesigner.helpers.js';
-import { generateLocalId } from './DataModelDesigner.helpers.js';
+import {
+  addAttributeToList,
+  AttributeDraft,
+  cloneAttributeDraft,
+  createEmptyAttributeDraft,
+  collectAttributeIds,
+  findAttributeInList,
+  generateLocalId,
+  removeAttributeFromList,
+  retainExpandedAttributeIds,
+  updateAttributeInList
+} from './DataModelDesigner.helpers.js';
+import { AttributeItem, AttributeModal } from './DataModelDesigner.js';
 import {
   ENTRY_POINT_METHOD_OPTIONS,
   ENTRY_POINT_PROTOCOL_OPTIONS,
@@ -44,7 +56,9 @@ import {
 const cloneEntryPointDraft = (entryPoint: EntryPointDraft): EntryPointDraft => ({
   ...entryPoint,
   requestModelIds: [...entryPoint.requestModelIds],
-  responseModelIds: [...entryPoint.responseModelIds]
+  responseModelIds: [...entryPoint.responseModelIds],
+  requestAttributes: entryPoint.requestAttributes.map(cloneAttributeDraft),
+  responseAttributes: entryPoint.responseAttributes.map(cloneAttributeDraft)
 });
 
 const cloneDraft = (draft: ComponentDraft | null): ComponentDraft | null => {
@@ -1440,6 +1454,159 @@ const EntryPointModal = ({
   const methodOptions = formConfig.showMethod
     ? filterEntryPointOptions(ENTRY_POINT_METHOD_OPTIONS, formConfig.allowedMethods)
     : [];
+  const [expandedRequestAttributeIds, setExpandedRequestAttributeIds] = useState<Set<string>>(() =>
+    retainExpandedAttributeIds(new Set(), { attributes: entryPoint.requestAttributes })
+  );
+  const [expandedResponseAttributeIds, setExpandedResponseAttributeIds] = useState<Set<string>>(() =>
+    retainExpandedAttributeIds(new Set(), { attributes: entryPoint.responseAttributes })
+  );
+  const [activeAttributeContext, setActiveAttributeContext] = useState<
+    { side: 'request' | 'response'; id: string } | null
+  >(null);
+  const attributeNameFieldRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setExpandedRequestAttributeIds((previous) =>
+      retainExpandedAttributeIds(previous, { attributes: entryPoint.requestAttributes })
+    );
+    setExpandedResponseAttributeIds((previous) =>
+      retainExpandedAttributeIds(previous, { attributes: entryPoint.responseAttributes })
+    );
+  }, [entryPoint.requestAttributes, entryPoint.responseAttributes]);
+
+  const updateAttributes = (
+    side: 'request' | 'response',
+    updater: (attributes: AttributeDraft[]) => AttributeDraft[]
+  ) => {
+    const key = side === 'request' ? 'requestAttributes' : 'responseAttributes';
+    const sourceAttributes =
+      side === 'request' ? entryPoint.requestAttributes : entryPoint.responseAttributes;
+    const nextAttributes = updater(sourceAttributes);
+    onChange({ [key]: nextAttributes } as Partial<EntryPointDraft>);
+  };
+
+  const toggleAttributeExpansion = (side: 'request' | 'response', attributeId: string) => {
+    const setExpanded =
+      side === 'request' ? setExpandedRequestAttributeIds : setExpandedResponseAttributeIds;
+    setExpanded((previous) => {
+      const next = new Set(previous);
+      if (next.has(attributeId)) {
+        next.delete(attributeId);
+      } else {
+        next.add(attributeId);
+      }
+      return next;
+    });
+  };
+
+  const handleAttributeChange = (
+    side: 'request' | 'response',
+    attributeId: string,
+    updates: Partial<AttributeDraft>
+  ) => {
+    updateAttributes(side, (attributes) =>
+      updateAttributeInList(attributes, attributeId, (attribute) => ({ ...attribute, ...updates }))
+    );
+  };
+
+  const handleAddAttribute = (side: 'request' | 'response', parentId: string | null) => {
+    const newAttribute = createEmptyAttributeDraft();
+    updateAttributes(side, (attributes) => addAttributeToList(attributes, parentId, newAttribute));
+    const setExpanded =
+      side === 'request' ? setExpandedRequestAttributeIds : setExpandedResponseAttributeIds;
+    setExpanded((previous) => {
+      const next = new Set(previous);
+      next.add(newAttribute.localId);
+      if (parentId) {
+        next.add(parentId);
+      }
+      return next;
+    });
+    setActiveAttributeContext({ side, id: newAttribute.localId });
+  };
+
+  const handleRemoveAttribute = (side: 'request' | 'response', attributeId: string) => {
+    const attributes = side === 'request' ? entryPoint.requestAttributes : entryPoint.responseAttributes;
+    const attributeToRemove = findAttributeInList(attributes, attributeId);
+    const removedIds = attributeToRemove
+      ? collectAttributeIds([attributeToRemove])
+      : new Set<string>([attributeId]);
+    updateAttributes(side, (current) => removeAttributeFromList(current, attributeId));
+    const setExpanded =
+      side === 'request' ? setExpandedRequestAttributeIds : setExpandedResponseAttributeIds;
+    setExpanded((previous) => {
+      const next = new Set(previous);
+      removedIds.forEach((id) => next.delete(id));
+      return next;
+    });
+    setActiveAttributeContext((current) =>
+      current && removedIds.has(current.id) && current.side === side ? null : current
+    );
+  };
+
+  const openAttributeModal = (side: 'request' | 'response', attributeId: string) => {
+    setActiveAttributeContext({ side, id: attributeId });
+  };
+
+  const closeAttributeModal = () => {
+    setActiveAttributeContext(null);
+  };
+
+  const activeAttribute = useMemo(() => {
+    if (!activeAttributeContext) {
+      return null;
+    }
+
+    const attributes =
+      activeAttributeContext.side === 'request'
+        ? entryPoint.requestAttributes
+        : entryPoint.responseAttributes;
+
+    return findAttributeInList(attributes, activeAttributeContext.id);
+  }, [activeAttributeContext, entryPoint.requestAttributes, entryPoint.responseAttributes]);
+
+  useEffect(() => {
+    if (activeAttributeContext && !activeAttribute) {
+      setActiveAttributeContext(null);
+    }
+  }, [activeAttribute, activeAttributeContext]);
+
+  const renderAttributes = (
+    side: 'request' | 'response',
+    title: string,
+    attributes: AttributeDraft[],
+    expandedIds: Set<string>
+  ) => (
+    <div className="association-group entry-point-attributes-group">
+      <div className="entry-point-attributes-header">
+        <h5>{title}</h5>
+        <button type="button" className="secondary" onClick={() => handleAddAttribute(side, null)}>
+          Add attribute
+        </button>
+      </div>
+      {attributes.length === 0 ? (
+        <p className="status">No attributes defined.</p>
+      ) : (
+        <div className="attribute-list">
+          {attributes.map((attribute) => (
+            <AttributeItem
+              key={attribute.localId}
+              attribute={attribute}
+              depth={0}
+              expandedAttributeIds={expandedIds}
+              onToggle={(id) => toggleAttributeExpansion(side, id)}
+              onEdit={(id) => openAttributeModal(side, id)}
+              onAddChild={(parentId) => handleAddAttribute(side, parentId)}
+              onRemove={(id) => handleRemoveAttribute(side, id)}
+              showFlags={false}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const isAttributeModalOpen = Boolean(activeAttributeContext && activeAttribute);
 
   return (
     <div
@@ -1603,6 +1770,20 @@ const EntryPointModal = ({
                 )}
               </div>
             </div>
+            <div className="entry-point-attributes">
+              {renderAttributes(
+                'request',
+                'Request attributes',
+                entryPoint.requestAttributes,
+                expandedRequestAttributeIds
+              )}
+              {renderAttributes(
+                'response',
+                'Response attributes',
+                entryPoint.responseAttributes,
+                expandedResponseAttributeIds
+              )}
+            </div>
             {error && (
               <p className="status error" role="alert">
                 {error}
@@ -1619,6 +1800,17 @@ const EntryPointModal = ({
           </form>
         </div>
       </div>
+      {isAttributeModalOpen && activeAttribute && activeAttributeContext && (
+        <AttributeModal
+          attribute={activeAttribute}
+          onClose={closeAttributeModal}
+          onSubmit={(attributeId, updates) =>
+            handleAttributeChange(activeAttributeContext.side, attributeId, updates)
+          }
+          nameFieldRef={attributeNameFieldRef}
+          showFlags={false}
+        />
+      )}
     </div>
   );
 };
