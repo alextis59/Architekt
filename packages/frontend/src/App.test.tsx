@@ -91,6 +91,7 @@ const project = {
       name: 'Get customer',
       description: 'Fetch a customer record',
       type: 'http',
+      functionName: '',
       protocol: 'HTTP',
       method: 'GET',
       path: '/customers/:id',

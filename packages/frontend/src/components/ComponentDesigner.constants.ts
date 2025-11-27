@@ -9,6 +9,7 @@ export type EntryPointFormConfig = {
   showProtocol: boolean;
   showMethod: boolean;
   showPath: boolean;
+  showFunctionName: boolean;
 };
 
 export const ENTRY_POINT_TYPE_OPTIONS: EntryPointSelectOption[] = [
@@ -17,7 +18,8 @@ export const ENTRY_POINT_TYPE_OPTIONS: EntryPointSelectOption[] = [
   { value: 'event', label: 'Event subscription' },
   { value: 'cron', label: 'Scheduled job' },
   { value: 'stream', label: 'Stream processor' },
-  { value: 'webhook', label: 'Webhook' }
+  { value: 'webhook', label: 'Webhook' },
+  { value: 'firebase-function', label: 'Firebase function' }
 ];
 
 export const ENTRY_POINT_PROTOCOL_OPTIONS: EntryPointSelectOption[] = [
@@ -91,5 +93,13 @@ export const ENTRY_POINT_TYPE_CONFIG: Record<string, Partial<EntryPointFormConfi
     showProtocol: false,
     showMethod: true,
     showPath: false
+  },
+  'firebase-function': {
+    allowedProtocols: [],
+    allowedMethods: [],
+    showProtocol: false,
+    showMethod: false,
+    showPath: false,
+    showFunctionName: true
   }
 };

@@ -202,6 +202,7 @@ type ComponentEntryPointInput = {
   name: unknown;
   description?: unknown;
   type?: unknown;
+  functionName?: unknown;
   protocol?: unknown;
   method?: unknown;
   path?: unknown;
@@ -705,6 +706,8 @@ const sanitizeComponentEntryPoints = ({
     const id = previous?.id ?? (providedId || randomUUID());
     const description =
       typeof input.description === 'string' ? input.description.trim() : previous?.description ?? '';
+    const functionName =
+      typeof input.functionName === 'string' ? input.functionName.trim() : previous?.functionName ?? '';
     const protocol =
       typeof input.protocol === 'string' ? input.protocol.trim() : previous?.protocol ?? '';
     const method = typeof input.method === 'string' ? input.method.trim() : previous?.method ?? '';
@@ -739,6 +742,7 @@ const sanitizeComponentEntryPoints = ({
       name,
       description,
       type,
+      functionName,
       protocol,
       method,
       path,

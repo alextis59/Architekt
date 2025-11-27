@@ -77,7 +77,8 @@ const ENTRY_POINT_FORM_DEFAULTS: EntryPointFormConfig = {
   allowedMethods: ENTRY_POINT_METHOD_OPTIONS.map((option) => option.value),
   showProtocol: true,
   showMethod: true,
-  showPath: true
+  showPath: true,
+  showFunctionName: false
 };
 
 const filterEntryPointOptions = (
@@ -103,6 +104,7 @@ const applyEntryPointTypeRules = (entryPoint: EntryPointDraft): EntryPointDraft 
 
   return {
     ...entryPoint,
+    functionName: config.showFunctionName ? entryPoint.functionName : '',
     protocol:
       config.showProtocol && config.allowedProtocols.includes(entryPoint.protocol)
         ? entryPoint.protocol
@@ -1279,10 +1281,17 @@ const EntryPointItem = ({
   const isExpanded = expandedEntryPointIds.has(entryPoint.localId);
   const displayName = entryPoint.name.trim() || 'Untitled entry point';
   const displayType = entryPoint.type.trim() || '—';
+  const displayFunctionName = entryPoint.functionName.trim() || '—';
   const displayProtocol = entryPoint.protocol.trim() || '—';
   const displayMethod = entryPoint.method.trim() || '—';
   const displayPath = entryPoint.path.trim() || '—';
   const displayDescription = entryPoint.description.trim() || '—';
+  const formConfig = getEntryPointFormConfig(entryPoint.type);
+  const displayPrimaryBadge = formConfig.showMethod
+    ? displayMethod
+    : formConfig.showFunctionName
+      ? displayFunctionName
+      : displayMethod;
   const requestModels =
     entryPoint.requestModelIds.length === 0
       ? []
@@ -1345,7 +1354,7 @@ const EntryPointItem = ({
             {isExpanded ? '▾' : '▸'}
           </span>
           <div className="entry-point-title">
-            <span className="entry-point-method">{displayMethod}</span>
+            <span className="entry-point-method">{displayPrimaryBadge}</span>
             <span className="entry-point-name">{displayName}</span>
           </div>
         </button>
@@ -1357,18 +1366,30 @@ const EntryPointItem = ({
               <dt>Type</dt>
               <dd>{displayType}</dd>
             </div>
-            <div className="entry-point-detail">
-              <dt>Protocol</dt>
-              <dd>{displayProtocol}</dd>
-            </div>
-            <div className="entry-point-detail">
-              <dt>Method / Verb</dt>
-              <dd>{displayMethod}</dd>
-            </div>
-            <div className="entry-point-detail">
-              <dt>Path or channel</dt>
-              <dd>{displayPath}</dd>
-            </div>
+            {formConfig.showFunctionName && (
+              <div className="entry-point-detail">
+                <dt>Function name</dt>
+                <dd>{displayFunctionName}</dd>
+              </div>
+            )}
+            {formConfig.showProtocol && (
+              <div className="entry-point-detail">
+                <dt>Protocol</dt>
+                <dd>{displayProtocol}</dd>
+              </div>
+            )}
+            {formConfig.showMethod && (
+              <div className="entry-point-detail">
+                <dt>Method / Verb</dt>
+                <dd>{displayMethod}</dd>
+              </div>
+            )}
+            {formConfig.showPath && (
+              <div className="entry-point-detail">
+                <dt>Path or channel</dt>
+                <dd>{displayPath}</dd>
+              </div>
+            )}
             <div className="entry-point-detail entry-point-detail-description">
               <dt>Description</dt>
               <dd>{displayDescription}</dd>
@@ -1661,23 +1682,34 @@ const EntryPointModal = ({
             <div className="entry-point-grid">
               <label className="field">
                 <span>Type</span>
-              <select
-                value={entryPoint.type}
-                onChange={(event) => onChange({ type: event.target.value })}
-              >
-                <option value="">Select type</option>
-                {ENTRY_POINT_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {formConfig.showProtocol && protocolOptions.length > 0 && (
-              <label className="field">
-                <span>Protocol</span>
                 <select
-                  value={entryPoint.protocol}
+                  value={entryPoint.type}
+                  onChange={(event) => onChange({ type: event.target.value })}
+                >
+                  <option value="">Select type</option>
+                  {ENTRY_POINT_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {formConfig.showFunctionName && (
+                <label className="field">
+                  <span>Function name</span>
+                  <input
+                    type="text"
+                    value={entryPoint.functionName}
+                    onChange={(event) => onChange({ functionName: event.target.value })}
+                    placeholder="ordersSync"
+                  />
+                </label>
+              )}
+              {formConfig.showProtocol && protocolOptions.length > 0 && (
+                <label className="field">
+                  <span>Protocol</span>
+                  <select
+                    value={entryPoint.protocol}
                   onChange={(event) => onChange({ protocol: event.target.value })}
                 >
                   <option value="">Select protocol</option>
