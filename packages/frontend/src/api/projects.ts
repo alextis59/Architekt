@@ -421,7 +421,7 @@ export const deleteDataModel = async (
   });
 };
 
-type ComponentEntryPointPayload = {
+export type ComponentEntryPointPayload = {
   id?: string;
   name: string;
   description: string;
@@ -431,9 +431,11 @@ type ComponentEntryPointPayload = {
   path: string;
   requestModelIds: string[];
   responseModelIds: string[];
+  requestAttributes?: DataModelAttributePayload[];
+  responseAttributes?: DataModelAttributePayload[];
 };
 
-type ComponentPayload = {
+export type ComponentPayload = {
   name: string;
   description: string;
   entryPoints: ComponentEntryPointPayload[];
@@ -457,7 +459,17 @@ const sanitizeEntryPointPayload = (
     method: entryPoint.method.trim(),
     path: entryPoint.path.trim(),
     requestModelIds: sanitizeIdentifiers(entryPoint.requestModelIds ?? []),
-    responseModelIds: sanitizeIdentifiers(entryPoint.responseModelIds ?? [])
+    responseModelIds: sanitizeIdentifiers(entryPoint.responseModelIds ?? []),
+    requestAttributes: Array.isArray(entryPoint.requestAttributes)
+      ? entryPoint.requestAttributes
+          .map((attribute) => sanitizeAttributePayload(attribute))
+          .filter((attribute): attribute is DataModelAttributePayload => attribute !== null)
+      : [],
+    responseAttributes: Array.isArray(entryPoint.responseAttributes)
+      ? entryPoint.responseAttributes
+          .map((attribute) => sanitizeAttributePayload(attribute))
+          .filter((attribute): attribute is DataModelAttributePayload => attribute !== null)
+      : []
   };
 
   if (entryPoint.id) {

@@ -55,7 +55,9 @@ describe('FlowWorkspace helpers', () => {
         path: '/one',
         target: '',
         requestModelIds: [],
-        responseModelIds: []
+        responseModelIds: [],
+        requestAttributes: [],
+        responseAttributes: []
       },
       'ep-2': {
         id: 'ep-2',
@@ -67,7 +69,9 @@ describe('FlowWorkspace helpers', () => {
         path: '/two',
         target: '',
         requestModelIds: [],
-        responseModelIds: []
+        responseModelIds: [],
+        requestAttributes: [],
+        responseAttributes: []
       }
     }
   };

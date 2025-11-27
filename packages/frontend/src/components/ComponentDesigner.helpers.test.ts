@@ -19,7 +19,9 @@ const createComponent = (): { component: Component; entryPoints: Record<string, 
     method: 'GET',
     path: '/customers/:id',
     requestModelIds: ['model-1'],
-    responseModelIds: ['model-1']
+    responseModelIds: ['model-1'],
+    requestAttributes: [],
+    responseAttributes: []
   };
 
   const component: Component = {
@@ -56,7 +58,9 @@ describe('ComponentDesigner helpers', () => {
           method: 'GET',
           path: '/customers/:id',
           requestModelIds: ['model-1'],
-          responseModelIds: ['model-1']
+          responseModelIds: ['model-1'],
+          requestAttributes: [],
+          responseAttributes: []
         }
       ]
     });
@@ -75,7 +79,9 @@ describe('ComponentDesigner helpers', () => {
       method: '',
       path: '',
       requestModelIds: [],
-      responseModelIds: []
+      responseModelIds: [],
+      requestAttributes: [],
+      responseAttributes: []
     });
     expect(draft.localId).toBeDefined();
 
@@ -98,7 +104,25 @@ describe('ComponentDesigner helpers', () => {
           method: '  POST  ',
           path: '  /orders  ',
           requestModelIds: [' model-1 ', 'model-1'],
-          responseModelIds: [' model-2 ', '']
+          responseModelIds: [' model-2 ', ''],
+          requestAttributes: [
+            {
+              id: 'attr-1',
+              localId: 'attr-1',
+              name: '  Correlation  ',
+              description: '  Tracking  ',
+              type: '  string  ',
+              required: true,
+              unique: false,
+              constraints: [{ type: 'regex', value: '^[a-z]+$' }],
+              readOnly: false,
+              encrypted: false,
+              private: false,
+              attributes: [],
+              element: null
+            }
+          ],
+          responseAttributes: []
         }
       ]
     } satisfies ComponentDraft;
@@ -118,7 +142,22 @@ describe('ComponentDesigner helpers', () => {
           method: 'POST',
           path: '/orders',
           requestModelIds: ['model-1'],
-          responseModelIds: ['model-2']
+          responseModelIds: ['model-2'],
+          requestAttributes: [
+            {
+              id: 'attr-1',
+              name: 'Correlation',
+              description: 'Tracking',
+              type: 'string',
+              required: true,
+              unique: false,
+              constraints: [{ type: 'regex', value: '^[a-z]+$' }],
+              readOnly: false,
+              encrypted: false,
+              private: false
+            }
+          ],
+          responseAttributes: []
         }
       ]
     });
@@ -142,7 +181,9 @@ describe('ComponentDesigner helpers', () => {
           method: 'GET',
           path: '/customers/:id',
           requestModelIds: ['model-1', 'unknown-id'],
-          responseModelIds: ['model-2']
+          responseModelIds: ['model-2'],
+          requestAttributes: [],
+          responseAttributes: []
         }
       ]
     };
@@ -164,7 +205,9 @@ describe('ComponentDesigner helpers', () => {
           method: 'GET',
           path: '/customers/:id',
           requestModelIds: ['Customer Profile', 'unknown-id'],
-          responseModelIds: ['Audit Event']
+          responseModelIds: ['Audit Event'],
+          requestAttributes: [],
+          responseAttributes: []
         }
       ]
     });

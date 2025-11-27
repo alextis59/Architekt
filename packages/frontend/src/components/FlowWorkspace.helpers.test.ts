@@ -126,7 +126,9 @@ const project: Project = {
       path: '/checkout',
       target: '',
       requestModelIds: [],
-      responseModelIds: []
+      responseModelIds: [],
+      requestAttributes: [],
+      responseAttributes: []
     },
     'ep-payments-authorize': {
       id: 'ep-payments-authorize',
@@ -138,7 +140,9 @@ const project: Project = {
       path: '/payments/authorize',
       target: '',
       requestModelIds: [],
-      responseModelIds: []
+      responseModelIds: [],
+      requestAttributes: [],
+      responseAttributes: []
     },
     'ep-payments-capture': {
       id: 'ep-payments-capture',
@@ -150,7 +154,9 @@ const project: Project = {
       path: '/payments/capture',
       target: '',
       requestModelIds: [],
-      responseModelIds: []
+      responseModelIds: [],
+      requestAttributes: [],
+      responseAttributes: []
     }
   }
 };

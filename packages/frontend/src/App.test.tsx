@@ -96,7 +96,9 @@ const project = {
       path: '/customers/:id',
       target: '',
       requestModelIds: ['model-1'],
-      responseModelIds: ['model-1']
+      responseModelIds: ['model-1'],
+      requestAttributes: [],
+      responseAttributes: []
     }
   }
 };

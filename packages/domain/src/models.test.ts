@@ -92,9 +92,21 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
             method: 'GET',
             path: '/customers/:id',
             requestModelIds: ['model-1', ''],
-            responseModelIds: ['model-1']
+            responseModelIds: ['model-1'],
+            requestAttributes: [],
+            responseAttributes: []
           },
-          'ep-2': { id: 'ep-2', name: '', type: 'queue', protocol: 'AMQP', path: 'queue' }
+          'ep-2': {
+            id: 'ep-2',
+            name: '',
+            type: 'queue',
+            protocol: 'AMQP',
+            path: 'queue',
+            requestModelIds: [],
+            responseModelIds: [],
+            requestAttributes: [],
+            responseAttributes: []
+          }
         }
       }
     }
@@ -272,9 +284,20 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
             method: 'GET',
             path: '/orders',
             requestModelIds: ['valid-model'],
-            responseModelIds: ['valid-model']
+            responseModelIds: ['valid-model'],
+            requestAttributes: [],
+            responseAttributes: []
           },
-          'ep-drop': { id: 'ep-drop', name: '', type: 'http', protocol: 'HTTP' }
+          'ep-drop': {
+            id: 'ep-drop',
+            name: '',
+            type: 'http',
+            protocol: 'HTTP',
+            requestModelIds: [],
+            responseModelIds: [],
+            requestAttributes: [],
+            responseAttributes: []
+          }
         }
       }
     }

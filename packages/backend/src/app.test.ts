@@ -322,7 +322,9 @@ test('Component endpoints manage entry points with data model references', async
           method: 'GET',
           path: '/customers/:id',
           requestModelIds: [dataModelId],
-          responseModelIds: [dataModelId]
+          responseModelIds: [dataModelId],
+          requestAttributes: [],
+          responseAttributes: []
         }
       ]
     });
@@ -349,7 +351,9 @@ test('Component endpoints manage entry points with data model references', async
           method: 'GET',
           path: '/customers/:id',
           requestModelIds: [dataModelId],
-          responseModelIds: [dataModelId]
+          responseModelIds: [dataModelId],
+          requestAttributes: [],
+          responseAttributes: []
         },
         {
           name: 'Customer events',
@@ -359,7 +363,9 @@ test('Component endpoints manage entry points with data model references', async
           method: '',
           path: 'customers.events',
           requestModelIds: [dataModelId],
-          responseModelIds: []
+          responseModelIds: [],
+          requestAttributes: [],
+          responseAttributes: []
         }
       ]
     });
@@ -831,7 +837,9 @@ test('shared collaborators can manage all project resources', async () => {
           method: 'GET',
           path: '/items/:id',
           requestModelIds: [dataModelId],
-          responseModelIds: [dataModelId]
+          responseModelIds: [dataModelId],
+          requestAttributes: [],
+          responseAttributes: []
         }
       ]
     });

@@ -207,6 +207,8 @@ type ComponentEntryPointInput = {
   path?: unknown;
   requestModelIds?: unknown;
   responseModelIds?: unknown;
+  requestAttributes?: unknown;
+  responseAttributes?: unknown;
 };
 
 type CreateComponentInput = {
@@ -375,7 +377,9 @@ const cloneComponentEntryPoints = (entryPoints: ComponentEntryPoint[]): Componen
   entryPoints.map((entryPoint) => ({
     ...entryPoint,
     requestModelIds: [...entryPoint.requestModelIds],
-    responseModelIds: [...entryPoint.responseModelIds]
+    responseModelIds: [...entryPoint.responseModelIds],
+    requestAttributes: cloneDataModelAttributes(entryPoint.requestAttributes),
+    responseAttributes: cloneDataModelAttributes(entryPoint.responseAttributes)
   }));
 
 const parseAttributeConstraint = (raw: unknown): DataModelAttribute['constraints'][number] => {
@@ -716,6 +720,20 @@ const sanitizeComponentEntryPoints = ({
         ? ensureUniqueStrings(input.responseModelIds)
         : previous?.responseModelIds ?? [];
 
+    const requestAttributes = sanitizeDataModelAttributes({
+      rawAttributes: input.requestAttributes,
+      existing: previous
+        ? new Map(previous.requestAttributes.map((attribute) => [attribute.id, attribute] as [string, DataModelAttribute]))
+        : undefined
+    });
+
+    const responseAttributes = sanitizeDataModelAttributes({
+      rawAttributes: input.responseAttributes,
+      existing: previous
+        ? new Map(previous.responseAttributes.map((attribute) => [attribute.id, attribute] as [string, DataModelAttribute]))
+        : undefined
+    });
+
     result.push({
       id,
       name,
@@ -725,7 +743,9 @@ const sanitizeComponentEntryPoints = ({
       method,
       path,
       requestModelIds,
-      responseModelIds
+      responseModelIds,
+      requestAttributes,
+      responseAttributes
     });
   }
 
