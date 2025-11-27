@@ -1,12 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DataModel } from '@architekt/domain';
 import {
+  AttributeDraft,
   DataModelDraft,
   createDataModelDraft,
   createEmptyAttributeDraft,
   createEmptyDataModelDraft,
   toDataModelPayload,
-  toExportableDataModelPayload
+  toExportableDataModelPayload,
+  addAttributeToList,
+  findAttributeInList,
+  removeAttributeFromList,
+  updateAttributeInList
 } from './DataModelDesigner.helpers.js';
 
 describe('DataModelDesigner helpers', () => {
@@ -224,6 +229,81 @@ describe('DataModelDesigner helpers', () => {
         }
       ]
     });
+  });
+
+  it('updates nested array element attributes like other objects', () => {
+    const elementChild: AttributeDraft = {
+      localId: 'child-1',
+      name: 'title',
+      description: '',
+      type: 'string',
+      required: false,
+      unique: false,
+      constraints: [],
+      readOnly: false,
+      encrypted: false,
+      private: false,
+      attributes: [],
+      element: null
+    };
+
+    const element: AttributeDraft = {
+      localId: 'element-1',
+      name: 'Item',
+      description: '',
+      type: 'object',
+      required: false,
+      unique: false,
+      constraints: [],
+      readOnly: false,
+      encrypted: false,
+      private: false,
+      attributes: [elementChild],
+      element: null
+    };
+
+    const root: AttributeDraft = {
+      localId: 'root-array',
+      name: 'items',
+      description: '',
+      type: 'array',
+      required: false,
+      unique: false,
+      constraints: [],
+      readOnly: false,
+      encrypted: false,
+      private: false,
+      attributes: [],
+      element
+    };
+
+    const newChild: AttributeDraft = {
+      ...createEmptyAttributeDraft(),
+      localId: 'child-2',
+      name: 'sku',
+      type: 'string'
+    };
+
+    const withElementChild = addAttributeToList([root], 'element-1', newChild);
+    const updatedElement = withElementChild[0].element as AttributeDraft;
+
+    expect(updatedElement.attributes.map((attribute) => attribute.localId)).toEqual([
+      'child-1',
+      'child-2'
+    ]);
+
+    const edited = updateAttributeInList(withElementChild, 'child-2', (attribute) => ({
+      ...attribute,
+      description: 'Unique identifier'
+    }));
+
+    expect(findAttributeInList(edited, 'child-2')).toMatchObject({ description: 'Unique identifier' });
+
+    const pruned = removeAttributeFromList(edited, 'child-1');
+    const prunedElement = pruned[0].element as AttributeDraft;
+
+    expect(prunedElement.attributes).toHaveLength(1);
+    expect(prunedElement.attributes[0].localId).toBe('child-2');
   });
 
   it('creates empty attribute drafts with defaults', () => {

@@ -143,25 +143,57 @@ export const updateAttributeInList = (
   attributes: AttributeDraft[],
   targetId: string,
   updater: UpdateAttributeFn
-): AttributeDraft[] =>
-  attributes.map((attribute) => {
+): AttributeDraft[] => {
+  const updateAttributeNode = (attribute: AttributeDraft): AttributeDraft => {
     if (attribute.localId === targetId) {
       return updater(attribute);
     }
 
-    return {
-      ...attribute,
-      attributes: updateAttributeInList(attribute.attributes, targetId, updater)
-    };
-  });
+    const updatedAttributes = updateAttributeInList(attribute.attributes, targetId, updater);
+    const updatedElement = attribute.element
+      ? updateAttributeNode(attribute.element)
+      : null;
+
+    if (updatedAttributes !== attribute.attributes || updatedElement !== attribute.element) {
+      return {
+        ...attribute,
+        attributes: updatedAttributes,
+        element: updatedElement
+      };
+    }
+
+    return attribute;
+  };
+
+  return attributes.map(updateAttributeNode);
+};
 
 export const removeAttributeFromList = (attributes: AttributeDraft[], targetId: string): AttributeDraft[] =>
   attributes
     .filter((attribute) => attribute.localId !== targetId)
-    .map((attribute) => ({
-      ...attribute,
-      attributes: removeAttributeFromList(attribute.attributes, targetId)
-    }));
+    .map((attribute) => {
+      const updatedAttributes = removeAttributeFromList(attribute.attributes, targetId);
+
+      let updatedElement = attribute.element;
+      if (attribute.element) {
+        if (attribute.element.localId === targetId) {
+          updatedElement = null;
+        } else {
+          const prunedElement = removeAttributeFromList([attribute.element], targetId)[0];
+          updatedElement = prunedElement ?? attribute.element;
+        }
+      }
+
+      if (updatedAttributes !== attribute.attributes || updatedElement !== attribute.element) {
+        return {
+          ...attribute,
+          attributes: updatedAttributes,
+          element: updatedElement
+        };
+      }
+
+      return attribute;
+    });
 
 export const addAttributeToList = (
   attributes: AttributeDraft[],
@@ -180,9 +212,25 @@ export const addAttributeToList = (
       };
     }
 
+    if (attribute.element?.localId === parentId) {
+      return {
+        ...attribute,
+        element: {
+          ...attribute.element,
+          attributes: [...attribute.element.attributes, newAttribute]
+        }
+      };
+    }
+
     return {
       ...attribute,
-      attributes: addAttributeToList(attribute.attributes, parentId, newAttribute)
+      attributes: addAttributeToList(attribute.attributes, parentId, newAttribute),
+      element: attribute.element
+        ? {
+            ...attribute.element,
+            attributes: addAttributeToList(attribute.element.attributes, parentId, newAttribute)
+          }
+        : null
     };
   });
 };
@@ -199,6 +247,13 @@ export const findAttributeInList = (
     const nestedMatch = findAttributeInList(attribute.attributes, targetId);
     if (nestedMatch) {
       return nestedMatch;
+    }
+
+    if (attribute.element) {
+      const elementMatch = findAttributeInList([attribute.element], targetId);
+      if (elementMatch) {
+        return elementMatch;
+      }
     }
   }
 

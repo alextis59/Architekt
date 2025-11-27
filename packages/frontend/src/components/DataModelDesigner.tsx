@@ -890,6 +890,7 @@ export type AttributeItemProps = {
   onAddChild: (parentId: string) => void;
   onRemove: (attributeId: string) => void;
   showFlags?: boolean;
+  contextLabel?: string;
 };
 
 export const AttributeItem = ({
@@ -900,10 +901,13 @@ export const AttributeItem = ({
   onEdit,
   onAddChild,
   onRemove,
-  showFlags = true
+  showFlags = true,
+  contextLabel
 }: AttributeItemProps) => {
   const isExpanded = expandedAttributeIds.has(attribute.localId);
-  const canNest = attribute.type.trim().toLowerCase() === 'object';
+  const normalizedType = attribute.type.trim().toLowerCase();
+  const isArrayType = normalizedType === 'array';
+  const canNest = normalizedType === 'object';
   const displayName = attribute.name.trim() || 'Unnamed attribute';
   const displayType = attribute.type.trim() || '—';
   const displayConstraints =
@@ -911,12 +915,11 @@ export const AttributeItem = ({
       ? attribute.constraints.map((constraint) => formatConstraintDisplay(constraint)).join(', ')
       : '—';
   const displayDescription = attribute.description.trim() || '—';
-  const displayElement =
-    attribute.type.trim().toLowerCase() === 'array'
-      ? attribute.element
-        ? `${attribute.element.name.trim() || 'Element'} (${attribute.element.type.trim() || '—'})`
-        : '—'
-      : null;
+  const displayElement = isArrayType
+    ? attribute.element
+      ? `${attribute.element.name.trim() || 'Element'} (${attribute.element.type.trim() || '—'})`
+      : '—'
+    : null;
   const activeFlags = [
     { label: 'Required', active: attribute.required },
     { label: 'Unique', active: attribute.unique },
@@ -937,7 +940,10 @@ export const AttributeItem = ({
           <span className="attribute-toggle-icon" aria-hidden="true">
             {isExpanded ? '▾' : '▸'}
           </span>
-          <span className="attribute-title">{displayName}</span>
+          <span className="attribute-title">
+            {contextLabel && <span className="attribute-context">{contextLabel}</span>}
+            {displayName}
+          </span>
         </button>
       </div>
       {isExpanded && (
@@ -1009,8 +1015,24 @@ export const AttributeItem = ({
                   onEdit={onEdit}
                   onAddChild={onAddChild}
                   onRemove={onRemove}
+                  showFlags={showFlags}
                 />
               ))}
+            </div>
+          )}
+          {isArrayType && attribute.element && (
+            <div className="attribute-children">
+              <AttributeItem
+                attribute={attribute.element}
+                contextLabel="Array element"
+                depth={depth + 1}
+                expandedAttributeIds={expandedAttributeIds}
+                onToggle={onToggle}
+                onEdit={onEdit}
+                onAddChild={onAddChild}
+                onRemove={onRemove}
+                showFlags={showFlags}
+              />
             </div>
           )}
         </div>

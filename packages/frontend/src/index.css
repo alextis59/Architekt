@@ -960,6 +960,20 @@ button.danger:hover:not(:disabled),
   white-space: nowrap;
 }
 
+.attribute-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.4rem;
+  margin-right: 0.4rem;
+  border-radius: 999px;
+  background: rgba(129, 140, 248, 0.2);
+  color: #312e81;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .attribute-details {
   padding: 1rem;
   display: flex;
