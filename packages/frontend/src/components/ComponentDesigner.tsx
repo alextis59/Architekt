@@ -82,6 +82,14 @@ const ENTRY_POINT_FORM_DEFAULTS: EntryPointFormConfig = {
   showFunctionName: false
 };
 
+const ENTRY_POINT_ATTRIBUTE_FLAG_VISIBILITY = {
+  required: true,
+  unique: false,
+  readOnly: false,
+  encrypted: false,
+  private: false
+} as const;
+
 const filterEntryPointOptions = (
   options: typeof ENTRY_POINT_PROTOCOL_OPTIONS,
   allowedValues: string[]
@@ -1640,7 +1648,7 @@ const EntryPointModal = ({
               onEdit={(id) => openAttributeModal(side, id)}
               onAddChild={(parentId) => handleAddAttribute(side, parentId)}
               onRemove={(id) => handleRemoveAttribute(side, id)}
-              showFlags={false}
+              flagVisibility={ENTRY_POINT_ATTRIBUTE_FLAG_VISIBILITY}
             />
           ))}
         </div>
@@ -1870,7 +1878,7 @@ const EntryPointModal = ({
             handleAttributeChange(activeAttributeContext.side, attributeId, updates)
           }
           nameFieldRef={attributeNameFieldRef}
-          showFlags={false}
+          flagVisibility={ENTRY_POINT_ATTRIBUTE_FLAG_VISIBILITY}
         />
       )}
     </div>
