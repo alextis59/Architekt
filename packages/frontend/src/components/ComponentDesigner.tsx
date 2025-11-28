@@ -55,6 +55,7 @@ import {
 
 const cloneEntryPointDraft = (entryPoint: EntryPointDraft): EntryPointDraft => ({
   ...entryPoint,
+  tags: [...entryPoint.tags],
   requestModelIds: [...entryPoint.requestModelIds],
   responseModelIds: [...entryPoint.responseModelIds],
   requestAttributes: entryPoint.requestAttributes.map(cloneAttributeDraft),
@@ -116,6 +117,12 @@ const applyEntryPointTypeRules = (entryPoint: EntryPointDraft): EntryPointDraft 
     path: config.showPath ? entryPoint.path : ''
   };
 };
+
+const parseTagInput = (input: string): string[] =>
+  input
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value, index, array) => value.length > 0 && array.indexOf(value) === index);
 
 const ComponentDesigner = () => {
   const queryClient = useQueryClient();
@@ -1397,6 +1404,20 @@ const EntryPointItem = ({
           </dl>
           <div className="entry-point-associations">
             <div className="association-group">
+              <h5>Tags</h5>
+              {entryPoint.tags.length > 0 ? (
+                <div className="tag-list">
+                  {entryPoint.tags.map((tag) => (
+                    <span key={`${entryPoint.localId}-tag-${tag}`} className="tag">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="status">No tags assigned.</p>
+              )}
+            </div>
+            <div className="association-group">
               <h5>Request models</h5>
               {requestModels.length > 0 ? (
                 <ul className="entry-point-association-list">
@@ -1756,6 +1777,15 @@ const EntryPointModal = ({
                 onChange={(event) => onChange({ description: event.target.value })}
                 rows={3}
                 placeholder="What does this entry point do?"
+              />
+            </label>
+            <label className="field">
+              <span>Tags</span>
+              <input
+                type="text"
+                value={entryPoint.tags.join(', ')}
+                onChange={(event) => onChange({ tags: parseTagInput(event.target.value) })}
+                placeholder="Comma separated tags"
               />
             </label>
             <div className="entry-point-associations">

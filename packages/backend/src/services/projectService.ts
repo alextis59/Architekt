@@ -201,6 +201,7 @@ type ComponentEntryPointInput = {
   id?: unknown;
   name: unknown;
   description?: unknown;
+  tags?: unknown;
   type?: unknown;
   functionName?: unknown;
   protocol?: unknown;
@@ -377,6 +378,7 @@ const cloneDataModelAttributes = (attributes: DataModelAttribute[]): DataModelAt
 const cloneComponentEntryPoints = (entryPoints: ComponentEntryPoint[]): ComponentEntryPoint[] =>
   entryPoints.map((entryPoint) => ({
     ...entryPoint,
+    tags: [...entryPoint.tags],
     requestModelIds: [...entryPoint.requestModelIds],
     responseModelIds: [...entryPoint.responseModelIds],
     requestAttributes: cloneDataModelAttributes(entryPoint.requestAttributes),
@@ -712,6 +714,7 @@ const sanitizeComponentEntryPoints = ({
       typeof input.protocol === 'string' ? input.protocol.trim() : previous?.protocol ?? '';
     const method = typeof input.method === 'string' ? input.method.trim() : previous?.method ?? '';
     const path = typeof input.path === 'string' ? input.path.trim() : previous?.path ?? '';
+    const tags = input.tags !== undefined ? ensureTags(input.tags) : previous?.tags ?? [];
 
     const requestModelIds =
       input.requestModelIds !== undefined
@@ -741,6 +744,7 @@ const sanitizeComponentEntryPoints = ({
       id,
       name,
       description,
+      tags,
       type,
       functionName,
       protocol,

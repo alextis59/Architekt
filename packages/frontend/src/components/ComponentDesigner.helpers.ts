@@ -15,6 +15,7 @@ export type EntryPointDraft = {
   localId: string;
   name: string;
   description: string;
+  tags: string[];
   type: string;
   functionName: string;
   protocol: string;
@@ -40,6 +41,7 @@ const createEntryPointDraftFromModel = (
   localId: entryPoint.id ?? generateLocalId(),
   name: entryPoint.name,
   description: entryPoint.description,
+  tags: [...entryPoint.tags],
   type: entryPoint.type,
   functionName: entryPoint.functionName,
   protocol: entryPoint.protocol,
@@ -74,6 +76,7 @@ export const createEmptyEntryPointDraft = (): EntryPointDraft => ({
   localId: generateLocalId(),
   name: '',
   description: '',
+  tags: [],
   type: '',
   functionName: '',
   protocol: '',
@@ -125,6 +128,7 @@ const toEntryPointPayload = (
   const payload: ComponentEntryPointPayload = {
     name: entryPoint.name.trim(),
     description: entryPoint.description.trim(),
+    tags: normalizeIdentifiers(entryPoint.tags),
     type: entryPoint.type.trim(),
     functionName: entryPoint.functionName.trim(),
     protocol: entryPoint.protocol.trim(),
