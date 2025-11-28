@@ -35,6 +35,21 @@ import {
 
 const TYPE_OPTIONS = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'date'];
 
+export type AttributeFlagVisibility = Partial<
+  Record<'required' | 'unique' | 'readOnly' | 'encrypted' | 'private', boolean>
+>;
+
+const DEFAULT_ATTRIBUTE_FLAG_VISIBILITY: Record<
+  'required' | 'unique' | 'readOnly' | 'encrypted' | 'private',
+  boolean
+> = {
+  required: true,
+  unique: true,
+  readOnly: true,
+  encrypted: true,
+  private: true
+};
+
 const cloneDraft = (draft: DataModelDraft): DataModelDraft => ({
   ...draft,
   attributes: draft.attributes.map(cloneAttributeDraft)
@@ -891,6 +906,7 @@ export type AttributeItemProps = {
   onRemove: (attributeId: string) => void;
   showFlags?: boolean;
   contextLabel?: string;
+  flagVisibility?: AttributeFlagVisibility;
 };
 
 export const AttributeItem = ({
@@ -902,7 +918,8 @@ export const AttributeItem = ({
   onAddChild,
   onRemove,
   showFlags = true,
-  contextLabel
+  contextLabel,
+  flagVisibility
 }: AttributeItemProps) => {
   const isExpanded = expandedAttributeIds.has(attribute.localId);
   const normalizedType = attribute.type.trim().toLowerCase();
@@ -920,13 +937,15 @@ export const AttributeItem = ({
       ? `${attribute.element.name.trim() || 'Element'} (${attribute.element.type.trim() || '—'})`
       : '—'
     : null;
+  const flagVisibilityConfig = { ...DEFAULT_ATTRIBUTE_FLAG_VISIBILITY, ...flagVisibility };
+  const hasVisibleFlags = Object.values(flagVisibilityConfig).some(Boolean);
   const activeFlags = [
-    { label: 'Required', active: attribute.required },
-    { label: 'Unique', active: attribute.unique },
-    { label: 'Read-only', active: attribute.readOnly },
-    { label: 'Encrypted', active: attribute.encrypted },
-    { label: 'Private', active: attribute.private }
-  ].filter((flag) => flag.active);
+    { key: 'required' as const, label: 'Required', active: attribute.required },
+    { key: 'unique' as const, label: 'Unique', active: attribute.unique },
+    { key: 'readOnly' as const, label: 'Read-only', active: attribute.readOnly },
+    { key: 'encrypted' as const, label: 'Encrypted', active: attribute.encrypted },
+    { key: 'private' as const, label: 'Private', active: attribute.private }
+  ].filter((flag) => flagVisibilityConfig[flag.key] && flag.active);
 
   return (
     <div className="attribute-card" style={{ marginLeft: depth * 16 }}>
@@ -967,7 +986,7 @@ export const AttributeItem = ({
               <dt>Description</dt>
               <dd>{displayDescription}</dd>
             </div>
-            {showFlags && (
+            {showFlags && hasVisibleFlags && (
               <div className="attribute-detail">
                 <dt>Flags</dt>
                 <dd>
@@ -1016,6 +1035,7 @@ export const AttributeItem = ({
                   onAddChild={onAddChild}
                   onRemove={onRemove}
                   showFlags={showFlags}
+                  flagVisibility={flagVisibility}
                 />
               ))}
             </div>
@@ -1032,6 +1052,7 @@ export const AttributeItem = ({
                 onAddChild={onAddChild}
                 onRemove={onRemove}
                 showFlags={showFlags}
+                flagVisibility={flagVisibility}
               />
             </div>
           )}
@@ -1047,6 +1068,7 @@ export type AttributeModalProps = {
   onSubmit: (attributeId: string, updates: Partial<AttributeDraft>) => void;
   nameFieldRef: RefObject<HTMLInputElement>;
   showFlags?: boolean;
+  flagVisibility?: AttributeFlagVisibility;
 };
 
 type ConstraintEditorProps = {
@@ -1543,7 +1565,8 @@ export const AttributeModal = ({
   onClose,
   onSubmit,
   nameFieldRef,
-  showFlags = true
+  showFlags = true,
+  flagVisibility
 }: AttributeModalProps) => {
   const cloneConstraints = useCallback(
     (constraints: AttributeDraft['constraints']) =>
@@ -1569,6 +1592,15 @@ export const AttributeModal = ({
     attribute.element ? cloneAttributeDraft(attribute.element) : null
   );
   const [elementError, setElementError] = useState<string | null>(null);
+
+  const flagVisibilityConfig = useMemo(
+    () => ({ ...DEFAULT_ATTRIBUTE_FLAG_VISIBILITY, ...flagVisibility }),
+    [flagVisibility]
+  );
+  const hasVisibleFlags = useMemo(
+    () => Object.values(flagVisibilityConfig).some(Boolean),
+    [flagVisibilityConfig]
+  );
 
   useEffect(() => {
     setFormState({
@@ -1805,68 +1837,78 @@ export const AttributeModal = ({
                         rows={3}
                       />
                     </label>
-                    {showFlags && (
+                    {showFlags && hasVisibleFlags && (
                       <>
-                        <label className="checkbox-field">
-                          <input
-                            type="checkbox"
-                            checked={elementState.required}
-                            onChange={(event) =>
-                              setElementState((previous) =>
-                                previous ? { ...previous, required: event.target.checked } : previous
-                              )
-                            }
-                          />
-                          <span>Required</span>
-                        </label>
-                        <label className="checkbox-field">
-                          <input
-                            type="checkbox"
-                            checked={elementState.unique}
-                            onChange={(event) =>
-                              setElementState((previous) =>
-                                previous ? { ...previous, unique: event.target.checked } : previous
-                              )
-                            }
-                          />
-                          <span>Unique</span>
-                        </label>
-                        <label className="checkbox-field">
-                          <input
-                            type="checkbox"
-                            checked={elementState.readOnly}
-                            onChange={(event) =>
-                              setElementState((previous) =>
-                                previous ? { ...previous, readOnly: event.target.checked } : previous
-                              )
-                            }
-                          />
-                          <span>Read-only</span>
-                        </label>
-                        <label className="checkbox-field">
-                          <input
-                            type="checkbox"
-                            checked={elementState.encrypted}
-                            onChange={(event) =>
-                              setElementState((previous) =>
-                                previous ? { ...previous, encrypted: event.target.checked } : previous
-                              )
-                            }
-                          />
-                          <span>Encrypted</span>
-                        </label>
-                        <label className="checkbox-field">
-                          <input
-                            type="checkbox"
-                            checked={elementState.private}
-                            onChange={(event) =>
-                              setElementState((previous) =>
-                                previous ? { ...previous, private: event.target.checked } : previous
-                              )
-                            }
-                          />
-                          <span>Private</span>
-                        </label>
+                        {flagVisibilityConfig.required && (
+                          <label className="checkbox-field">
+                            <input
+                              type="checkbox"
+                              checked={elementState.required}
+                              onChange={(event) =>
+                                setElementState((previous) =>
+                                  previous ? { ...previous, required: event.target.checked } : previous
+                                )
+                              }
+                            />
+                            <span>Required</span>
+                          </label>
+                        )}
+                        {flagVisibilityConfig.unique && (
+                          <label className="checkbox-field">
+                            <input
+                              type="checkbox"
+                              checked={elementState.unique}
+                              onChange={(event) =>
+                                setElementState((previous) =>
+                                  previous ? { ...previous, unique: event.target.checked } : previous
+                                )
+                              }
+                            />
+                            <span>Unique</span>
+                          </label>
+                        )}
+                        {flagVisibilityConfig.readOnly && (
+                          <label className="checkbox-field">
+                            <input
+                              type="checkbox"
+                              checked={elementState.readOnly}
+                              onChange={(event) =>
+                                setElementState((previous) =>
+                                  previous ? { ...previous, readOnly: event.target.checked } : previous
+                                )
+                              }
+                            />
+                            <span>Read-only</span>
+                          </label>
+                        )}
+                        {flagVisibilityConfig.encrypted && (
+                          <label className="checkbox-field">
+                            <input
+                              type="checkbox"
+                              checked={elementState.encrypted}
+                              onChange={(event) =>
+                                setElementState((previous) =>
+                                  previous ? { ...previous, encrypted: event.target.checked } : previous
+                                )
+                              }
+                            />
+                            <span>Encrypted</span>
+                          </label>
+                        )}
+                        {flagVisibilityConfig.private && (
+                          <label className="checkbox-field">
+                            <input
+                              type="checkbox"
+                              checked={elementState.private}
+                              onChange={(event) =>
+                                setElementState((previous) =>
+                                  previous ? { ...previous, private: event.target.checked } : previous
+                                )
+                              }
+                            />
+                            <span>Private</span>
+                          </label>
+                        )}
                       </>
                     )}
                   </div>
@@ -1890,58 +1932,68 @@ export const AttributeModal = ({
                 rows={3}
               />
             </label>
-            {showFlags && (
+            {showFlags && hasVisibleFlags && (
               <>
-                <label className="checkbox-field">
-                  <input
-                    type="checkbox"
-                    checked={formState.required}
-                    onChange={(event) =>
-                      setFormState((previous) => ({ ...previous, required: event.target.checked }))
-                    }
-                  />
-                  <span>Required</span>
-                </label>
-                <label className="checkbox-field">
-                  <input
-                    type="checkbox"
-                    checked={formState.unique}
-                    onChange={(event) =>
-                      setFormState((previous) => ({ ...previous, unique: event.target.checked }))
-                    }
-                  />
-                  <span>Unique</span>
-                </label>
-                <label className="checkbox-field">
-                  <input
-                    type="checkbox"
-                    checked={formState.readOnly}
-                    onChange={(event) =>
-                      setFormState((previous) => ({ ...previous, readOnly: event.target.checked }))
-                    }
-                  />
-                  <span>Read-only</span>
-                </label>
-                <label className="checkbox-field">
-                  <input
-                    type="checkbox"
-                    checked={formState.encrypted}
-                    onChange={(event) =>
-                      setFormState((previous) => ({ ...previous, encrypted: event.target.checked }))
-                    }
-                  />
-                  <span>Encrypted</span>
-                </label>
-                <label className="checkbox-field">
-                  <input
-                    type="checkbox"
-                    checked={formState.private}
-                    onChange={(event) =>
-                      setFormState((previous) => ({ ...previous, private: event.target.checked }))
-                    }
-                  />
-                  <span>Private</span>
-                </label>
+                {flagVisibilityConfig.required && (
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={formState.required}
+                      onChange={(event) =>
+                        setFormState((previous) => ({ ...previous, required: event.target.checked }))
+                      }
+                    />
+                    <span>Required</span>
+                  </label>
+                )}
+                {flagVisibilityConfig.unique && (
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={formState.unique}
+                      onChange={(event) =>
+                        setFormState((previous) => ({ ...previous, unique: event.target.checked }))
+                      }
+                    />
+                    <span>Unique</span>
+                  </label>
+                )}
+                {flagVisibilityConfig.readOnly && (
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={formState.readOnly}
+                      onChange={(event) =>
+                        setFormState((previous) => ({ ...previous, readOnly: event.target.checked }))
+                      }
+                    />
+                    <span>Read-only</span>
+                  </label>
+                )}
+                {flagVisibilityConfig.encrypted && (
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={formState.encrypted}
+                      onChange={(event) =>
+                        setFormState((previous) => ({ ...previous, encrypted: event.target.checked }))
+                      }
+                    />
+                    <span>Encrypted</span>
+                  </label>
+                )}
+                {flagVisibilityConfig.private && (
+                  <label className="checkbox-field">
+                    <input
+                      type="checkbox"
+                      checked={formState.private}
+                      onChange={(event) =>
+                        setFormState((previous) => ({ ...previous, private: event.target.checked }))
+                      }
+                    />
+                    <span>Private</span>
+                  </label>
+                )}
               </>
             )}
             <div className="modal-actions">
