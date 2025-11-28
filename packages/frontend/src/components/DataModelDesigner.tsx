@@ -907,6 +907,7 @@ export type AttributeItemProps = {
   showFlags?: boolean;
   contextLabel?: string;
   flagVisibility?: AttributeFlagVisibility;
+  readOnly?: boolean;
 };
 
 export const AttributeItem = ({
@@ -919,7 +920,8 @@ export const AttributeItem = ({
   onRemove,
   showFlags = true,
   contextLabel,
-  flagVisibility
+  flagVisibility,
+  readOnly = false
 }: AttributeItemProps) => {
   const isExpanded = expandedAttributeIds.has(attribute.localId);
   const normalizedType = attribute.type.trim().toLowerCase();
@@ -1006,21 +1008,25 @@ export const AttributeItem = ({
             )}
           </dl>
           <div className="attribute-actions">
-            {canNest && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => onAddChild(attribute.localId)}
-              >
-                Add sub-attribute
-              </button>
+            {!readOnly && (
+              <>
+                {canNest && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => onAddChild(attribute.localId)}
+                  >
+                    Add sub-attribute
+                  </button>
+                )}
+                <button type="button" className="secondary" onClick={() => onEdit(attribute.localId)}>
+                  Edit attribute
+                </button>
+                <button type="button" className="danger" onClick={() => onRemove(attribute.localId)}>
+                  Remove
+                </button>
+              </>
             )}
-            <button type="button" className="secondary" onClick={() => onEdit(attribute.localId)}>
-              Edit attribute
-            </button>
-            <button type="button" className="danger" onClick={() => onRemove(attribute.localId)}>
-              Remove
-            </button>
           </div>
           {canNest && attribute.attributes.length > 0 && (
             <div className="attribute-children">

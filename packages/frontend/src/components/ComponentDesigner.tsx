@@ -1293,6 +1293,12 @@ const EntryPointItem = ({
   isDragging,
   isDropTarget
 }: EntryPointItemProps) => {
+  const [expandedRequestAttributeIds, setExpandedRequestAttributeIds] = useState<Set<string>>(() =>
+    retainExpandedAttributeIds(new Set(), { attributes: entryPoint.requestAttributes })
+  );
+  const [expandedResponseAttributeIds, setExpandedResponseAttributeIds] = useState<Set<string>>(() =>
+    retainExpandedAttributeIds(new Set(), { attributes: entryPoint.responseAttributes })
+  );
   const isExpanded = expandedEntryPointIds.has(entryPoint.localId);
   const displayName = entryPoint.name.trim() || 'Untitled entry point';
   const displayType = entryPoint.type.trim() || '—';
@@ -1315,6 +1321,62 @@ const EntryPointItem = ({
     entryPoint.responseModelIds.length === 0
       ? []
       : entryPoint.responseModelIds.map((id) => dataModelLookup.get(id) ?? 'Unknown model');
+
+  useEffect(() => {
+    setExpandedRequestAttributeIds((previous) =>
+      retainExpandedAttributeIds(previous, { attributes: entryPoint.requestAttributes })
+    );
+    setExpandedResponseAttributeIds((previous) =>
+      retainExpandedAttributeIds(previous, { attributes: entryPoint.responseAttributes })
+    );
+  }, [entryPoint.requestAttributes, entryPoint.responseAttributes]);
+
+  const toggleAttributeExpansion = (side: 'request' | 'response', attributeId: string) => {
+    const setExpanded =
+      side === 'request' ? setExpandedRequestAttributeIds : setExpandedResponseAttributeIds;
+    setExpanded((previous) => {
+      const next = new Set(previous);
+      if (next.has(attributeId)) {
+        next.delete(attributeId);
+      } else {
+        next.add(attributeId);
+      }
+      return next;
+    });
+  };
+
+  const renderAttributeGroup = (
+    side: 'request' | 'response',
+    title: string,
+    attributes: AttributeDraft[],
+    expandedIds: Set<string>
+  ) => (
+    <div className="association-group entry-point-attributes-group">
+      <div className="entry-point-attributes-header">
+        <h5>{title}</h5>
+      </div>
+      {attributes.length === 0 ? (
+        <p className="status">No attributes defined.</p>
+      ) : (
+        <div className="attribute-list">
+          {attributes.map((attribute) => (
+            <AttributeItem
+              key={attribute.localId}
+              attribute={attribute}
+              depth={0}
+              expandedAttributeIds={expandedIds}
+              onToggle={(id) => toggleAttributeExpansion(side, id)}
+              onEdit={() => {}}
+              onAddChild={() => {}}
+              onRemove={() => {}}
+              flagVisibility={ENTRY_POINT_ATTRIBUTE_FLAG_VISIBILITY}
+              readOnly
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <article
@@ -1423,6 +1485,20 @@ const EntryPointItem = ({
                 </div>
               ) : (
                 <p className="status">No tags assigned.</p>
+              )}
+            </div>
+            <div className="entry-point-attributes">
+              {renderAttributeGroup(
+                'request',
+                'Request attributes',
+                entryPoint.requestAttributes,
+                expandedRequestAttributeIds
+              )}
+              {renderAttributeGroup(
+                'response',
+                'Response attributes',
+                entryPoint.responseAttributes,
+                expandedResponseAttributeIds
               )}
             </div>
             <div className="association-group">
