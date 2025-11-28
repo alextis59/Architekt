@@ -309,6 +309,7 @@ describe('projects API helpers', () => {
           id: 'entry-1',
           name: 'Entry',
           description: 'Info',
+          tags: [],
           type: 'http',
           functionName: 'myEntry',
           protocol: 'HTTPS',

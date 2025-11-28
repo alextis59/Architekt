@@ -317,6 +317,7 @@ test('Component endpoints manage entry points with data model references', async
         {
           name: 'Get customer',
           description: 'Retrieve a customer record',
+          tags: [],
           type: 'http',
           functionName: '',
           protocol: 'HTTP',
@@ -347,6 +348,7 @@ test('Component endpoints manage entry points with data model references', async
           id: entryPointId,
           name: 'Get customer',
           description: 'Retrieve a customer record',
+          tags: [],
           type: 'http',
           functionName: '',
           protocol: 'HTTP',
@@ -360,6 +362,7 @@ test('Component endpoints manage entry points with data model references', async
         {
           name: 'Customer events',
           description: 'Publish customer updates',
+          tags: [],
           type: 'queue',
           functionName: '',
           protocol: 'AMQP',
@@ -836,6 +839,7 @@ test('shared collaborators can manage all project resources', async () => {
         {
           name: 'Get item',
           type: 'http',
+          tags: [],
           functionName: '',
           protocol: 'HTTP',
           method: 'GET',

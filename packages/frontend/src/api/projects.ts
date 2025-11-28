@@ -425,6 +425,7 @@ export type ComponentEntryPointPayload = {
   id?: string;
   name: string;
   description: string;
+  tags: string[];
   type: string;
   functionName: string;
   protocol: string;
@@ -456,6 +457,7 @@ const sanitizeEntryPointPayload = (
   const payload: ComponentEntryPointPayload = {
     name,
     description: entryPoint.description.trim(),
+    tags: sanitizeTags(entryPoint.tags ?? []),
     type,
     functionName,
     protocol: entryPoint.protocol.trim(),

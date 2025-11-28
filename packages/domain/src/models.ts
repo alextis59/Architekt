@@ -53,6 +53,7 @@ export type ComponentEntryPoint = {
   id: string;
   name: string;
   description: string;
+  tags: string[];
   type: string;
   functionName: string;
   protocol: string;
@@ -116,6 +117,7 @@ type DataModelInput = Partial<DataModel> & { id?: string; attributes?: unknown }
 type ComponentEntryPointInput =
   Partial<ComponentEntryPoint> & {
     id?: string;
+    tags?: unknown;
     requestModelIds?: unknown;
     responseModelIds?: unknown;
     requestAttributes?: unknown;
@@ -342,6 +344,7 @@ const sanitizeComponentEntryPoint = (raw: ComponentEntryPointInput): ComponentEn
   id: ensureString(raw?.id),
   name: ensureString(raw?.name),
   description: ensureString(raw?.description, ''),
+  tags: ensureStringArray(raw?.tags),
   type: ensureString(raw?.type),
   functionName: ensureString(raw?.functionName, ''),
   protocol: ensureString(raw?.protocol),

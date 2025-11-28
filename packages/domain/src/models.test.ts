@@ -87,6 +87,7 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
             id: 'ep-1',
             name: 'Get customer',
             description: null,
+            tags: undefined,
             type: 'http',
             protocol: 'HTTP',
             method: 'GET',
@@ -99,6 +100,7 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
           'ep-2': {
             id: 'ep-2',
             name: '',
+            tags: null,
             type: 'queue',
             protocol: 'AMQP',
             path: 'queue',
@@ -142,6 +144,7 @@ test('validateDomainAggregate sanitizes invalid structures', () => {
   assert.equal(Object.keys(project.entryPoints).length, 1);
   const entryPoint = project.entryPoints['ep-1'];
   assert.equal(entryPoint.protocol, 'HTTP');
+  assert.deepEqual(entryPoint.tags, []);
   assert.deepEqual(entryPoint.requestModelIds, ['model-1']);
 });
 
@@ -279,6 +282,7 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
             id: 'ep-keep',
             name: 'List orders',
             description: null,
+            tags: undefined,
             type: 'http',
             protocol: 'HTTP',
             method: 'GET',
@@ -291,6 +295,7 @@ test('validateDomainAggregate removes entities missing identifiers', () => {
           'ep-drop': {
             id: 'ep-drop',
             name: '',
+            tags: null,
             type: 'http',
             protocol: 'HTTP',
             requestModelIds: [],
