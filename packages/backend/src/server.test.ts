@@ -68,7 +68,8 @@ test('startServer skips directory creation for non-filesystem persistence', asyn
       MONGO_DATABASE: 'architekt',
       MONGO_COLLECTION: 'aggregates',
       AUTH_MODE: 'google',
-      GOOGLE_CLIENT_ID: 'client-id'
+      GOOGLE_CLIENT_ID: 'client-id',
+      AUTH_TOKEN_SECRET: 'secret'
     },
     async () => {
       const originalLog = console.log;

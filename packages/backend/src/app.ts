@@ -31,7 +31,7 @@ import {
   updateComponent,
   shareProject
 } from './services/projectService.js';
-import { createAuthMiddleware, type AuthConfig } from './auth.js';
+import { createAuthMiddleware, createGoogleLoginHandler, type AuthConfig } from './auth.js';
 
 const getAuthenticatedUser = (req: Request) => {
   if (!req.user) {
@@ -110,6 +110,10 @@ export const createApp = ({ persistence, auth }: AppOptions) => {
       res.json({ mode: 'local' });
     })
   );
+
+  if (auth.mode === 'google') {
+    apiRouter.post('/auth/login', createGoogleLoginHandler(auth));
+  }
 
   // Apply authentication middleware to all subsequent API routes
   apiRouter.use(createAuthMiddleware(auth));

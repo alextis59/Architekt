@@ -70,9 +70,21 @@ describe('AuthProvider', () => {
     script.id = 'google-identity-services';
     document.head.appendChild(script);
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ mode: 'google', clientId: 'client-123' })
+    const payload = { sub: 'user-123', email: 'user@example.com', exp: Math.floor(Date.now() / 1000) + 3600 };
+    const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+    const token = `header.${encoded}.signature`;
+    const fetchMock = vi.fn().mockImplementation((url: RequestInfo | URL) => {
+      if (typeof url === 'string' && url.includes('/api/auth/login')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ token, user: { id: 'user-123', email: 'user@example.com' } })
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ mode: 'google', clientId: 'client-123' })
+      });
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -130,14 +142,20 @@ describe('AuthProvider', () => {
     authRef.value?.promptSignIn();
     expect(prompt).toHaveBeenCalledTimes(2);
 
-    const payload = { sub: 'user-123', email: 'user@example.com', exp: Math.floor(Date.now() / 1000) + 3600 };
-    const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
-    initializeCallback?.({ credential: `header.${encoded}.signature` });
+    initializeCallback?.({ credential: 'google-credential' });
 
     await waitFor(() => {
       expect(authRef.value?.user?.id).toBe('user-123');
-      expect(tokenStore.getAuthToken()).toMatch(/header\./);
+      expect(tokenStore.getAuthToken()).toBe(token);
     });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auth/login',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'Content-Type': 'application/json' })
+      })
+    );
 
     await signOutDueToUnauthorized();
 

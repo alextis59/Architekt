@@ -18,6 +18,8 @@ const parseAuthConfig = (): AuthConfig => {
 
   if (mode === 'google') {
     const clientId = process.env.GOOGLE_CLIENT_ID;
+    const tokenSecret = process.env.AUTH_TOKEN_SECRET ?? 'architekt-dev-secret';
+    const tokenTtlHours = parseNumber(process.env.AUTH_TOKEN_TTL_HOURS, 24 * 7);
 
     if (!clientId) {
       throw new Error('GOOGLE_CLIENT_ID must be defined when using google authentication');
@@ -25,7 +27,9 @@ const parseAuthConfig = (): AuthConfig => {
 
     return {
       mode: 'google',
-      clientId
+      clientId,
+      tokenSecret,
+      tokenTtlMs: Math.max(1, tokenTtlHours) * 60 * 60 * 1000
     };
   }
 

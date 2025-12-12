@@ -37,6 +37,8 @@ npm test
 
 These commands catch lint regressions, verify production builds, and confirm the automated test suites still pass.
 
+**IMPORTANT:** Whenever updating the codebase, always run `npm run lint`, `npm run build`, and `npm test` before submitting changes to catch regressions early.
+
 ## Development workflows
 - Start the backend API locally with:
   ```bash

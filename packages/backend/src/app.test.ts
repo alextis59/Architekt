@@ -13,7 +13,9 @@ const testAuthConfig = {
 
 const googleAuthConfig = {
   mode: 'google' as const,
-  clientId: 'test-client-id'
+  clientId: 'test-client-id',
+  tokenSecret: 'secret',
+  tokenTtlMs: 3600_000
 };
 
 const createTestApp = (initialData?: unknown) => {
