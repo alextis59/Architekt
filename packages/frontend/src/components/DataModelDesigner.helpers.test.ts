@@ -24,16 +24,18 @@ describe('DataModelDesigner helpers', () => {
         {
           id: 'attr-1',
           name: 'id',
-          description: 'Primary key',
-          type: 'string',
-          required: true,
-          unique: true,
-          constraints: [{ type: 'minLength', value: 3 }],
-          readOnly: true,
-          encrypted: false,
-          attributes: [],
-          element: null
-        }
+        description: 'Primary key',
+        tags: [],
+        type: 'string',
+        required: true,
+        unique: true,
+        constraints: [{ type: 'minLength', value: 3 }],
+        readOnly: true,
+        encrypted: false,
+        private: false,
+        attributes: [],
+        element: null
+      }
       ]
     };
 
@@ -49,12 +51,14 @@ describe('DataModelDesigner helpers', () => {
           localId: 'attr-1',
           name: 'id',
           description: 'Primary key',
+          tags: [],
           type: 'string',
           required: true,
           unique: true,
           constraints: [{ type: 'minLength', value: '3' }],
           readOnly: true,
           encrypted: false,
+          private: false,
           attributes: [],
           element: null
         }

@@ -200,6 +200,7 @@ type DataModelAttributePayload = {
   id?: string;
   name: string;
   description: string;
+  tags: string[];
   type: string;
   required: boolean;
   unique: boolean;
@@ -307,6 +308,7 @@ const sanitizeAttributePayload = (
   const cleaned: DataModelAttributePayload = {
     name,
     description: attribute.description.trim(),
+    tags: sanitizeTags(attribute.tags ?? []),
     type,
     required: Boolean(attribute.required),
     unique: Boolean(attribute.unique),

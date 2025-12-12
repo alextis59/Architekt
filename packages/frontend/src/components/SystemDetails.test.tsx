@@ -67,8 +67,9 @@ describe('SystemDetails', () => {
     await user.type(descriptionInput, '  Handles traffic   ');
 
     const tagsInput = screen.getByLabelText('Tags');
-    await user.clear(tagsInput);
-    await user.type(tagsInput, ' edge , platform , edge , api  ');
+    await user.click(screen.getByRole('button', { name: 'Remove tag edge' }));
+    await user.click(screen.getByRole('button', { name: 'Remove tag api' }));
+    await user.type(tagsInput, ' edge {enter} platform {enter} edge {enter} api  {enter}');
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 

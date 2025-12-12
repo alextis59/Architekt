@@ -106,12 +106,14 @@ describe('DataModelDesigner', () => {
           id: 'attr-1',
           name: 'Name',
           description: 'Full name',
+          tags: [],
           type: 'string',
           required: false,
           unique: false,
           constraints: [],
           readOnly: false,
           encrypted: false,
+          private: false,
           attributes: []
         }
       ]
@@ -123,12 +125,14 @@ describe('DataModelDesigner', () => {
           id: 'attr-1',
           name: 'Name',
           description: 'Full name',
+          tags: [],
           type: 'string',
           required: true,
           unique: false,
           constraints: [{ type: 'regex', value: '^[A-Z]+$' }],
           readOnly: true,
           encrypted: false,
+          private: false,
           attributes: []
         }
       ]
@@ -203,12 +207,14 @@ describe('DataModelDesigner', () => {
             id: 'attr-1',
             name: 'Name',
             description: 'Full name',
+            tags: [],
             type: 'string',
             required: true,
             unique: false,
             constraints: [{ type: 'regex', value: '^[A-Z]+$' }],
             readOnly: true,
-            encrypted: false
+            encrypted: false,
+            private: false
           }
         ]
       });
@@ -262,7 +268,9 @@ describe('DataModelDesigner', () => {
           unique: false,
           constraints: [{ type: 'regex', value: '^[A-Z]+$' }],
           readOnly: true,
-          encrypted: false
+          encrypted: false,
+          tags: [],
+          private: false
         }
       ]
     });

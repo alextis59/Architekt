@@ -1,5 +1,7 @@
 import type { System } from '@architekt/domain';
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import TagEditor from './TagEditor.js';
+import { normalizeTags } from '../utils/tags.js';
 
 type SystemDetailsProps = {
   system: System;
@@ -10,12 +12,6 @@ type SystemDetailsProps = {
   isMutating: boolean;
   errorMessage: string | null;
 };
-
-const parseTags = (value: string): string[] =>
-  value
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter((tag, index, array) => tag.length > 0 && array.indexOf(tag) === index);
 
 const SystemDetails = ({
   system,
@@ -29,13 +25,13 @@ const SystemDetails = ({
   const [details, setDetails] = useState({
     name: system.name,
     description: system.description,
-    tags: system.tags.join(', ')
+    tags: [...system.tags]
   });
 
   const [childDraft, setChildDraft] = useState({
     name: '',
     description: '',
-    tags: ''
+    tags: [] as string[]
   });
 
   const [activeModal, setActiveModal] = useState<'edit' | 'create' | null>(null);
@@ -48,25 +44,27 @@ const SystemDetails = ({
     setDetails({
       name: system.name,
       description: system.description,
-      tags: system.tags.join(', ')
+      tags: [...system.tags]
     });
-    setChildDraft({ name: '', description: '', tags: '' });
+    setChildDraft({ name: '', description: '', tags: [] });
     setActiveModal(null);
     setPendingAction(null);
   }, [system]);
 
   const tags = useMemo(() => system.tags, [system.tags]);
+  const editTagsInputId = useId();
+  const childTagsInputId = useId();
 
   const resetEditForm = useCallback(() => {
     setDetails({
       name: system.name,
       description: system.description,
-      tags: system.tags.join(', ')
+      tags: [...system.tags]
     });
   }, [system.description, system.name, system.tags]);
 
   const resetCreateForm = useCallback(() => {
-    setChildDraft({ name: '', description: '', tags: '' });
+    setChildDraft({ name: '', description: '', tags: [] });
   }, []);
 
   const openEditModal = useCallback(() => {
@@ -138,7 +136,7 @@ const SystemDetails = ({
     onUpdate({
       name: details.name.trim(),
       description: details.description.trim(),
-      tags: parseTags(details.tags)
+      tags: normalizeTags(details.tags)
     });
   };
 
@@ -152,7 +150,7 @@ const SystemDetails = ({
     onCreateChild({
       name: childDraft.name.trim(),
       description: childDraft.description.trim(),
-      tags: parseTags(childDraft.tags)
+      tags: normalizeTags(childDraft.tags)
     });
   };
 
@@ -294,18 +292,18 @@ const SystemDetails = ({
                       disabled={isMutating}
                     />
                   </label>
-                  <label className="field">
-                    <span>Tags</span>
-                    <input
-                      type="text"
-                      value={details.tags}
-                      onChange={(event) =>
-                        setDetails((prev) => ({ ...prev, tags: event.target.value }))
-                      }
-                      placeholder="Comma separated"
+                  <div className="field">
+                    <label htmlFor={editTagsInputId}>
+                      <span>Tags</span>
+                    </label>
+                    <TagEditor
+                      inputId={editTagsInputId}
+                      tags={details.tags}
+                      onChange={(tags) => setDetails((prev) => ({ ...prev, tags }))}
+                      placeholder="Add a tag"
                       disabled={isMutating}
                     />
-                  </label>
+                  </div>
                   <div className="modal-actions">
                     <button
                       className="secondary"
@@ -348,18 +346,18 @@ const SystemDetails = ({
                       disabled={isMutating}
                     />
                   </label>
-                  <label className="field">
-                    <span>Tags</span>
-                    <input
-                      type="text"
-                      value={childDraft.tags}
-                      onChange={(event) =>
-                        setChildDraft((prev) => ({ ...prev, tags: event.target.value }))
-                      }
-                      placeholder="lambda, queue"
+                  <div className="field">
+                    <label htmlFor={childTagsInputId}>
+                      <span>Tags</span>
+                    </label>
+                    <TagEditor
+                      inputId={childTagsInputId}
+                      tags={childDraft.tags}
+                      onChange={(tags) => setChildDraft((prev) => ({ ...prev, tags }))}
+                      placeholder="Add a tag"
                       disabled={isMutating}
                     />
-                  </label>
+                  </div>
                   <div className="modal-actions">
                     <button
                       className="secondary"

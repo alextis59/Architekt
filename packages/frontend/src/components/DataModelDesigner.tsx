@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { FormEvent, RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, RefObject, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Project } from '@architekt/domain';
 import {
   createDataModel,
@@ -32,6 +32,8 @@ import {
   toDataModelPayload,
   toExportableDataModelPayload
 } from './DataModelDesigner.helpers.js';
+import TagEditor from './TagEditor.js';
+import { normalizeTags } from '../utils/tags.js';
 
 const TYPE_OPTIONS = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'date'];
 
@@ -984,6 +986,22 @@ export const AttributeItem = ({
                 <dd>{displayElement}</dd>
               </div>
             )}
+            <div className="attribute-detail">
+              <dt>Tags</dt>
+              <dd>
+                {attribute.tags.length > 0 ? (
+                  <div className="tag-list">
+                    {attribute.tags.map((tag) => (
+                      <span key={`${attribute.localId}-tag-${tag}`} className="tag">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="attribute-flags-empty">No tags assigned</span>
+                )}
+              </dd>
+            </div>
             <div className="attribute-detail attribute-detail-description">
               <dt>Description</dt>
               <dd>{displayDescription}</dd>
@@ -1586,6 +1604,7 @@ export const AttributeModal = ({
     name: attribute.name,
     type: attribute.type,
     description: attribute.description,
+    tags: [...attribute.tags],
     required: attribute.required,
     unique: attribute.unique,
     constraints: cloneConstraints(attribute.constraints),
@@ -1598,6 +1617,9 @@ export const AttributeModal = ({
     attribute.element ? cloneAttributeDraft(attribute.element) : null
   );
   const [elementError, setElementError] = useState<string | null>(null);
+
+  const attributeTagsInputId = useId();
+  const elementTagsInputId = useId();
 
   const flagVisibilityConfig = useMemo(
     () => ({ ...DEFAULT_ATTRIBUTE_FLAG_VISIBILITY, ...flagVisibility }),
@@ -1613,6 +1635,7 @@ export const AttributeModal = ({
       name: attribute.name,
       type: attribute.type,
       description: attribute.description,
+      tags: [...attribute.tags],
       required: attribute.required,
       unique: attribute.unique,
       constraints: cloneConstraints(attribute.constraints),
@@ -1639,7 +1662,12 @@ export const AttributeModal = ({
           return;
         }
         setElementError(null);
-        element = cloneAttributeDraft({ ...elementState, name, type });
+        element = cloneAttributeDraft({
+          ...elementState,
+          name,
+          type,
+          tags: normalizeTags(elementState.tags)
+        });
       }
     }
 
@@ -1647,6 +1675,7 @@ export const AttributeModal = ({
       name: formState.name,
       type: formState.type,
       description: formState.description,
+      tags: normalizeTags(formState.tags),
       required: formState.required,
       unique: formState.unique,
       constraints: cloneConstraints(formState.constraints),
@@ -1740,6 +1769,17 @@ export const AttributeModal = ({
                 ))}
               </select>
             </label>
+            <div className="field">
+              <label htmlFor={attributeTagsInputId}>
+                <span>Tags</span>
+              </label>
+              <TagEditor
+                inputId={attributeTagsInputId}
+                tags={formState.tags}
+                onChange={(tags) => setFormState((previous) => ({ ...previous, tags }))}
+                placeholder="Add a tag and press Enter"
+              />
+            </div>
             <div className="field constraint-field">
               <span>Constraints</span>
               <ConstraintEditor
@@ -1829,6 +1869,22 @@ export const AttributeModal = ({
                             previous ? { ...previous, constraints } : previous
                           )
                         }
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={elementTagsInputId}>
+                        <span>Element tags</span>
+                      </label>
+                      <TagEditor
+                        inputId={elementTagsInputId}
+                        tags={elementState.tags}
+                        onChange={(tags) =>
+                          setElementState((previous) =>
+                            previous ? { ...previous, tags } : previous
+                          )
+                        }
+                        placeholder="Add an element tag"
+                        compact
                       />
                     </div>
                     <label className="field">
