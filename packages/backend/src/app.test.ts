@@ -321,7 +321,11 @@ test('Data model endpoints sanitize attribute tags', async () => {
     });
 
   assert.equal(dataModelCreation.status, 201);
-  const [attribute] = dataModelCreation.body.dataModel.attributes as Array<{ tags: string[]; attributes: Array<{ tags: string[] }>; } >;
+  const [attribute] = dataModelCreation.body.dataModel.attributes as Array<{
+    id: string;
+    tags: string[];
+    attributes: Array<{ id: string; tags: string[] }>;
+  }>;
   assert.deepEqual(attribute.tags, ['primary']);
   assert.deepEqual(attribute.attributes[0].tags.sort(), ['nested', 'secondary']);
 

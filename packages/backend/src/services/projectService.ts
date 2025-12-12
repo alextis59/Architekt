@@ -177,6 +177,7 @@ type DataModelAttributeInput = {
   name: unknown;
   description?: unknown;
   type: unknown;
+  tags?: unknown;
   constraints?: unknown;
   required?: unknown;
   unique?: unknown;
@@ -537,6 +538,8 @@ const sanitizeArrayElement = ({
     previous: previous?.constraints
   });
 
+  const tags = input.tags === undefined ? previous?.tags ?? [] : ensureTags(input.tags);
+
   const childExisting = previous
     ? new Map(previous.attributes.map((attribute) => [attribute.id, attribute] as [string, DataModelAttribute]))
     : undefined;
@@ -553,6 +556,7 @@ const sanitizeArrayElement = ({
     type: elementType,
     required: ensureBoolean(input.required, previous?.required ?? false),
     unique: ensureBoolean(input.unique, previous?.unique ?? false),
+    tags,
     constraints,
     readOnly: ensureBoolean(input.readOnly, previous?.readOnly ?? false),
     encrypted: ensureBoolean(input.encrypted, previous?.encrypted ?? false),
