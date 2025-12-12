@@ -1118,11 +1118,27 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
   const [constraintDraft, setConstraintDraft] = useState<{
     type: AttributeConstraintDraft['type'] | '';
     value: string;
-  }>({ type: availableConstraintTypes[0] ?? '', value: '' });
+    values: string[];
+  }>({ type: availableConstraintTypes[0] ?? '', value: '', values: [] });
 
   const [constraintError, setConstraintError] = useState<string | null>(null);
 
   const [isRegexBuilderOpen, setIsRegexBuilderOpen] = useState(false);
+
+  useEffect(() => {
+    setConstraintDraft((previous) => {
+      if (previous.type && availableConstraintTypes.includes(previous.type)) {
+        return previous;
+      }
+
+      const nextType = availableConstraintTypes[0] ?? '';
+      if (nextType === previous.type) {
+        return previous;
+      }
+
+      return { type: nextType, value: '', values: [] };
+    });
+  }, [availableConstraintTypes]);
   const [regexBuilderOptions, setRegexBuilderOptions] = useState({
     alphaLowercase: true,
     alphaUppercase: false,
@@ -1136,17 +1152,23 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
   });
   const [regexBuilderError, setRegexBuilderError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setConstraintDraft((previous) => {
-      const nextType = previous.type && availableConstraintTypes.includes(previous.type)
-        ? previous.type
-        : availableConstraintTypes[0] ?? '';
-      return { type: nextType, value: '' };
-    });
-    setConstraintError(null);
-    setIsRegexBuilderOpen(false);
-    setRegexBuilderError(null);
-  }, [availableConstraintTypes, attributeType]);
+    useEffect(() => {
+      setConstraintDraft((previous) => {
+        const nextType = previous.type && availableConstraintTypes.includes(previous.type)
+          ? previous.type
+          : availableConstraintTypes[0] ?? '';
+        const resetDraft = { type: nextType, value: '', values: [] } as const;
+
+        if (previous.type === nextType) {
+          return { ...resetDraft, value: previous.value, values: previous.values };
+        }
+
+        return resetDraft;
+      });
+      setConstraintError(null);
+      setIsRegexBuilderOpen(false);
+      setRegexBuilderError(null);
+    }, [availableConstraintTypes, attributeType]);
 
   useEffect(() => {
     if (constraintDraft.type !== 'regex') {
@@ -1242,17 +1264,13 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
     }
 
     if (constraintDraft.type === 'enum') {
-      const values = constraintDraft.value
-        .split(/,|\n/)
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0);
-      const unique = Array.from(new Set(values));
+      const unique = Array.from(new Set(normalizeTags(constraintDraft.values)));
       if (unique.length === 0) {
-        setConstraintError('Enter at least one value.');
+        setConstraintError('Add at least one value.');
         return;
       }
       onChange([...constraints, { type: 'enum', values: unique }]);
-      setConstraintDraft((previous) => ({ ...previous, value: '' }));
+      setConstraintDraft((previous) => ({ ...previous, values: [] }));
       setConstraintError(null);
       return;
     }
@@ -1294,7 +1312,7 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
   };
 
   const constraintValueInputType =
-    !constraintDraft.type || constraintDraft.type === 'regex' || constraintDraft.type === 'enum'
+    !constraintDraft.type || constraintDraft.type === 'regex'
       ? 'text'
       : 'number';
   const constraintValueStep =
@@ -1306,9 +1324,7 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
   const constraintPlaceholder =
     constraintDraft.type === 'regex'
       ? 'Pattern, e.g. ^[A-Z]+$'
-      : constraintDraft.type === 'enum'
-        ? 'Comma-separated values'
-        : constraintDraft.type
+      : constraintDraft.type
           ? 'Value'
           : 'Select a constraint';
 
@@ -1345,7 +1361,7 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
               value={constraintDraft.type}
               onChange={(event) => {
                 const nextType = event.target.value as AttributeConstraintDraft['type'] | '';
-                setConstraintDraft({ type: nextType, value: '' });
+                setConstraintDraft({ type: nextType, value: '', values: [] });
               }}
               aria-label="Constraint type"
             >
@@ -1357,29 +1373,44 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
               ))}
             </select>
             <div className="constraint-value-wrapper">
-              <input
-                type={constraintValueInputType}
-                value={constraintDraft.value}
-                onChange={(event) =>
-                  setConstraintDraft((previous) => ({ ...previous, value: event.target.value }))
-                }
-                aria-label="Constraint value"
-                placeholder={constraintPlaceholder}
-                disabled={!constraintDraft.type}
-                step={constraintValueStep}
-              />
-              {constraintDraft.type === 'regex' && (
-                <button
-                  type="button"
-                  className="icon-button"
-                  aria-label={`${isRegexBuilderOpen ? 'Hide' : 'Open'} regex builder`}
-                  onClick={() => {
-                    setIsRegexBuilderOpen((previous) => !previous);
-                    setRegexBuilderError(null);
+              {constraintDraft.type === 'enum' ? (
+                <TagEditor
+                  ariaLabel="Constraint values"
+                  tags={constraintDraft.values}
+                  onChange={(values) => {
+                    setConstraintDraft((previous) => ({ ...previous, values }));
+                    setConstraintError(null);
                   }}
-                >
-                  🔧
-                </button>
+                  placeholder="Add a value and press Enter"
+                  compact
+                />
+              ) : (
+                <>
+                  <input
+                    type={constraintValueInputType}
+                    value={constraintDraft.value}
+                    onChange={(event) =>
+                      setConstraintDraft((previous) => ({ ...previous, value: event.target.value }))
+                    }
+                    aria-label="Constraint value"
+                    placeholder={constraintPlaceholder}
+                    disabled={!constraintDraft.type}
+                    step={constraintValueStep}
+                  />
+                  {constraintDraft.type === 'regex' && (
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={`${isRegexBuilderOpen ? 'Hide' : 'Open'} regex builder`}
+                      onClick={() => {
+                        setIsRegexBuilderOpen((previous) => !previous);
+                        setRegexBuilderError(null);
+                      }}
+                    >
+                      🔧
+                    </button>
+                  )}
+                </>
               )}
             </div>
             <button

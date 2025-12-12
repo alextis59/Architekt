@@ -464,11 +464,11 @@ describe('DataModelDesigner', () => {
     await user.selectOptions(within(attributeModal).getByLabelText(/Element type/i), 'string');
 
     const constraintTypeSelects = within(attributeModal).getAllByLabelText(/Constraint type/i);
-    const constraintValueInputs = within(attributeModal).getAllByLabelText(/Constraint value/i);
     const addConstraintButtons = within(attributeModal).getAllByRole('button', { name: /Add constraint/i });
 
     await user.selectOptions(constraintTypeSelects[0], 'enum');
-    await user.type(constraintValueInputs[0], 'alpha, beta');
+    const constraintValueInputs = within(attributeModal).getAllByLabelText(/Constraint values/i);
+    await user.type(constraintValueInputs[0], 'alpha{enter}beta{enter}');
     await user.click(addConstraintButtons[0]);
 
     await user.click(within(attributeModal).getByRole('button', { name: /Save attribute/i }));
@@ -555,9 +555,9 @@ describe('DataModelDesigner', () => {
 
     const attributeModal = await screen.findByRole('dialog', { name: /Edit attribute/i });
     const constraintTypeSelect = within(attributeModal).getByLabelText(/Constraint type/i);
-    const constraintValueInput = within(attributeModal).getByLabelText(/Constraint value/i);
     await user.selectOptions(constraintTypeSelect, 'enum');
-    await user.type(constraintValueInput, 'draft,final');
+    const constraintValuesInput = within(attributeModal).getByLabelText(/Constraint values/i);
+    await user.type(constraintValuesInput, 'draft{enter}final{enter}');
     await user.click(within(attributeModal).getByRole('button', { name: /Add constraint/i }));
 
     await user.click(within(attributeModal).getByRole('button', { name: /Save attribute/i }));
