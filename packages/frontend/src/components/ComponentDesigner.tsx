@@ -1869,6 +1869,7 @@ const EntryPointModal = ({
                 tags={entryPoint.tags}
                 onChange={(tags) => onChange({ tags })}
                 placeholder="Add a tag and press Enter"
+                viewId="components"
               />
             </div>
             <div className="entry-point-associations">

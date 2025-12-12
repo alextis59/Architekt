@@ -1488,6 +1488,7 @@ const FlowWorkspace = () => {
                       tags={draft?.tags ?? []}
                       onChange={(tags) => updateDraftField('tags', sanitizeTagList(tags))}
                       placeholder="Add a tag"
+                      viewId="flows"
                     />
                   </div>
                 </div>
@@ -1678,6 +1679,7 @@ const FlowWorkspace = () => {
                             tags={step.tags}
                             onChange={(tags) => handleStepTagChange(index, tags)}
                             placeholder="Add a tag"
+                            viewId="flows"
                           />
                         </div>
                         <label className="field">
