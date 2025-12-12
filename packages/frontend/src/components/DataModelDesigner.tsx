@@ -1382,6 +1382,7 @@ const ConstraintEditor = ({ attributeType, constraints, onChange }: ConstraintEd
                     setConstraintError(null);
                   }}
                   placeholder="Add a value and press Enter"
+                  enableShortcuts={false}
                   compact
                 />
               ) : (
@@ -1809,6 +1810,7 @@ export const AttributeModal = ({
                 tags={formState.tags}
                 onChange={(tags) => setFormState((previous) => ({ ...previous, tags }))}
                 placeholder="Add a tag and press Enter"
+                viewId="data-models"
               />
             </div>
             <div className="field constraint-field">
@@ -1915,6 +1917,7 @@ export const AttributeModal = ({
                           )
                         }
                         placeholder="Add an element tag"
+                        viewId="data-models"
                         compact
                       />
                     </div>

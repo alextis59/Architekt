@@ -356,6 +356,7 @@ const ProjectManager = () => {
                   tags={formState.tags}
                   onChange={(tags) => setFormState((prev) => ({ ...prev, tags }))}
                   placeholder="Add a tag"
+                  viewId="projects"
                 />
               </div>
               {activeMutation.isError && (

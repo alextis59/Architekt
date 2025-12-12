@@ -401,6 +401,48 @@ main.app {
   cursor: not-allowed;
 }
 
+.tag-editor-shortcuts {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.35rem;
+}
+
+.tag-editor-shortcuts-label {
+  font-size: 0.85rem;
+  color: #334155;
+  font-weight: 700;
+}
+
+.tag-editor-shortcuts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tag-editor-shortcut {
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.08);
+  color: #1d4ed8;
+  border-radius: 12px;
+  padding: 0.25rem 0.6rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.tag-editor-shortcut:hover,
+.tag-editor-shortcut:focus-visible {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.7);
+  outline: none;
+}
+
+.tag-editor-shortcut:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .project-form .field {
   display: flex;
   flex-direction: column;

@@ -302,6 +302,7 @@ const SystemDetails = ({
                       onChange={(tags) => setDetails((prev) => ({ ...prev, tags }))}
                       placeholder="Add a tag"
                       disabled={isMutating}
+                      viewId="architecture"
                     />
                   </div>
                   <div className="modal-actions">
@@ -356,6 +357,7 @@ const SystemDetails = ({
                       onChange={(tags) => setChildDraft((prev) => ({ ...prev, tags }))}
                       placeholder="Add a tag"
                       disabled={isMutating}
+                      viewId="architecture"
                     />
                   </div>
                   <div className="modal-actions">
