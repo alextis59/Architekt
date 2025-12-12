@@ -1,16 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
 import { createProject, fetchProjects, shareProject, updateProject, type ProjectSummary } from '../api/projects.js';
 import { queryKeys } from '../queryKeys.js';
 import { selectSelectedProjectId, useProjectStore } from '../store/projectStore.js';
-
-const parseTags = (input: string): string[] =>
-  input
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter((tag, index, array) => tag.length > 0 && array.indexOf(tag) === index);
+import TagEditor from './TagEditor.js';
+import { normalizeTags } from '../utils/tags.js';
 
 const sortProjects = (projects: ProjectSummary[]): ProjectSummary[] =>
   [...projects].sort((a, b) => a.name.localeCompare(b.name));
@@ -29,16 +25,17 @@ const ProjectManager = () => {
   const [formState, setFormState] = useState({
     name: '',
     description: '',
-    tags: ''
+    tags: [] as string[]
   });
   const [shareEmail, setShareEmail] = useState('');
   const [activeModal, setActiveModal] = useState<'create' | 'edit' | null>(null);
   const [editingProject, setEditingProject] = useState<ProjectSummary | null>(null);
 
   const nameFieldRef = useRef<HTMLInputElement | null>(null);
+  const tagsInputId = useId();
 
   const resetForm = useCallback(() => {
-    setFormState({ name: '', description: '', tags: '' });
+    setFormState({ name: '', description: '', tags: [] });
     setShareEmail('');
   }, []);
 
@@ -98,7 +95,7 @@ const ProjectManager = () => {
     updateProjectMutation.reset();
     shareProjectMutation.reset();
     setEditingProject(null);
-    setFormState({ name: '', description: '', tags: '' });
+    setFormState({ name: '', description: '', tags: [] });
     setActiveModal('create');
   }, [createProjectMutation, shareProjectMutation, updateProjectMutation]);
 
@@ -111,7 +108,7 @@ const ProjectManager = () => {
       setFormState({
         name: project.name,
         description: project.description ?? '',
-        tags: project.tags.join(', ')
+        tags: [...project.tags]
       });
       setShareEmail('');
       setActiveModal('edit');
@@ -158,7 +155,7 @@ const ProjectManager = () => {
     const payload = {
       name: formState.name.trim(),
       description: formState.description.trim(),
-      tags: parseTags(formState.tags)
+      tags: normalizeTags(formState.tags)
     };
 
     if (activeModal === 'edit' && editingProject) {
@@ -350,15 +347,17 @@ const ProjectManager = () => {
                   placeholder="Optional summary to help collaborators."
                 />
               </label>
-              <label className="field">
-                <span>Tags</span>
-                <input
-                  type="text"
-                  value={formState.tags}
-                  onChange={(event) => setFormState((prev) => ({ ...prev, tags: event.target.value }))}
-                  placeholder="Comma separated"
+              <div className="field">
+                <label htmlFor={tagsInputId}>
+                  <span>Tags</span>
+                </label>
+                <TagEditor
+                  inputId={tagsInputId}
+                  tags={formState.tags}
+                  onChange={(tags) => setFormState((prev) => ({ ...prev, tags }))}
+                  placeholder="Add a tag"
                 />
-              </label>
+              </div>
               {activeMutation.isError && (
                 <p className="status error" role="alert">
                   {activeMutation.error instanceof Error

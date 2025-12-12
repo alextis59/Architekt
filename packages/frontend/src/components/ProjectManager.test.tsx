@@ -216,18 +216,18 @@ describe('ProjectManager', () => {
     const dialog = await screen.findByRole('dialog', { name: /Edit project/i });
     const nameInput = within(dialog).getByLabelText(/Name/);
     const descriptionInput = within(dialog).getByLabelText(/Description/);
-    const tagsInput = within(dialog).getByLabelText(/Tags/);
-
     expect((nameInput as HTMLInputElement).value).toBe('Alpha');
     expect((descriptionInput as HTMLTextAreaElement).value).toBe('First');
-    expect((tagsInput as HTMLInputElement).value).toBe('core');
+    expect(within(dialog).getByText('core')).toBeInTheDocument();
+
+    const tagsInput = within(dialog).getByLabelText(/Tags/);
 
     await user.clear(nameInput);
     await user.type(nameInput, ' Alpha Revised ');
     await user.clear(descriptionInput);
     await user.type(descriptionInput, ' First revised ');
-    await user.clear(tagsInput);
-    await user.type(tagsInput, 'core, beta, beta');
+    await user.click(within(dialog).getByRole('button', { name: 'Remove tag core' }));
+    await user.type(tagsInput, 'core{enter}beta{enter}beta{enter}');
 
     await user.click(within(dialog).getByRole('button', { name: /Save changes/i }));
 

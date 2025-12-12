@@ -9,6 +9,7 @@ export type AttributeDraft = {
   localId: string;
   name: string;
   description: string;
+  tags: string[];
   type: string;
   required: boolean;
   unique: boolean;
@@ -46,6 +47,7 @@ export const createEmptyAttributeDraft = (): AttributeDraft => ({
   localId: generateLocalId(),
   name: '',
   description: '',
+  tags: [],
   type: '',
   required: false,
   unique: false,
@@ -96,6 +98,7 @@ export const formatConstraintDisplay = (constraint: AttributeConstraintDraft): s
 
 export const cloneAttributeDraft = (attribute: AttributeDraft): AttributeDraft => ({
   ...attribute,
+  tags: [...attribute.tags],
   constraints: attribute.constraints.map((constraint) =>
     constraint.type === 'enum' ? { type: 'enum', values: [...constraint.values] } : { ...constraint }
   ),
@@ -265,6 +268,7 @@ const createAttributeDraftFromModel = (attribute: DataModel['attributes'][number
   localId: attribute.id ?? generateLocalId(),
   name: attribute.name,
   description: attribute.description,
+  tags: attribute.tags ?? [],
   type: attribute.type,
   required: attribute.required,
   unique: attribute.unique,
@@ -278,7 +282,7 @@ const createAttributeDraftFromModel = (attribute: DataModel['attributes'][number
   })),
   readOnly: attribute.readOnly,
   encrypted: attribute.encrypted,
-  private: attribute.private,
+  private: attribute.private ?? false,
   attributes: attribute.attributes.map(createAttributeDraftFromModel),
   element: attribute.element ? createAttributeDraftFromModel(attribute.element) : null
 });
@@ -364,6 +368,7 @@ export const toAttributePayload = (
   const payload: DataModelAttributePayload = {
     name: attribute.name.trim(),
     description: attribute.description.trim(),
+    tags: attribute.tags,
     type,
     required: attribute.required,
     unique: attribute.unique,

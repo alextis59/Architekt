@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useId, useMemo, useState } from 'react';
 import type {
   Component,
   ComponentEntryPoint,
@@ -23,6 +23,8 @@ import {
   selectSelectedSystemId,
   useProjectStore
 } from '../store/projectStore.js';
+import TagEditor from './TagEditor.js';
+import { normalizeTags } from '../utils/tags.js';
 import TagFilterBar from './TagFilterBar.js';
 
 type FlowView = 'linear' | 'graph' | 'playback';
@@ -61,28 +63,7 @@ type FlowValidationResult = {
   isValid: boolean;
 };
 
-const sanitizeTagList = (tags: string[]): string[] => {
-  const seen = new Set<string>();
-  const result: string[] = [];
-
-  for (const tag of tags) {
-    const trimmed = tag.trim();
-    if (!trimmed || seen.has(trimmed)) {
-      continue;
-    }
-
-    result.push(trimmed);
-    seen.add(trimmed);
-  }
-
-  return result;
-};
-
-const parseTagInput = (input: string): string[] =>
-  input
-    .split(',')
-    .map((value) => value.trim())
-    .filter((value, index, array) => value.length > 0 && array.indexOf(value) === index);
+const sanitizeTagList = normalizeTags;
 
 const cloneDraftStep = (step: FlowDraftStep): FlowDraftStep => ({
   ...step,
@@ -591,6 +572,7 @@ const FlowWorkspace = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [alternateLinkError, setAlternateLinkError] = useState<string | null>(null);
   const [pendingAlternateLink, setPendingAlternateLink] = useState<{ flowId: string; stepId: string } | null>(null);
+  const flowTagsInputId = useId();
 
   const projectQuery = useQuery({
     queryKey: selectedProjectId ? queryKeys.project(selectedProjectId) : ['project', 'none'],
@@ -1013,9 +995,8 @@ const FlowWorkspace = () => {
     });
   };
 
-  const handleStepTagChange = (index: number, value: string) => {
-    const tags = parseTagInput(value);
-    updateStepAt(index, (step) => ({ ...step, tags }));
+  const handleStepTagChange = (index: number, tags: string[]) => {
+    updateStepAt(index, (step) => ({ ...step, tags: sanitizeTagList(tags) }));
   };
 
   const handleStepAlternateChange = (index: number, values: string[]) => {
@@ -1498,15 +1479,17 @@ const FlowWorkspace = () => {
                       required
                     />
                   </label>
-                  <label className="field">
-                    <span>Tags</span>
-                    <input
-                      type="text"
-                      value={draft ? draft.tags.join(', ') : ''}
-                      onChange={(event) => updateDraftField('tags', parseTagInput(event.target.value))}
-                      placeholder="Comma separated tags"
+                  <div className="field">
+                    <label htmlFor={flowTagsInputId}>
+                      <span>Tags</span>
+                    </label>
+                    <TagEditor
+                      inputId={flowTagsInputId}
+                      tags={draft?.tags ?? []}
+                      onChange={(tags) => updateDraftField('tags', sanitizeTagList(tags))}
+                      placeholder="Add a tag"
                     />
-                  </label>
+                  </div>
                 </div>
                 <label className="field">
                   <span>Description</span>
@@ -1686,15 +1669,17 @@ const FlowWorkspace = () => {
                             </select>
                           </label>
                         </div>
-                        <label className="field">
-                          <span>Tags</span>
-                          <input
-                            type="text"
-                            value={step.tags.join(', ')}
-                            onChange={(event) => handleStepTagChange(index, event.target.value)}
-                            placeholder="Comma separated tags"
+                        <div className="field">
+                          <label htmlFor={`step-${index}-tags`}>
+                            <span>Tags</span>
+                          </label>
+                          <TagEditor
+                            inputId={`step-${index}-tags`}
+                            tags={step.tags}
+                            onChange={(tags) => handleStepTagChange(index, tags)}
+                            placeholder="Add a tag"
                           />
-                        </label>
+                        </div>
                         <label className="field">
                           <span>Alternate flows</span>
                           <select

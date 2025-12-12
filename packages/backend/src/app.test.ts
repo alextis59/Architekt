@@ -292,6 +292,61 @@ test('Data model endpoints manage nested attributes', async () => {
   assert.equal(afterDeletion.body.dataModels.length, 0);
 });
 
+test('Data model endpoints sanitize attribute tags', async () => {
+  const app = createTestApp();
+
+  const creation = await request(app).post('/api/projects').send({ name: 'Tagged Models' });
+  const projectId = creation.body.project.id as string;
+
+  const dataModelCreation = await request(app)
+    .post(`/api/projects/${projectId}/data-models`)
+    .send({
+      name: 'Tagged',
+      attributes: [
+        {
+          name: 'status',
+          description: 'With tags',
+          type: 'string',
+          tags: [' primary ', 'primary', ''],
+          attributes: [
+            {
+              name: 'code',
+              description: 'Nested tag',
+              type: 'string',
+              tags: [' nested ', 'nested', 'secondary']
+            }
+          ]
+        }
+      ]
+    });
+
+  assert.equal(dataModelCreation.status, 201);
+  const [attribute] = dataModelCreation.body.dataModel.attributes as Array<{
+    id: string;
+    tags: string[];
+    attributes: Array<{ id: string; tags: string[] }>;
+  }>;
+  assert.deepEqual(attribute.tags, ['primary']);
+  assert.deepEqual(attribute.attributes[0].tags.sort(), ['nested', 'secondary']);
+
+  const update = await request(app)
+    .put(`/api/projects/${projectId}/data-models/${dataModelCreation.body.dataModel.id}`)
+    .send({
+      attributes: [
+        {
+          id: attribute.id,
+          name: 'status',
+          type: 'string',
+          tags: [' updated ', 'primary', 'updated']
+        }
+      ]
+    });
+
+  assert.equal(update.status, 200);
+  const [updatedAttribute] = update.body.dataModel.attributes as Array<{ tags: string[] }>;
+  assert.deepEqual(updatedAttribute.tags, ['updated', 'primary']);
+});
+
 test('Component endpoints manage entry points with data model references', async () => {
   const app = createTestApp();
 
@@ -386,6 +441,67 @@ test('Component endpoints manage entry points with data model references', async
   const afterDeletion = await request(app).get(`/api/projects/${projectId}/components`);
   assert.equal(afterDeletion.status, 200);
   assert.equal(afterDeletion.body.components.length, 0);
+});
+
+test('Component entry points sanitize tags on create and update', async () => {
+  const app = createTestApp();
+
+  const projectCreation = await request(app).post('/api/projects').send({ name: 'Entry Tags' });
+  const projectId = projectCreation.body.project.id as string;
+
+  const componentCreation = await request(app)
+    .post(`/api/projects/${projectId}/components`)
+    .send({
+      name: 'Tagged Component',
+      entryPoints: [
+        {
+          name: 'Get data',
+          type: 'http',
+          tags: [' primary ', 'primary', 'secondary '],
+          functionName: '',
+          protocol: 'HTTP',
+          method: 'GET',
+          path: '/items',
+          requestModelIds: [],
+          responseModelIds: [],
+          requestAttributes: [],
+          responseAttributes: []
+        }
+      ]
+    });
+
+  assert.equal(componentCreation.status, 201);
+  const componentId = componentCreation.body.component.id as string;
+  const entryPointId = componentCreation.body.component.entryPointIds[0] as string;
+
+  const projectAfterCreate = await request(app).get(`/api/projects/${projectId}`);
+  assert.equal(projectAfterCreate.status, 200);
+  assert.deepEqual(projectAfterCreate.body.project.entryPoints[entryPointId].tags, ['primary', 'secondary']);
+
+  const update = await request(app)
+    .put(`/api/projects/${projectId}/components/${componentId}`)
+    .send({
+      entryPoints: [
+        {
+          id: entryPointId,
+          name: 'Get data',
+          type: 'http',
+          tags: [' updated ', 'primary', 'updated'],
+          functionName: '',
+          protocol: 'HTTP',
+          method: 'GET',
+          path: '/items',
+          requestModelIds: [],
+          responseModelIds: [],
+          requestAttributes: [],
+          responseAttributes: []
+        }
+      ]
+    });
+
+  assert.equal(update.status, 200);
+  const projectAfterUpdate = await request(app).get(`/api/projects/${projectId}`);
+  assert.deepEqual(projectAfterUpdate.body.project.entryPoints[entryPointId].tags, ['updated', 'primary']);
 });
 
 test('DELETE /projects/:projectId/systems/:systemId prevents root removal', async () => {

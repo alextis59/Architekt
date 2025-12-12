@@ -31,6 +31,7 @@ export type DataModelAttribute = {
   id: string;
   name: string;
   description: string;
+  tags: string[];
   type: string;
   required: boolean;
   unique: boolean;
@@ -291,6 +292,7 @@ const sanitizeDataModelAttribute = (raw: DataModelAttributeInput): DataModelAttr
   id: ensureString(raw?.id),
   name: ensureString(raw?.name),
   description: ensureString(raw?.description, ''),
+  tags: ensureStringArray(raw?.tags),
   type: ensureString(raw?.type),
   required: ensureBoolean(raw?.required, false),
   unique: ensureBoolean(raw?.unique, false),

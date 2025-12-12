@@ -236,6 +236,7 @@ describe('projects API helpers', () => {
           id: 'attr-1',
           name: 'Name',
           description: 'Details',
+          tags: [],
           type: 'string',
           required: true,
           unique: false,

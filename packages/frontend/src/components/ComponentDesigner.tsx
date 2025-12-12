@@ -8,6 +8,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useId,
   useState
 } from 'react';
 import type { Project } from '@architekt/domain';
@@ -24,6 +25,7 @@ import {
   selectSelectedProjectId,
   useProjectStore
 } from '../store/projectStore.js';
+import TagEditor from './TagEditor.js';
 import {
   ComponentDraft,
   EntryPointDraft,
@@ -125,12 +127,6 @@ const applyEntryPointTypeRules = (entryPoint: EntryPointDraft): EntryPointDraft 
     path: config.showPath ? entryPoint.path : ''
   };
 };
-
-const parseTagInput = (input: string): string[] =>
-  input
-    .split(',')
-    .map((value) => value.trim())
-    .filter((value, index, array) => value.length > 0 && array.indexOf(value) === index);
 
 const ComponentDesigner = () => {
   const queryClient = useQueryClient();
@@ -1580,6 +1576,7 @@ const EntryPointModal = ({
   const methodOptions = formConfig.showMethod
     ? filterEntryPointOptions(ENTRY_POINT_METHOD_OPTIONS, formConfig.allowedMethods)
     : [];
+  const tagsInputId = useId();
   const [expandedRequestAttributeIds, setExpandedRequestAttributeIds] = useState<Set<string>>(() =>
     retainExpandedAttributeIds(new Set(), { attributes: entryPoint.requestAttributes })
   );
@@ -1863,15 +1860,17 @@ const EntryPointModal = ({
                 placeholder="What does this entry point do?"
               />
             </label>
-            <label className="field">
-              <span>Tags</span>
-              <input
-                type="text"
-                value={entryPoint.tags.join(', ')}
-                onChange={(event) => onChange({ tags: parseTagInput(event.target.value) })}
-                placeholder="Comma separated tags"
+            <div className="field">
+              <label htmlFor={tagsInputId}>
+                <span>Tags</span>
+              </label>
+              <TagEditor
+                inputId={tagsInputId}
+                tags={entryPoint.tags}
+                onChange={(tags) => onChange({ tags })}
+                placeholder="Add a tag and press Enter"
               />
-            </label>
+            </div>
             <div className="entry-point-associations">
               <div className="association-group">
                 <h5>Request models</h5>

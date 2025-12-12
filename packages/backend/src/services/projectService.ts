@@ -177,6 +177,7 @@ type DataModelAttributeInput = {
   name: unknown;
   description?: unknown;
   type: unknown;
+  tags?: unknown;
   constraints?: unknown;
   required?: unknown;
   unique?: unknown;
@@ -361,6 +362,7 @@ const cloneAttributeElement = (element: DataModelAttribute | null): DataModelAtt
 
   return {
     ...element,
+    tags: [...element.tags],
     constraints: cloneAttributeConstraints(element.constraints),
     attributes: cloneDataModelAttributes(element.attributes),
     element: cloneAttributeElement(element.element)
@@ -370,6 +372,7 @@ const cloneAttributeElement = (element: DataModelAttribute | null): DataModelAtt
 const cloneDataModelAttributes = (attributes: DataModelAttribute[]): DataModelAttribute[] =>
   attributes.map((attribute) => ({
     ...attribute,
+    tags: [...attribute.tags],
     constraints: cloneAttributeConstraints(attribute.constraints),
     attributes: cloneDataModelAttributes(attribute.attributes),
     element: cloneAttributeElement(attribute.element)
@@ -535,6 +538,8 @@ const sanitizeArrayElement = ({
     previous: previous?.constraints
   });
 
+  const tags = input.tags === undefined ? previous?.tags ?? [] : ensureTags(input.tags);
+
   const childExisting = previous
     ? new Map(previous.attributes.map((attribute) => [attribute.id, attribute] as [string, DataModelAttribute]))
     : undefined;
@@ -551,6 +556,7 @@ const sanitizeArrayElement = ({
     type: elementType,
     required: ensureBoolean(input.required, previous?.required ?? false),
     unique: ensureBoolean(input.unique, previous?.unique ?? false),
+    tags,
     constraints,
     readOnly: ensureBoolean(input.readOnly, previous?.readOnly ?? false),
     encrypted: ensureBoolean(input.encrypted, previous?.encrypted ?? false),
@@ -622,6 +628,7 @@ const sanitizeDataModelAttributes = ({
 
     const required = ensureBoolean(input.required, previous?.required ?? false);
     const unique = ensureBoolean(input.unique, previous?.unique ?? false);
+    const tags = input.tags === undefined ? previous?.tags ?? [] : ensureTags(input.tags);
 
     const readOnly = ensureBoolean(input.readOnly, previous?.readOnly ?? false);
     const encrypted = ensureBoolean(input.encrypted, previous?.encrypted ?? false);
@@ -646,6 +653,7 @@ const sanitizeDataModelAttributes = ({
       id,
       name,
       description,
+      tags,
       type,
       required,
       unique,
