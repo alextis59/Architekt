@@ -100,6 +100,19 @@ const decodeJwt = (token: string): GoogleJwtPayload | null => {
   }
 };
 
+const resolveUserFromToken = (token: string): AuthenticatedUser | null => {
+  const payload = decodeJwt(token);
+  if (!payload?.sub) {
+    return null;
+  }
+
+  return {
+    id: payload.sub,
+    name: payload.name ?? payload.email ?? undefined,
+    email: payload.email ?? undefined
+  };
+};
+
 const loadGoogleIdentityScript = () => {
   if (document.getElementById('google-identity-services')) {
     return Promise.resolve();
@@ -159,6 +172,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [isReady, setReady] = useState(STATIC_AUTH_CONFIG?.mode === 'local');
   const googleInitializedRef = useRef(false);
+
+  const applySessionToken = useCallback(
+    (token: string, userFromResponse?: AuthenticatedUser): boolean => {
+      const payload = decodeJwt(token);
+      const resolvedUser = userFromResponse ?? resolveUserFromToken(token);
+
+      if (!payload?.sub || !resolvedUser?.id) {
+        setError('Invalid sign-in response');
+        writeStoredToken(null);
+        setAuthToken(null);
+        setUser(null);
+        return false;
+      }
+
+      const expiration = payload.exp ? payload.exp * 1000 : null;
+      if (expiration && expiration <= Date.now()) {
+        setError('Session expired, please sign in again.');
+        writeStoredToken(null);
+        setAuthToken(null);
+        setUser(null);
+        return false;
+      }
+
+      writeStoredToken(token);
+      setAuthToken(token);
+      setUser(resolvedUser);
+      setError(null);
+      return true;
+    },
+    []
+  );
 
   useEffect(() => {
     if (STATIC_AUTH_CONFIG) {
@@ -245,35 +289,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     let cancelled = false;
 
-    const applyCredential = (token: string) => {
-      const payload = decodeJwt(token);
-      if (!payload?.sub) {
-        setError('Invalid sign-in response');
-        writeStoredToken(null);
+    const exchangeCredential = async (credential: string) => {
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential })
+        });
+
+        if (cancelled) {
+          return;
+        }
+
+        if (!response.ok) {
+          const payload = (await response
+            .json()
+            .catch(() => null)) as { error?: string } | null;
+          setError(payload?.error ?? 'Sign-in failed. Please try again.');
+          setAuthToken(null);
+          setUser(null);
+          return;
+        }
+
+        const { token, user: userFromResponse } = (await response.json()) as {
+          token?: string;
+          user?: AuthenticatedUser;
+        };
+
+        if (!token) {
+          throw new Error('Invalid sign-in response');
+        }
+
+        const applied = applySessionToken(token, userFromResponse);
+        if (!applied && googleInitializedRef.current) {
+          window.google?.accounts.id.prompt();
+        }
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+        setError(err instanceof Error ? err.message : 'Sign-in failed. Please try again.');
         setAuthToken(null);
         setUser(null);
-        return;
       }
-
-      const expiration = payload.exp ? payload.exp * 1000 : null;
-      if (expiration && expiration <= Date.now()) {
-        setError('Session expired, please sign in again.');
-        writeStoredToken(null);
-        setAuthToken(null);
-        setUser(null);
-        return;
-      }
-
-      const authenticatedUser: AuthenticatedUser = {
-        id: payload.sub,
-        name: payload.name ?? payload.email ?? undefined,
-        email: payload.email ?? undefined
-      };
-
-      writeStoredToken(token);
-      setAuthToken(token);
-      setUser(authenticatedUser);
-      setError(null);
     };
 
     const initializeGoogle = async () => {
@@ -304,7 +362,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setError('Sign-in failed. Please try again.');
               return;
             }
-            applyCredential(credential);
+            void exchangeCredential(credential);
           }
         });
 
@@ -312,14 +370,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setReady(true);
 
         const storedToken = readStoredToken();
-        if (storedToken) {
-          applyCredential(storedToken);
-        } else {
+        const restored = storedToken ? applySessionToken(storedToken) : false;
+        if (!restored) {
           setAuthToken(null);
           setUser(null);
+          accounts.prompt();
         }
-
-        accounts.prompt();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to initialize Google authentication');
         setReady(true);
@@ -334,7 +390,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       cancelled = true;
       setUnauthorizedHandler(null);
     };
-  }, [googleClientId, mode, signOut]);
+  }, [applySessionToken, googleClientId, mode, signOut]);
 
   const renderSignInButton = useCallback(
     (element: HTMLElement | null) => {

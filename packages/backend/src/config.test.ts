@@ -42,11 +42,18 @@ test('loadConfig supports google auth mode when client id provided', () => {
   try {
     process.env.AUTH_MODE = 'google';
     process.env.GOOGLE_CLIENT_ID = 'client';
+    process.env.AUTH_TOKEN_SECRET = 'secret';
+    process.env.AUTH_TOKEN_TTL_HOURS = '1';
     delete process.env.PERSISTENCE_DRIVER;
 
     const config = loadConfig();
 
-    assert.deepEqual(config.auth, { mode: 'google', clientId: 'client' });
+    assert.deepEqual(config.auth, {
+      mode: 'google',
+      clientId: 'client',
+      tokenSecret: 'secret',
+      tokenTtlMs: 60 * 60 * 1000
+    });
   } finally {
     process.env = originalEnv;
   }
