@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { Request, RequestHandler, Response } from 'express';
+import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import crypto from 'node:crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { createAuthMiddleware, createGoogleLoginHandler } from './auth.js';
@@ -115,7 +115,7 @@ test('google auth middleware rejects invalid signatures', async () => {
 
   const request: Partial<Request> = {
     header: ((name: string) =>
-      name === 'authorization' ? 'Bearer token' : undefined) as Request['header']
+      name === 'authorization' ? `Bearer ${token}` : undefined) as Request['header']
   };
 
   let error: unknown;
@@ -183,7 +183,7 @@ test('google login handler exchanges credentials for internal token', async (t) 
     }
   };
 
-  await handler(request as Request, response as Response);
+  await handler(request as Request, response as Response, (() => undefined) as NextFunction);
 
   const { token, user } = response.payload as { token: string; user: unknown };
   assert.equal(response.statusCode, undefined);
