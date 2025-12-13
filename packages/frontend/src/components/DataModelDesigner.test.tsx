@@ -584,4 +584,89 @@ describe('DataModelDesigner', () => {
       );
     });
   });
+
+  it('allows editing enum constraints without removing them first', async () => {
+    const projectBase = {
+      id: 'proj-1',
+      name: 'Project',
+      description: '',
+      tags: [],
+      rootSystemId: 'sys',
+      systems: {},
+      flows: {},
+      components: {},
+      entryPoints: {}
+    };
+
+    const dataModel = {
+      id: 'model-a',
+      name: 'Contracts',
+      description: '',
+      attributes: [
+        {
+          id: 'attr-1',
+          name: 'Status',
+          description: '',
+          type: 'string',
+          required: false,
+          unique: false,
+          constraints: [{ type: 'enum', values: ['draft', 'final'] }],
+          readOnly: false,
+          encrypted: false,
+          attributes: [],
+          element: null
+        }
+      ]
+    };
+
+    const updatedModel = {
+      ...dataModel,
+      attributes: [
+        {
+          ...dataModel.attributes[0],
+          constraints: [{ type: 'enum', values: ['draft', 'final', 'archived'] }]
+        }
+      ]
+    };
+
+    apiMocks.fetchProjectDetails.mockResolvedValue({
+      ...projectBase,
+      dataModels: { 'model-a': dataModel }
+    });
+    apiMocks.updateDataModel.mockResolvedValue(updatedModel);
+
+    const client = createClient();
+    renderDesigner(client);
+
+    const user = userEvent.setup();
+    const attributeToggle = await screen.findByRole('button', { name: 'Status' });
+    await user.click(attributeToggle);
+
+    await user.click(screen.getByRole('button', { name: /Edit attribute/i }));
+
+    const attributeModal = await screen.findByRole('dialog', { name: /Edit attribute/i });
+    const constraintTypeSelect = within(attributeModal).getByLabelText(/Constraint type/i);
+    expect(constraintTypeSelect).toHaveValue('enum');
+
+    const constraintValuesInput = within(attributeModal).getByLabelText(/Constraint values/i);
+    await user.type(constraintValuesInput, 'archived{enter}');
+
+    await user.click(within(attributeModal).getByRole('button', { name: /Save constraint/i }));
+    await user.click(within(attributeModal).getByRole('button', { name: /Save attribute/i }));
+
+    await waitFor(() => {
+      expect(apiMocks.updateDataModel).toHaveBeenCalled();
+    });
+
+    const [, , payload] = apiMocks.updateDataModel.mock.calls.at(-1) as [
+      string,
+      string,
+      { attributes: unknown[] }
+    ];
+
+    expect(payload.attributes[0]).toMatchObject({
+      name: 'Status',
+      constraints: [{ type: 'enum', values: ['draft', 'final', 'archived'] }]
+    });
+  });
 });
